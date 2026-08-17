@@ -46,7 +46,6 @@ function ReplicationService.BuildView(profile: any): any
 		Zones = TableUtil.DeepCopy(profile.Zones),
 		Settings = TableUtil.DeepCopy(profile.Settings),
 		Tutorial = TableUtil.DeepCopy(profile.Tutorial),
-		Character = TableUtil.DeepCopy(profile.Character),
 	}
 end
 

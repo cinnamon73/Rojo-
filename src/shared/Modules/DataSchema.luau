@@ -165,12 +165,6 @@ DataSchema.Default = {
 		Completed = false,
 		Step = 0,
 	},
-
-	Character = {
-		-- "" means the player has not chosen yet, which is what triggers the
-		-- body chooser on first join. A real preset id suppresses it.
-		BodyType = "",
-	},
 }
 
 DataSchema.MaxProcessedReceipts = 100

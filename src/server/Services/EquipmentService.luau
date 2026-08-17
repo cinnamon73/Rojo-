@@ -335,13 +335,6 @@ function EquipmentService.Start()
 		EquipmentService.SetFavorite(player, payload.InstanceId, payload.Favorite)
 	end)
 
-	NetGuard.OnFunction("BodyTypeRequest", function(player, payload)
-		if type(payload) ~= "table" then
-			return { Success = false, Error = "BadRequest" }
-		end
-		return CharacterService.SetBodyType(player, payload.BodyType)
-	end)
-
 	-- Re-apply stats on every spawn; a fresh humanoid starts at defaults.
 	Players.PlayerAdded:Connect(function(player)
 		player.CharacterAppearanceLoaded:Connect(function()
