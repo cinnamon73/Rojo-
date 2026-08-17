@@ -1,0 +1,19 @@
+# Studio lock files — always transient
+*.rbxl.lock
+*.rbxlx.lock
+
+# Place files. Your scripts live in src/ and are the real source of truth,
+# but Workspace geometry exists ONLY in the place file. If you want that
+# geometry version-controlled, comment these two lines out and commit the
+# .rbxlx (the XML format diffs; .rbxl is binary and will not).
+*.rbxl
+*.rbxlx
+
+# Rojo build output
+build/
+*.rbxm
+*.rbxmx
+
+# OS
+.DS_Store
+Thumbs.db
