@@ -22,7 +22,11 @@ local Remotes = require(Modules.Remotes)
 local AssetConfig = require(Config.AssetConfig)
 local MonetizationConfig = require(Config.MonetizationConfig)
 
-local DataService = require(script.Parent.Services.DataService)
+local Services = script.Parent.Services
+local DataService = require(Services.DataService)
+local NetGuard = require(Services.NetGuard)
+local ReplicationService = require(Services.ReplicationService)
+local RNGService = require(Services.RNGService)
 
 local log = Logger.new("Bootstrap")
 
@@ -65,6 +69,16 @@ local function main()
 
 	-- 2. Player data. Everything downstream reads profiles.
 	DataService.Start()
+
+	-- 3. Replication, before any service that pushes state changes.
+	ReplicationService.Start()
+
+	-- 4. Gameplay services.
+	RNGService.Start()
+
+	-- 5. Answer any declared-but-unimplemented RemoteFunction so clients get a
+	--    clean refusal instead of an invoke that never returns. Must run last.
+	NetGuard.SealUnhandled()
 
 	reportConfigurationGaps()
 

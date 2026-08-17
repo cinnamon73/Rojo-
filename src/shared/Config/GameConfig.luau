@@ -58,6 +58,32 @@ GameConfig.Roll = {
 	MaxAutoRollDuration = 3600,
 }
 
+GameConfig.RNG = {
+	-- Luck is clamped before it touches the weights. Without a ceiling, stacked
+	-- boosts would make Celestial routine and collapse the whole rarity ladder.
+	MaxLuck = 10,
+
+	-- Luck only boosts tiers at this rank or above (3 = Rare). Boosting
+	-- Uncommon would be pointless and would eat the budget that should be
+	-- shifting players toward genuinely rare drops.
+	LuckMinRank = 3,
+
+	-- Common can never be squeezed below this share of total weight, no matter
+	-- how much luck is stacked. Guarantees the distribution stays valid and
+	-- keeps a floor under the "you can still get junk" promise.
+	MinCommonWeightRatio = 0.04,
+
+	-- Pity ramps a tier's weight up to this multiple once the player is past
+	-- its threshold. Capped so pity nudges the odds, never guarantees a drop.
+	PityMaxMultiplier = 5,
+
+	-- Rolled stat variance, +/- this fraction of the template's base values.
+	StatVariance = 0.08,
+
+	-- Rarity at or above which a roll is announced server-wide is driven by
+	-- RarityConfig.AnnounceGlobal, not a number here.
+}
+
 GameConfig.Economy = {
 	StartingCoins = 100,
 
