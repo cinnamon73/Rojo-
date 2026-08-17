@@ -13,14 +13,22 @@
 	actually lives on Roblox.
 
 	=========================================================================
-	ASSET IDS
-	Every body part id below is 0, which Roblox reads as "default R15 part".
-	That works and ships — players get the standard blocky R15 body. To use a
-	real body package, paste its part ids here; nothing else changes.
+	BODY MESHES
 
-	To find them: open the bundle on the Creator Store, take the individual
-	body-part asset ids from it. A bundle id will NOT work in these fields —
-	they need the per-part ids.
+	Both presets currently have BundleId = 0, so they use the default R15
+	meshes and are told apart purely by proportion: Masculine sits at the
+	blocky end (broad, stocky, short-limbed) and Feminine at the Rthro end
+	(narrow, tall, long-limbed). Measured, that is ~29% narrower and ~27%
+	longer-limbed — clearly two different builds, but still the same meshes.
+
+	For real anatomy, set BundleId on each preset to a body bundle from the
+	Creator Store. The number is in the bundle's URL:
+
+	    roblox.com/bundles/<THIS NUMBER>/Some-Body
+
+	CharacterService resolves it at runtime and pulls the real part meshes out
+	of the bundle's outfit. The scale values below then shape those meshes
+	instead of the default ones, so they stay useful either way.
 	=========================================================================
 ]]
 
@@ -29,17 +37,41 @@ export type BodyPreset = {
 	Name: string,
 	Description: string,
 
-	-- Body part asset ids. 0 = default R15 part.
+	--[[
+		Catalog bundle id for this body. THIS IS THE FIELD TO FILL IN.
+
+		At runtime CharacterService resolves it via GetBundleDetailsAsync, finds
+		the bundle's outfit, and pulls the real body-part mesh ids out of it. One
+		number per body instead of five, and it cannot drift out of sync with
+		the actual bundle.
+
+		To find it: open the body bundle on the Creator Store and read the
+		number out of the URL — /bundles/<THIS NUMBER>/Name.
+
+		0 means unresolved: the preset falls back to the scale values below.
+	]]
+	BundleId: number,
+
+	-- Explicit per-part overrides. Only needed if you deliberately want to mix
+	-- parts from different bundles; BundleId covers the normal case.
 	Torso: number,
 	LeftArm: number,
 	RightArm: number,
 	LeftLeg: number,
 	RightLeg: number,
 
-	-- Proportions. BodyTypeScale 0 is blocky R15, 1 is fully Rthro.
+	--[[
+		Proportions, applied on top of whatever parts are in use.
+
+		BodyTypeScale is the important one: 0 is the blocky default R15
+		silhouette, 1 is fully Rthro — taller, slimmer, longer-limbed. Driving
+		the two presets to opposite ends of that range is what makes them read
+		as different bodies even with no bundle configured.
+	]]
 	BodyTypeScale: number,
 	HeightScale: number,
 	WidthScale: number,
+	DepthScale: number,
 	HeadScale: number,
 	ProportionScale: number,
 }
@@ -59,36 +91,53 @@ BodyConfig.ClearClothing = false
 BodyConfig.DefaultPreset = "Masculine"
 
 local presets: { [string]: BodyPreset } = {
+	--[[
+		Masculine sits at the blocky end: broad, square-shouldered, shorter
+		limbs relative to torso.
+	]]
 	Masculine = {
 		Id = "Masculine",
 		Name = "Masculine",
-		Description = "Broader shoulders, standard height.",
+		Description = "Broad shoulders, heavy build.",
+		BundleId = 0,
 		Torso = 0,
 		LeftArm = 0,
 		RightArm = 0,
 		LeftLeg = 0,
 		RightLeg = 0,
-		BodyTypeScale = 0.3,
+		BodyTypeScale = 0.0,
 		HeightScale = 1.0,
-		WidthScale = 1.0,
+		WidthScale = 1.05,
+		DepthScale = 1.05,
 		HeadScale = 1.0,
-		ProportionScale = 0.4,
+		ProportionScale = 0.0,
 	},
 
+	--[[
+		Feminine sits at the Rthro end: taller, noticeably narrower and
+		shallower, with longer limbs. Opposite corner of the scale space from
+		Masculine so the two are distinguishable at a glance without meshes.
+
+		This is a silhouette difference, not a real female body mesh. Set
+		BundleId to a proper body bundle for that — the scale values below then
+		shape the bundle's parts rather than the default R15 ones.
+	]]
 	Feminine = {
 		Id = "Feminine",
 		Name = "Feminine",
-		Description = "Narrower frame, slightly taller stance.",
+		Description = "Slimmer frame, taller stance, longer limbs.",
+		BundleId = 0,
 		Torso = 0,
 		LeftArm = 0,
 		RightArm = 0,
 		LeftLeg = 0,
 		RightLeg = 0,
-		BodyTypeScale = 0.3,
-		HeightScale = 1.02,
-		WidthScale = 0.9,
+		BodyTypeScale = 1.0,
+		HeightScale = 1.05,
+		WidthScale = 0.82,
+		DepthScale = 0.88,
 		HeadScale = 1.0,
-		ProportionScale = 0.7,
+		ProportionScale = 1.0,
 	},
 }
 
@@ -155,16 +204,18 @@ BodyConfig.MirroredSlots = {
 	Boots = { "LeftFoot", "RightFoot" },
 }
 
---[[ Body part ids still left at 0, for the startup configuration report. ]]
+--[[
+	Presets with no bundle and no explicit parts — those fall back to default
+	R15 meshes shaped only by the scale values.
+]]
 function BodyConfig.GetUnconfigured(): { string }
 	local missing = {}
 
 	for _, presetId in ipairs(BodyConfig.Order) do
 		local preset = presets[presetId]
-		for _, field in ipairs({ "Torso", "LeftArm", "RightArm", "LeftLeg", "RightLeg" }) do
-			if (preset :: any)[field] == 0 then
-				table.insert(missing, string.format("%s.%s", presetId, field))
-			end
+		local hasParts = preset.Torso ~= 0 or preset.LeftArm ~= 0 or preset.RightArm ~= 0
+		if preset.BundleId == 0 and not hasParts then
+			table.insert(missing, presetId)
 		end
 	end
 

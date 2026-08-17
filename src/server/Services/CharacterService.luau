@@ -16,6 +16,7 @@
 	attach points, and cleanup here do not change.
 ]]
 
+local AssetService = game:GetService("AssetService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -44,19 +45,101 @@ local warnedAboutRig = false
 --========================================================================
 
 --[[
+	Resolved body-part ids per preset, keyed by preset id. Populated lazily and
+	cached for the life of the server — a bundle's contents never change.
+]]
+local resolvedParts: { [string]: { [string]: number } } = {}
+local resolveAttempted: { [string]: boolean } = {}
+
+--[[
+	Turns a bundle id into concrete body-part mesh ids.
+
+	The path is Roblox's own: a body bundle contains a UserOutfit, and an outfit
+	can be turned into a HumanoidDescription that already has the part ids
+	filled in. Reading them out of that is far more robust than hardcoding five
+	asset ids that silently rot when the bundle is updated.
+
+	Both calls are web-backed, so both are pcall'd and the result cached. A
+	failure is not fatal — the preset falls back to default R15 parts shaped by
+	its scale values.
+]]
+local function resolveBundleParts(preset: BodyConfig.BodyPreset): { [string]: number }?
+	if resolvedParts[preset.Id] then
+		return resolvedParts[preset.Id]
+	end
+
+	if preset.BundleId == 0 or resolveAttempted[preset.Id] then
+		return nil
+	end
+
+	resolveAttempted[preset.Id] = true
+
+	local ok, details = pcall(function()
+		return AssetService:GetBundleDetailsAsync(preset.BundleId)
+	end)
+
+	if not ok or type(details) ~= "table" then
+		log:Warn("could not read bundle %d for '%s': %s", preset.BundleId, preset.Id, tostring(details))
+		return nil
+	end
+
+	local outfitId: number? = nil
+	for _, item in ipairs(details.Items or {}) do
+		if item.Type == "UserOutfit" then
+			outfitId = item.Id
+			break
+		end
+	end
+
+	if not outfitId then
+		log:Warn("bundle %d ('%s') contains no outfit — cannot read body parts", preset.BundleId, preset.Id)
+		return nil
+	end
+
+	local okDesc, description = pcall(function()
+		return Players:GetHumanoidDescriptionFromOutfitId(outfitId :: number)
+	end)
+
+	if not okDesc then
+		log:Warn("could not load outfit %d for '%s': %s", outfitId, preset.Id, tostring(description))
+		return nil
+	end
+
+	local parts = {
+		Torso = description.Torso,
+		LeftArm = description.LeftArm,
+		RightArm = description.RightArm,
+		LeftLeg = description.LeftLeg,
+		RightLeg = description.RightLeg,
+	}
+
+	resolvedParts[preset.Id] = parts
+	log:Info("resolved body parts for '%s' from bundle %d", preset.Id, preset.BundleId)
+
+	return parts
+end
+
+--[[
 	Overwrites the body fields of `description` from `preset`, leaving head,
 	face, and accessories alone.
+
+	Part ids come from the bundle when one is configured, otherwise from the
+	preset's explicit overrides, otherwise 0 (default R15). Scales apply either
+	way — they shape whatever meshes are in use.
 ]]
 local function applyPresetToDescription(description: HumanoidDescription, preset: BodyConfig.BodyPreset)
-	description.Torso = preset.Torso
-	description.LeftArm = preset.LeftArm
-	description.RightArm = preset.RightArm
-	description.LeftLeg = preset.LeftLeg
-	description.RightLeg = preset.RightLeg
+	local parts = resolveBundleParts(preset)
+
+	description.Torso = (parts and parts.Torso) or preset.Torso
+	description.LeftArm = (parts and parts.LeftArm) or preset.LeftArm
+	description.RightArm = (parts and parts.RightArm) or preset.RightArm
+	description.LeftLeg = (parts and parts.LeftLeg) or preset.LeftLeg
+	description.RightLeg = (parts and parts.RightLeg) or preset.RightLeg
 
 	description.BodyTypeScale = preset.BodyTypeScale
 	description.HeightScale = preset.HeightScale
 	description.WidthScale = preset.WidthScale
+	description.DepthScale = preset.DepthScale
 	description.HeadScale = preset.HeadScale
 	description.ProportionScale = preset.ProportionScale
 
@@ -304,7 +387,11 @@ function CharacterService.Start()
 
 	local unconfigured = BodyConfig.GetUnconfigured()
 	if #unconfigured > 0 then
-		log:Info("%d body part id(s) unset — using default R15 parts", #unconfigured)
+		log:Warn(
+			"no body bundle set for: %s — these use default R15 meshes shaped only by scale. "
+				.. "Set BundleId in BodyConfig for real body meshes.",
+			table.concat(unconfigured, ", ")
+		)
 	end
 
 	log:Info("started")
