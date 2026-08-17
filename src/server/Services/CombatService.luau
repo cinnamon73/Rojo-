@@ -33,6 +33,7 @@ local Logger = require(Modules.Logger)
 local Progression = require(Modules.Progression)
 local Remotes = require(Modules.Remotes)
 
+local CharacterService = require(script.Parent.CharacterService)
 local DataService = require(script.Parent.DataService)
 local EnemyService = require(script.Parent.EnemyService)
 local EquipmentService = require(script.Parent.EquipmentService)
@@ -124,10 +125,6 @@ end
 --========================================================================
 
 function CombatService.Attack(player: Player, targetModel: any)
-	if typeof(targetModel) ~= "Instance" or not targetModel:IsA("Model") then
-		return
-	end
-
 	local profile = DataService.Get(player)
 	if not profile then
 		return
@@ -141,14 +138,10 @@ function CombatService.Attack(player: Player, targetModel: any)
 		return
 	end
 
-	local record = EnemyService.GetRecord(targetModel)
-	if not record or record.Humanoid.Health <= 0 then
-		return
-	end
-
 	local stats = EquipmentService.GetAggregateStats(profile)
 
-	-- Cooldown from real attack speed.
+	-- Cooldown from real attack speed. Checked before anything target-related
+	-- so a player swinging at nothing is still rate-limited.
 	local now = os.clock()
 	local cooldown = 1 / math.max(stats.AttackSpeed or 1, 0.1)
 	local last = lastAttackAt[player]
@@ -156,6 +149,26 @@ function CombatService.Attack(player: Player, targetModel: any)
 		return
 	end
 	lastAttackAt[player] = now
+
+	--[[
+		Swing first, unconditionally.
+
+		Everything below can legitimately reject the attack — no target, dead
+		target, out of range — but the player still pressed the button, and a
+		click that produces no animation reads as an input drop rather than a
+		miss. Swinging at empty air is the correct feedback.
+	]]
+	CharacterService.SwingWeapon(player)
+
+	-- Past this point a real, living enemy is required.
+	if typeof(targetModel) ~= "Instance" or not targetModel:IsA("Model") then
+		return
+	end
+
+	local record = EnemyService.GetRecord(targetModel)
+	if not record or record.Humanoid.Health <= 0 then
+		return
+	end
 
 	-- Range, measured here rather than trusted.
 	local distance = ((root :: BasePart).Position - record.Root.Position).Magnitude

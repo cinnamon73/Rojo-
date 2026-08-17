@@ -18,6 +18,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local Config = ReplicatedStorage:WaitForChild("Config")
@@ -26,6 +27,7 @@ local BodyConfig = require(Config.BodyConfig)
 local ItemConfig = require(Config.ItemConfig)
 local RarityConfig = require(Config.RarityConfig)
 local ItemInstance = require(Modules.ItemInstance)
+local WeaponModels = require(Modules.WeaponModels)
 local Logger = require(Modules.Logger)
 
 local DataService = require(script.Parent.DataService)
@@ -170,6 +172,77 @@ local function buildPiece(instance: ItemInstance.Instance_, attachTo: BasePart, 
 end
 
 --[[
+	Builds the weapon model and joints it to the right hand with a Motor6D.
+
+	A Motor6D rather than a weld specifically so the swing can be animated by
+	tweening C0 — that replicates to every client automatically, so the
+	animation costs no extra network traffic and stays in sync with the damage
+	the server already applied.
+]]
+local function buildWeapon(instance: ItemInstance.Instance_, character: Model, parent: Folder)
+	local hand = character:FindFirstChild("RightHand") :: BasePart?
+	if not hand then
+		return
+	end
+
+	local model = WeaponModels.Build(instance)
+	if not model then
+		return
+	end
+
+	local template = ItemConfig.Get(instance.TemplateId)
+	local archetype = template and template.Archetype
+	local grip = WeaponModels.GetGripOffset(archetype)
+
+	local handle = model.PrimaryPart :: BasePart
+	model.Parent = parent
+	handle.CFrame = hand.CFrame * grip
+
+	local motor = Instance.new("Motor6D")
+	motor.Name = "WeaponJoint"
+	motor.Part0 = hand
+	motor.Part1 = handle
+	motor.C0 = grip
+	motor.Parent = hand
+
+	-- Recorded so the swing animation can find it without a search.
+	model:SetAttribute("Archetype", archetype or "Sword")
+end
+
+--[[
+	Plays a swing on the player's equipped weapon.
+
+	No-ops when there is no weapon, so unarmed attacks simply do not animate
+	rather than erroring.
+]]
+function CharacterService.SwingWeapon(player: Player)
+	local character = player.Character
+	if not character then
+		return
+	end
+
+	local hand = character:FindFirstChild("RightHand")
+	local motor = hand and hand:FindFirstChild("WeaponJoint") :: Motor6D?
+	if not motor then
+		return
+	end
+
+	local folder = character:FindFirstChild(EQUIPMENT_FOLDER)
+	local model = folder and folder:FindFirstChildWhichIsA("Model")
+	local archetype = model and model:GetAttribute("Archetype") or "Sword"
+
+	local rest, swung = WeaponModels.GetSwing(archetype :: string)
+
+	-- Out fast, back slower: the snap is what makes a hit feel like it landed.
+	TweenService:Create(motor, TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { C0 = swung }):Play()
+	task.delay(0.11, function()
+		if motor.Parent then
+			TweenService:Create(motor, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { C0 = rest }):Play()
+		end
+	end)
+end
+
+--[[
 	Rebuilds every equipped item's model on the character.
 
 	Destroys and rebuilds wholesale rather than diffing: equipment changes are
@@ -189,6 +262,13 @@ function CharacterService.RefreshEquipmentVisuals(player: Player)
 
 	clearVisuals(character)
 
+	-- Drop any joint left over from the previous weapon.
+	local hand = character:FindFirstChild("RightHand")
+	local oldMotor = hand and hand:FindFirstChild("WeaponJoint")
+	if oldMotor then
+		oldMotor:Destroy()
+	end
+
 	local folder = Instance.new("Folder")
 	folder.Name = EQUIPMENT_FOLDER
 	folder.Parent = character
@@ -198,7 +278,10 @@ function CharacterService.RefreshEquipmentVisuals(player: Player)
 			local instance = profile.Inventory.Items[instanceId]
 			local attach = BodyConfig.AttachPoints[slot]
 
-			if instance and attach then
+			if instance and slot == "Weapon" then
+				buildWeapon(instance, character, folder)
+
+			elseif instance and attach then
 				local mirrored = BodyConfig.MirroredSlots[slot]
 
 				if mirrored then

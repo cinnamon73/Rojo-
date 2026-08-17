@@ -282,6 +282,39 @@ end
 --========================================================================
 
 --[[
+	Brief white flash on hit.
+
+	Guarded by a per-record flag rather than restoring from the live colour: at
+	high attack speeds two flashes can overlap, and reading the current colour
+	mid-flash would latch the enemy permanently white.
+]]
+local flashing: { [Model]: boolean } = {}
+
+function EnemyService.FlashHit(record: EnemyRecord)
+	if flashing[record.Model] then
+		return
+	end
+	flashing[record.Model] = true
+
+	local originals: { [BasePart]: Color3 } = {}
+	for _, descendant in ipairs(record.Model:GetDescendants()) do
+		if descendant:IsA("BasePart") and descendant.Transparency < 1 then
+			originals[descendant] = descendant.Color
+			descendant.Color = Color3.fromRGB(255, 236, 236)
+		end
+	end
+
+	task.delay(0.09, function()
+		for part, color in pairs(originals) do
+			if part.Parent then
+				part.Color = color
+			end
+		end
+		flashing[record.Model] = nil
+	end)
+end
+
+--[[
 	Applies damage from `source` and returns the amount actually dealt after
 	the enemy's defense. Returns 0 if the enemy is already dead or unknown.
 ]]
@@ -293,6 +326,8 @@ function EnemyService.Damage(model: Model, rawDamage: number, source: Player?): 
 
 	local dealt = EnemyConfig.ApplyDefense(rawDamage, record.Definition.Defense)
 	record.Humanoid.Health = math.max(record.Humanoid.Health - dealt, 0)
+
+	EnemyService.FlashHit(record)
 
 	if source then
 		record.DamageBy[source] = (record.DamageBy[source] or 0) + dealt
