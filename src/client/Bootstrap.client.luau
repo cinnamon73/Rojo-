@@ -63,6 +63,7 @@ local function main()
 	require(Controllers.UIController).Start(Client)
 	require(Controllers.RollController).Start(Client)
 	require(Controllers.InventoryController).Start(Client)
+	require(Controllers.CombatController).Start(Client)
 
 	log:Info("client ready")
 end

@@ -56,6 +56,12 @@ Remotes.Definitions = {
 		Description = "Server-wide banner for exceptionally rare drops and boss kills.",
 	},
 
+	CombatEvent = {
+		Kind = "Event" :: RemoteKind,
+		Direction = "S->C",
+		Description = "Damage numbers, hit and kill feedback. Presentation only — the damage is already applied server-side.",
+	},
+
 	RollResult = {
 		Kind = "Event" :: RemoteKind,
 		Direction = "S->C",

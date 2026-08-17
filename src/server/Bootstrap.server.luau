@@ -29,6 +29,8 @@ local ReplicationService = require(Services.ReplicationService)
 local CharacterService = require(Services.CharacterService)
 local EquipmentService = require(Services.EquipmentService)
 local RNGService = require(Services.RNGService)
+local EnemyService = require(Services.EnemyService)
+local CombatService = require(Services.CombatService)
 
 local log = Logger.new("Bootstrap")
 
@@ -79,9 +81,12 @@ local function main()
 	--    and needs the body already standardised.
 	CharacterService.Start()
 
-	-- 5. Gameplay services.
+	-- 5. Gameplay services. Enemies before combat — combat subscribes to the
+	--    kill signal EnemyService owns.
 	EquipmentService.Start()
 	RNGService.Start()
+	EnemyService.Start()
+	CombatService.Start()
 
 	-- 5. Answer any declared-but-unimplemented RemoteFunction so clients get a
 	--    clean refusal instead of an invoke that never returns. Must run last.

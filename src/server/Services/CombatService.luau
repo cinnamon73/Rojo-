@@ -1,0 +1,289 @@
+--!strict
+--[[
+	CombatService — player attacks, damage, and kill rewards.
+
+	The client sends "I attacked this thing". It does not send how much damage,
+	whether it crit, or whether it hit. All of that is decided here from the
+	player's actual equipped stats and their actual position in the world.
+
+	Three validations run on every request, and each blocks a distinct cheat:
+
+	  cooldown   derived from the player's real attack speed, so a client
+	             firing every frame gets the same DPS as one firing on time
+	  range      measured server-side between the two root parts, so a client
+	             cannot hit something across the map
+	  target     must be a live enemy the server knows about, so a forged
+	             model reference resolves to nothing
+
+	Rewards go through the same profile the rest of the game uses, so XP and
+	coins from combat are indistinguishable from any other source and cannot be
+	granted twice.
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Modules = ReplicatedStorage:WaitForChild("Modules")
+local Config = ReplicatedStorage:WaitForChild("Config")
+
+local GameConfig = require(Config.GameConfig)
+local ItemConfig = require(Config.ItemConfig)
+local ModifierConfig = require(Config.ModifierConfig)
+local Logger = require(Modules.Logger)
+local Progression = require(Modules.Progression)
+local Remotes = require(Modules.Remotes)
+
+local DataService = require(script.Parent.DataService)
+local EnemyService = require(script.Parent.EnemyService)
+local EquipmentService = require(script.Parent.EquipmentService)
+local NetGuard = require(script.Parent.NetGuard)
+local ReplicationService = require(script.Parent.ReplicationService)
+
+local log = Logger.new("CombatService")
+
+local CombatService = {}
+
+local lastAttackAt: { [Player]: number } = {}
+local random = Random.new()
+
+--[[
+	Generous margin on the range check. Server and client disagree slightly
+	about positions under latency, and rejecting hits that looked good on the
+	player's screen feels broken. The margin is small enough that it still
+	stops anything resembling a reach exploit.
+]]
+local RANGE_MARGIN = 8
+
+--========================================================================
+-- Damage
+--========================================================================
+
+--[[
+	The player's attack reach, from their equipped weapon's archetype.
+	Ranged archetypes reach much further, which is the point of using one.
+]]
+local function attackRange(profile: any): number
+	local weaponId = profile.Equipment.Weapon
+	if weaponId == "" then
+		return 10
+	end
+
+	local instance = profile.Inventory.Items[weaponId]
+	local template = instance and ItemConfig.Get(instance.TemplateId)
+	if not template or not template.Archetype then
+		return 10
+	end
+
+	if template.Archetype == "Bow" or template.Archetype == "Staff" then
+		return 90
+	elseif template.Archetype == "Greatsword" then
+		return 14
+	end
+
+	return 12
+end
+
+--[[
+	Rolls one attack. Returns (damage, isCrit).
+
+	Crit is rolled per swing rather than averaged into damage so the spikes are
+	visible — a crit that never shows as a bigger number is just a smaller
+	damage stat with extra steps.
+]]
+local function rollDamage(stats: { [string]: number }): (number, boolean)
+	local damage = stats.Damage or GameConfig.Combat.BaseDamage
+	local isCrit = random:NextNumber() * 100 < (stats.CritChance or 0)
+
+	if isCrit then
+		damage *= 1 + ((stats.CritDamage or 0) / 100)
+	end
+
+	-- Small spread so repeated hits are not identical.
+	damage *= random:NextNumber(0.95, 1.05)
+
+	return math.max(1, math.floor(damage + 0.5)), isCrit
+end
+
+--[[ The modifier on the equipped weapon, if any. ]]
+local function weaponModifier(profile: any): ModifierConfig.Modifier?
+	local weaponId = profile.Equipment.Weapon
+	if weaponId == "" then
+		return nil
+	end
+
+	local instance = profile.Inventory.Items[weaponId]
+	if not instance or not instance.Modifier then
+		return nil
+	end
+
+	return ModifierConfig.Get(instance.Modifier)
+end
+
+--========================================================================
+-- Attack
+--========================================================================
+
+function CombatService.Attack(player: Player, targetModel: any)
+	if typeof(targetModel) ~= "Instance" or not targetModel:IsA("Model") then
+		return
+	end
+
+	local profile = DataService.Get(player)
+	if not profile then
+		return
+	end
+
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+	if not root or not humanoid or humanoid.Health <= 0 then
+		return
+	end
+
+	local record = EnemyService.GetRecord(targetModel)
+	if not record or record.Humanoid.Health <= 0 then
+		return
+	end
+
+	local stats = EquipmentService.GetAggregateStats(profile)
+
+	-- Cooldown from real attack speed.
+	local now = os.clock()
+	local cooldown = 1 / math.max(stats.AttackSpeed or 1, 0.1)
+	local last = lastAttackAt[player]
+	if last and (now - last) < cooldown * 0.9 then
+		return
+	end
+	lastAttackAt[player] = now
+
+	-- Range, measured here rather than trusted.
+	local distance = ((root :: BasePart).Position - record.Root.Position).Magnitude
+	if distance > attackRange(profile) + RANGE_MARGIN then
+		return
+	end
+
+	local damage, isCrit = rollDamage(stats)
+	local modifier = weaponModifier(profile)
+
+	-- Berserker scales with how hurt the attacker is.
+	if modifier and modifier.Effect and modifier.Effect.Kind == "LowHealthDamage" then
+		local missing = 1 - (humanoid.Health / math.max(humanoid.MaxHealth, 1))
+		damage = math.floor(damage * (1 + modifier.Effect.Value * missing))
+	end
+
+	local dealt = EnemyService.Damage(targetModel, damage, player)
+	if dealt <= 0 then
+		return
+	end
+
+	-- On-hit effects.
+	if modifier and modifier.Effect then
+		local effect = modifier.Effect
+
+		if effect.Kind == "Lifesteal" then
+			humanoid.Health = math.min(humanoid.Health + dealt * effect.Value, humanoid.MaxHealth)
+
+		elseif effect.Kind == "Slow" then
+			record.Humanoid.WalkSpeed = record.Definition.WalkSpeed * (1 - effect.Value)
+			task.delay(2, function()
+				if record.Humanoid.Parent then
+					record.Humanoid.WalkSpeed = record.Definition.WalkSpeed
+				end
+			end)
+
+		elseif effect.Kind == "Burn" then
+			-- Burn is scheduled server-side and re-checks the target each tick,
+			-- so it cannot damage something that has already died.
+			local perTick = dealt * effect.Value / 3
+			task.spawn(function()
+				for _ = 1, 3 do
+					task.wait(1)
+					if record.Humanoid.Health > 0 then
+						EnemyService.Damage(targetModel, perTick, player)
+					end
+				end
+			end)
+		end
+	end
+
+	local feedback = Remotes.Get("CombatEvent") :: RemoteEvent
+	feedback:FireAllClients({
+		Kind = "Damage",
+		Position = record.Root.Position,
+		Amount = dealt,
+		Crit = isCrit,
+		Attacker = player.UserId,
+	})
+end
+
+--========================================================================
+-- Rewards
+--========================================================================
+
+local function onEnemyKilled(player: Player, definition: any)
+	local profile = DataService.Get(player)
+	if not profile then
+		return
+	end
+
+	local coins = definition.CoinReward
+	local xp = definition.XPReward
+
+	profile.Currency.Coins += coins
+	profile.Stats.CoinsEarned += coins
+	profile.Stats.EnemiesKilled += 1
+
+	if definition.IsBoss then
+		profile.Stats.BossesDefeated += 1
+	end
+
+	local level, remaining, gained = Progression.AddXP(profile.Progression.Level, profile.Progression.XP, xp)
+	profile.Progression.Level = level
+	profile.Progression.XP = remaining
+
+	if gained > 0 then
+		-- Level changes max health, so push the new stats onto the character.
+		EquipmentService.ApplyToCharacter(player)
+		ReplicationService.Notify(player, string.format("Level %d!", level), "Success")
+	end
+
+	ReplicationService.Notify(player, string.format("+%d XP  +%d Coins", xp, coins), "Info")
+	ReplicationService.Push(player)
+
+	local feedback = Remotes.Get("CombatEvent") :: RemoteEvent
+	feedback:FireClient(player, {
+		Kind = "Kill",
+		EnemyName = definition.Name,
+		XP = xp,
+		Coins = coins,
+		LevelUp = gained > 0,
+	})
+end
+
+--========================================================================
+-- Start
+--========================================================================
+
+local started = false
+
+function CombatService.Start()
+	if started then
+		return
+	end
+	started = true
+
+	NetGuard.OnEvent("AttackRequest", function(player, target)
+		CombatService.Attack(player, target)
+	end)
+
+	EnemyService.EnemyKilled:Connect(onEnemyKilled)
+
+	Players.PlayerRemoving:Connect(function(player)
+		lastAttackAt[player] = nil
+	end)
+
+	log:Info("started")
+end
+
+return CombatService
