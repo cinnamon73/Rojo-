@@ -26,8 +26,20 @@ Two independent channels. Know which one you are using.
 **Rojo is authoritative for `src/`.** Anything you write into those three
 services *inside Studio* gets overwritten on the next sync. Put Luau in `src/`.
 
-**Workspace is NOT managed by Rojo.** Zone geometry, spawns, and the boss arena
-are built through `execute_luau` via MCP. They live in the place file, not git.
+**Workspace is NOT managed by Rojo**, and `.rbxlx` is gitignored — so the world
+would otherwise exist only inside one person's place file. It lives in the repo
+as a builder instead: [`tools/BuildWorld.luau`](tools/BuildWorld.luau), pasted
+into the Studio Command Bar in Edit mode. It is idempotent.
+
+**Edit the builder, not the place.** Sculpting geometry by hand in Studio makes
+the world unreproducible and invisible to the other collaborator. If you change
+the map through MCP while iterating, fold the change back into the builder
+before you finish.
+
+A geometry warning, because it cost three bugs: pitched roofs are easy to get
+wrong and only look wrong from ground level. The correct maths is documented at
+the top of the builder. **Screenshot at player eye height before trusting any
+geometry change** — a top-down view hid all three.
 
 ## Layout
 
@@ -65,19 +77,40 @@ Rojo suffix conventions: `.server.luau` → `Script`, `.client.luau` →
 
 ## Build phases
 
+**[ROADMAP.md](ROADMAP.md) is the authoritative plan.** Read it before starting
+work — it carries the detailed scope for each remaining phase plus a polish
+backlog for systems that already work but are placeholder quality.
+
 Build in order; test each before starting the next. Do not stack systems on top
 of broken ones.
 
-1. **Foundation** — structure, config, remotes, data schema, saving, UI shell
-2. **RNG** — items, rarities, roll service, luck, pity, reveal
-3. **Inventory** — item instances, equip/unequip, sell, favorite, compare
-4. **Combat** — weapons, attacks, damage, enemy AI, rewards
-5. **World** — Verdant Fields, spawns, boss arena, zone gate
-6. **Boss** — Goblin King, phases, telegraphs, rare drops
-7. **Progression** — XP, levels, power, quests, dailies
-8. **Polish** — sound, VFX, UI animation, announcements, settings
-9. **Monetization** — gamepasses, products, VIP, boosts
-10. **Testing** — full pass including rejoin, multiplayer, and exploit attempts
+| Phase | Scope | State |
+|---|---|---|
+| 1 | Foundation — structure, config, remotes, data schema, saving, UI shell | Done |
+| 2 | RNG — items, rarities, roll service, luck, pity, reveal, auto-roll | Done |
+| 3 | Inventory — item instances, equip/unequip, sell, favourite, compare | Done |
+| 4 | Combat — weapons, attacks, damage, enemy AI, rewards | Done |
+| 5 | World — village hub, Verdant Fields, spawns, arena, gate | Done |
+| 6 | Boss — Goblin King, phases, telegraphs, rare drops | **Next** |
+| 7 | Progression — quests, dailies, boosts, zone gates | |
+| 8 | Polish — sound, VFX, UI animation, announcements, settings | |
+| 9 | Monetization — gamepasses, products, VIP, cosmetics | |
+| 10 | Testing — rejoin, multiplayer, exploit attempts, mobile | |
+
+### Things that look done but are not
+
+Worth knowing before you assume a system is finished:
+
+- **Abilities are config-only.** Defined in `ItemConfig` and granted on Rare+
+  weapons; never implemented.
+- **The zone gate is decorative.** The part carries `RequiresPower = 1200`;
+  nothing reads it, so players walk straight through.
+- **Four remotes are declared but sealed** — `DailyClaimRequest`,
+  `QuestRequest`, `ShopRequest`, `ZoneTravelRequest`. They answer
+  `NotImplemented` rather than hanging. That is intended until their phase lands.
+- **Armour and enemies are primitive rigs.** Weapons have real shaped geometry;
+  armour is coloured boxes and enemies are assembled from blocks.
+- **No audio anywhere.** Every id in `AssetConfig` is `0`.
 
 ## Outstanding manual steps
 
