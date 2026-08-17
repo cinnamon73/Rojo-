@@ -43,7 +43,25 @@ local profiles: { [Player]: any } = {}
 local loading: { [Player]: boolean } = {}
 local shuttingDown = false
 
-local JOB_ID = if game.JobId ~= "" then game.JobId else "studio-" .. tostring(os.time())
+--[[
+	Session identity.
+
+	In Studio, game.JobId is empty. Using a timestamp here would give every
+	play-test a new identity, so a session could never reclaim the lock its own
+	previous run left behind — and each restart would fail to load until the
+	lock timed out. A stable id means Studio always reclaims immediately, which
+	is both correct (it IS the same developer's machine) and testable.
+]]
+local JOB_ID = if game.JobId ~= "" then game.JobId else "studio-local"
+
+--[[
+	Studio sessions end abruptly and often, so stale locks are the norm there.
+	Live servers get the long timeout, which is what protects against two real
+	servers writing the same key.
+]]
+local function sessionLockTimeout(): number
+	return if RunService:IsStudio() then 20 else GameConfig.Data.SessionLockTimeout
+end
 
 local function keyFor(userId: number): string
 	return "Player_" .. tostring(userId)
@@ -109,7 +127,7 @@ local function lockIsClaimable(lock: any): boolean
 	end
 
 	local age = os.time() - (tonumber(lock.At) or 0)
-	return age > GameConfig.Data.SessionLockTimeout
+	return age > sessionLockTimeout()
 end
 
 --[[

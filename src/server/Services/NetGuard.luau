@@ -100,12 +100,12 @@ end
 	use OnFunction when the client needs an answer.
 ]]
 function NetGuard.OnEvent(remoteName: string, handler: (player: Player, ...any) -> ())
-	local remote = Remotes.Get(remoteName)
+	local remote = Remotes.Get(remoteName) :: RemoteEvent
 	assert(remote:IsA("RemoteEvent"), string.format("NetGuard: '%s' is not a RemoteEvent", remoteName))
 
 	registered[remoteName] = true
 
-	;(remote :: RemoteEvent).OnServerEvent:Connect(function(player, ...)
+	remote.OnServerEvent:Connect(function(player, ...)
 		if not consume(player, remoteName) then
 			return
 		end
@@ -125,12 +125,12 @@ end
 	reply it can branch on instead of an opaque invoke error.
 ]]
 function NetGuard.OnFunction(remoteName: string, handler: (player: Player, ...any) -> any)
-	local remote = Remotes.Get(remoteName)
+	local remote = Remotes.Get(remoteName) :: RemoteFunction
 	assert(remote:IsA("RemoteFunction"), string.format("NetGuard: '%s' is not a RemoteFunction", remoteName))
 
 	registered[remoteName] = true
 
-	;(remote :: RemoteFunction).OnServerInvoke = function(player, ...)
+	remote.OnServerInvoke = function(player, ...)
 		if not consume(player, remoteName) then
 			return { Success = false, Error = "RateLimited" }
 		end

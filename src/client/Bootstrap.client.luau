@@ -56,6 +56,13 @@ local function main()
 		log:Info("announce: %s", tostring(type(payload) == "table" and payload.Message or payload))
 	end)
 
+	-- Controllers start after the remote wiring above, so nothing races on a
+	-- remote that has not replicated yet.
+	local Controllers = script.Parent:WaitForChild("Controllers")
+
+	require(Controllers.UIController).Start(Client)
+	require(Controllers.RollController).Start(Client)
+
 	log:Info("client ready")
 end
 

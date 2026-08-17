@@ -33,6 +33,7 @@ local GameConfig = require(Config.GameConfig)
 local ItemInstance = require(Modules.ItemInstance)
 local Logger = require(Modules.Logger)
 local Signal = require(Modules.Signal)
+local Remotes = require(Modules.Remotes)
 
 local DataService = require(script.Parent.DataService)
 local NetGuard = require(script.Parent.NetGuard)
@@ -316,6 +317,99 @@ function RNGService.Roll(player: Player): any
 	}
 end
 
+--========================================================================
+-- Auto-roll
+--========================================================================
+
+type AutoState = {
+	StopAtRank: number,
+	StartedAt: number,
+}
+
+local autoRolling: { [Player]: AutoState } = {}
+
+--[[
+	Starts or stops auto-roll.
+
+	Server-driven on purpose: a client loop firing RollRequest would be
+	indistinguishable from a script doing the same thing, and would put the
+	pacing under client control. Here the server owns the cadence, applies the
+	same cooldown as a manual roll, and stops itself on the player's condition.
+]]
+function RNGService.SetAutoRoll(player: Player, enabled: boolean, stopAtRarity: string?)
+	if not enabled then
+		autoRolling[player] = nil
+		return
+	end
+
+	if not GameConfig.Roll.AutoRollEnabled then
+		return
+	end
+
+	if not DataService.Get(player) then
+		return
+	end
+
+	autoRolling[player] = {
+		-- 0 means "never stop on rarity".
+		StopAtRank = if stopAtRarity then RarityConfig.GetRank(stopAtRarity) else 0,
+		StartedAt = os.clock(),
+	}
+end
+
+function RNGService.IsAutoRolling(player: Player): boolean
+	return autoRolling[player] ~= nil
+end
+
+--[[
+	One central loop rather than a task per player: at 30 players that is one
+	timer instead of thirty, and rolls stay naturally staggered.
+]]
+local function startAutoLoop()
+	task.spawn(function()
+		local rollResult = Remotes.Get("RollResult") :: RemoteEvent
+
+		while true do
+			task.wait(0.25)
+
+			for player, state in pairs(autoRolling) do
+				if not player.Parent then
+					autoRolling[player] = nil
+					continue
+				end
+
+				-- Hard ceiling so an idle session cannot roll forever.
+				if os.clock() - state.StartedAt > GameConfig.Roll.MaxAutoRollDuration then
+					autoRolling[player] = nil
+					ReplicationService.Notify(player, "Auto-roll stopped (time limit).", "Info")
+					continue
+				end
+
+				local result = RNGService.Roll(player)
+
+				if result.Success then
+					rollResult:FireClient(player, result)
+
+					if state.StopAtRank > 0 and RarityConfig.GetRank(result.Rarity) >= state.StopAtRank then
+						autoRolling[player] = nil
+						ReplicationService.Notify(
+							player,
+							string.format("Auto-roll stopped: %s found!", result.DisplayName),
+							"Success"
+						)
+					end
+				elseif result.Error == "InventoryFull" then
+					autoRolling[player] = nil
+					ReplicationService.Notify(player, "Auto-roll stopped: inventory full.", "Warning")
+				elseif result.Error == "ProfileNotLoaded" then
+					autoRolling[player] = nil
+				end
+				-- "Cooldown" is the normal case between ticks; just wait.
+			end
+		end
+	end)
+end
+
 local started = false
 
 function RNGService.Start()
@@ -328,8 +422,24 @@ function RNGService.Start()
 		return RNGService.Roll(player)
 	end)
 
+	NetGuard.OnEvent("AutoRollRequest", function(player, payload)
+		if type(payload) ~= "table" then
+			return
+		end
+
+		local stopAt = payload.StopAtRarity
+		if stopAt ~= nil and (type(stopAt) ~= "string" or not RarityConfig.Get(stopAt)) then
+			stopAt = nil
+		end
+
+		RNGService.SetAutoRoll(player, payload.Enabled == true, stopAt)
+	end)
+
+	startAutoLoop()
+
 	Players.PlayerRemoving:Connect(function(player)
 		lastRollAt[player] = nil
+		autoRolling[player] = nil
 	end)
 
 	log:Info("started (%d item templates)", ItemConfig.Count())

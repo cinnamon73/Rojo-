@@ -24,15 +24,27 @@ local Create = require(UIModules.Create)
 local Theme = require(UIModules.Theme)
 local Logger = require(Modules.Logger)
 local Progression = require(Modules.Progression)
+local Signal = require(Modules.Signal)
 
 local log = Logger.new("UIController")
 local player = Players.LocalPlayer
 
 local UIController = {}
 
+--[[
+	Fired when the player presses ROLL. UIController owns the button's look and
+	state; RollController owns what pressing it means. Keeping those apart means
+	the HUD has no idea the RNG service exists.
+]]
+UIController.RollActivated = Signal.new()
+
+--[[ Fired with a panel name when a nav button is pressed. ]]
+UIController.NavActivated = Signal.new()
+
 local screenGui: ScreenGui? = nil
 local scale: UIScale? = nil
 local rollButton: Create.Button? = nil
+local autoButton: Create.Button? = nil
 
 -- Live references to the bits that change every profile push.
 local bindings: { [string]: TextLabel } = {}
@@ -156,9 +168,7 @@ local function NavButton(text: string, order: number): Create.Button
 		TextSize = Theme.TextSize.Small,
 		LayoutOrder = order,
 	}, function()
-		-- Panels land in Phases 3, 7, and 9. Logged so the wiring is visibly
-		-- alive before the panels exist.
-		log:Info("nav '%s' pressed (panel not implemented yet)", text)
+		UIController.NavActivated:Fire(text)
 	end)
 end
 
@@ -220,13 +230,29 @@ local function build(): ScreenGui
 		TextSize = Theme.TextSize.Title,
 		Parent = root,
 	}, function()
-		-- Wired to RollRequest in Phase 2.
-		log:Info("roll pressed (RNGService not implemented yet)")
+		UIController.RollActivated:Fire()
 	end)
 
 	rollButton = roll
 
 	Create.Stroke(Theme.Color.AccentHover, Theme.Stroke.Medium, 0.4).Parent = roll.Instance
+
+	-- Auto-roll toggle, tucked beside the main button so it reads as secondary.
+	local auto = Create.Button("AUTO", {
+		Name = "AutoButton",
+		Size = UDim2.fromOffset(84, 68),
+		Position = UDim2.new(0.5, 128, 1, -68 - margin - 56),
+		BackgroundColor3 = Theme.Color.PanelRaised,
+		HoverColor = Theme.Color.PanelHover,
+		PressColor = Theme.Color.Panel,
+		Font = Theme.Font.Bold,
+		TextSize = Theme.TextSize.Small,
+		Parent = root,
+	}, function()
+		UIController.NavActivated:Fire("__AutoToggle")
+	end)
+
+	autoButton = auto
 
 	-- Bottom-right navigation.
 	Create.new("Frame", {
@@ -339,10 +365,11 @@ function UIController.Start(client: any)
 		existing:Destroy()
 	end
 
-	screenGui = build()
-	;(screenGui :: ScreenGui).Parent = playerGui
+	local gui = build()
+	gui.Parent = playerGui
+	screenGui = gui
 
-	;(screenGui :: ScreenGui):GetPropertyChangedSignal("AbsoluteSize"):Connect(updateScale)
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateScale)
 	updateScale()
 
 	if client then
@@ -355,11 +382,30 @@ function UIController.Start(client: any)
 	log:Info("HUD ready")
 end
 
---[[ Enables/disables the roll button — used for cooldown feedback in Phase 2. ]]
+--[[ Enables/disables the roll button — cooldown feedback. ]]
 function UIController.SetRollEnabled(enabled: boolean)
 	if rollButton then
 		rollButton.SetEnabled(enabled)
 	end
+end
+
+--[[ Recolours the AUTO button to show whether auto-roll is running. ]]
+function UIController.SetAutoActive(active: boolean)
+	if not autoButton then
+		return
+	end
+
+	local button = autoButton.Instance
+	button.BackgroundColor3 = if active then Theme.Color.Positive else Theme.Color.PanelRaised
+	button.Text = if active then "STOP" else "AUTO"
+end
+
+--[[ The HUD's root frame, for controllers that need to parent into it. ]]
+function UIController.GetRoot(): Frame?
+	if not screenGui then
+		return nil
+	end
+	return screenGui:FindFirstChild("Root") :: Frame?
 end
 
 return UIController
