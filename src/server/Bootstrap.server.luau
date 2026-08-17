@@ -26,6 +26,8 @@ local Services = script.Parent.Services
 local DataService = require(Services.DataService)
 local NetGuard = require(Services.NetGuard)
 local ReplicationService = require(Services.ReplicationService)
+local CharacterService = require(Services.CharacterService)
+local EquipmentService = require(Services.EquipmentService)
 local RNGService = require(Services.RNGService)
 
 local log = Logger.new("Bootstrap")
@@ -73,7 +75,12 @@ local function main()
 	-- 3. Replication, before any service that pushes state changes.
 	ReplicationService.Start()
 
-	-- 4. Gameplay services.
+	-- 4. Character presentation, before equipment — equipping refreshes visuals
+	--    and needs the body already standardised.
+	CharacterService.Start()
+
+	-- 5. Gameplay services.
+	EquipmentService.Start()
 	RNGService.Start()
 
 	-- 5. Answer any declared-but-unimplemented RemoteFunction so clients get a

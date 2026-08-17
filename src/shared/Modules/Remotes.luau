@@ -100,6 +100,14 @@ Remotes.Definitions = {
 		Description = "Toggles the lock/favorite flag on an owned item instance.",
 	},
 
+	BodyTypeRequest = {
+		Kind = "Function" :: RemoteKind,
+		Direction = "C->S",
+		Description = "Chooses a standardised body preset. Server validates the id and re-applies the character's appearance.",
+		Burst = 3,
+		RefillPerSecond = 1,
+	},
+
 	SettingsRequest = {
 		Kind = "Event" :: RemoteKind,
 		Direction = "C->S",

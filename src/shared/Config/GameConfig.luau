@@ -104,6 +104,24 @@ GameConfig.Progression = {
 	XPExponent = 1.55,
 }
 
+GameConfig.Combat = {
+	-- Player baselines before equipment. Gear adds on top of these.
+	BaseHealth = 100,
+	BaseWalkSpeed = 16,
+	BaseDamage = 5,
+	BaseAttackSpeed = 1.0,
+	BaseCritChance = 2,
+	BaseCritDamage = 50,
+
+	-- Health gained per character level, independent of gear, so levelling
+	-- always feels like it did something even on a dry run of drops.
+	HealthPerLevel = 8,
+
+	-- Ceilings on stats that break the game if unbounded.
+	MaxCritChance = 75,
+	MaxWalkSpeed = 34,
+}
+
 GameConfig.Network = {
 	-- Token-bucket rate limits per remote, per player. Requests over budget are
 	-- dropped silently rather than erroring, so a laggy client is not punished.
