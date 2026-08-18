@@ -237,6 +237,86 @@ for i = -5, 5 do
 end
 P("Portcullis_Beam", Vector3.new(40,1.2,1.2), CFrame.new(0,SPRING_Y+ARCH_R-6.6,WZ_S-4.5), Color3.fromRGB(58,52,48), Enum.Material.Metal, Gate)
 
+--============================================================ TOWN PLAN
+--[[
+	Axial plan, every position measured off the gatehouse rather than eyeballed.
+
+	  MAIN_X   = 0     the gate sits on this axis, so the road runs dead straight
+	                   from the arch to the apothecary that terminates it
+	  CROSS_Z  = 148   east-west street; tavern and forge face onto it
+	  SQ       = 48    half-extent of the square at the crossing
+	  ROW_X    = +/-58 the two house terraces, every door facing the road
+
+	Doors are on a building's local -Z face, so rotation follows from position:
+	rot 0 faces south, 90 faces west, -90 faces east, 180 faces north.
+]]
+local MAIN_X, CROSS_Z = 0, 148
+local ROAD_W, CROSS_W = 26, 22
+local SQ = 48
+local ROW_X = 58
+local GATE_Z, NORTH_Z = 52, 232
+
+--============================================================ PAVING
+local ROAD_T = { Color3.fromRGB(138,134,126), Color3.fromRGB(126,122,114), Color3.fromRGB(148,142,130) }
+local SQUARE_T = { Color3.fromRGB(152,146,134), Color3.fromRGB(136,130,120), Color3.fromRGB(160,152,138), Color3.fromRGB(126,110,94) }
+local FOOT_T = { Color3.fromRGB(118,110,98), Color3.fromRGB(132,124,110) }
+
+--[[ Grid-aligned with no rotation jitter: roads should read as laid, not scattered. ]]
+local function pave(x1,z1,x2,z2,width,palette,label)
+	local horizontal = math.abs(x2-x1) > math.abs(z2-z1)
+	local a1,a2 = (horizontal and x1 or z1), (horizontal and x2 or z2)
+	if a1 > a2 then a1,a2 = a2,a1 end
+	local fixed = horizontal and z1 or x1
+	local cols = math.floor(width/4.2)
+	for a = a1, a2, 4.2 do
+		for c = 0, cols do
+			local off = (c-cols/2)*4.2
+			P("PathTile_"..label, Vector3.new(4,0.5,4),
+				CFrame.new(horizontal and a or (fixed+off), 3.25, horizontal and (fixed+off) or a),
+				palette[rng:NextInteger(1,#palette)],
+				(rng:NextNumber() < 0.3) and Enum.Material.Slate or Enum.Material.Cobblestone, Paths)
+		end
+	end
+end
+
+pave(MAIN_X,GATE_Z,MAIN_X,NORTH_Z,ROAD_W,ROAD_T,"MainRoad")
+pave(-112,CROSS_Z,112,CROSS_Z,CROSS_W,ROAD_T,"CrossStreet")
+
+-- Square: flagstone field with a darker border course framing it.
+for x = -SQ, SQ, 4.2 do
+	for z = CROSS_Z-SQ, CROSS_Z+SQ, 4.2 do
+		local edge = (math.abs(x) > SQ-5) or (math.abs(z-CROSS_Z) > SQ-5)
+		P("PlazaTile", Vector3.new(4,0.5,4), CFrame.new(x,3.3,z),
+			edge and Color3.fromRGB(104,98,90) or SQUARE_T[rng:NextInteger(1,#SQUARE_T)],
+			edge and Enum.Material.Slate or Enum.Material.Cobblestone, Paths)
+	end
+end
+for i = 1, 4 do
+	local a = (i/4)*math.pi*2
+	P("Plaza_CompassRay", Vector3.new(3,0.55,16),
+		CFrame.new(MAIN_X+math.cos(a)*11,3.4,CROSS_Z+math.sin(a)*11)*CFrame.Angles(0,-a,0),
+		Color3.fromRGB(92,86,80), Enum.Material.Slate, Paths)
+end
+P("Plaza_CompassHub", Vector3.new(9,0.6,9), CFrame.new(MAIN_X,3.42,CROSS_Z), Color3.fromRGB(168,160,146), Enum.Material.Slate, Paths)
+
+--[[
+	Footpath: a straight spur from a door out to the road edge. Narrower and
+	darker than the carriageway so the hierarchy reads road > footpath.
+]]
+local footpathCount = 0
+local function footpath(doorPos, toward)
+	local x1, x2 = doorPos.X, toward
+	local dir = (x2 > x1) and 1 or -1
+	for i = 0, math.floor(math.abs(x2-x1)/3.6) do
+		for c = -1, 1 do
+			P("Footpath_Tile", Vector3.new(3.4,0.5,3.4),
+				CFrame.new(x1+dir*i*3.6, 3.28, doorPos.Z+c*3.6),
+				FOOT_T[rng:NextInteger(1,#FOOT_T)], Enum.Material.Cobblestone, Paths)
+		end
+	end
+	footpathCount += 1
+end
+
 --============================================================ BUILDINGS
 --[[
 	Depth comes from LAYERING, not one box: stone plinth, wall panels inset
@@ -306,6 +386,9 @@ local function building(name,x,z,w,d,h,rot,wallCol,roofCol)
 	end
 	P("Door_Hood", Vector3.new(9,0.7,3.4), L(0,13.6,-(d/2)-1.6), ROOF_A, Enum.Material.Slate, m)
 	P("Door_Handle", Vector3.new(0.5,0.5,0.5), L(1.6,8.4,-(d/2-inset)-1.1), Color3.fromRGB(180,150,80), Enum.Material.Metal, m)
+	-- Doorstep, so a footpath arrives at something rather than stopping at a wall.
+	P("Door_Step", Vector3.new(8,1.4,3.4), L(0,5.2,-(d/2)-1.4), STONE_F, Enum.Material.Cobblestone, m)
+	P("Door_StepLower", Vector3.new(9,1.4,2.6), L(0,3.9,-(d/2)-3.2), STONE_F, Enum.Material.Cobblestone, m)
 
 	local peak = (w/2)*math.tan(math.rad(36))
 	for _, sz in ipairs({ -1, 1 }) do
@@ -316,7 +399,11 @@ local function building(name,x,z,w,d,h,rot,wallCol,roofCol)
 		end
 	end
 	roofOver(m, L(0,h+5,0), w+3, d+5, 36, roofCol, 3.4)
-	return m, cf
+
+	-- World position just outside the front door, so footpaths can be routed
+	-- to it without re-deriving the rotation at every call site.
+	local doorWorld = (cf * CFrame.new(0,0,-(d/2)-4)).Position
+	return m, cf, doorWorld
 end
 
 local function chimney(cf,ox,oz,h,smoke)
@@ -344,93 +431,66 @@ local function sign(parent,cf,text,color)
 	t.TextColor3 = color or Color3.fromRGB(242,216,150); t.Text = text; t.Parent = g
 end
 
--- Tavern
-local tav, tcf = building("Tavern", -66,112,34,28,17,0, PLASTER, ROOF_A)
-chimney(tcf,13,9,12,true)
-sign(tav, tcf*CFrame.new(0,15.5,-16.4), "THE ROLLING DICE")
-for i = 1, 7 do
-	P("Barrel", Vector3.new(3.2,2.6,2.6), tcf*CFrame.new(-21,2.6,-12+i*3.6)*CFrame.Angles(0,0,math.rad(90)), WOOD, Enum.Material.WoodPlanks, tav, { Shape = Enum.PartType.Cylinder })
-end
+-- Tavern and forge flank the square, facing in across the cross street.
+local tav, tcf, tavDoor = building("Tavern", -84,CROSS_Z,32,26,17,-90, PLASTER, ROOF_A)
+chimney(tcf,12,8,12,true)
+sign(tav, tcf*CFrame.new(0,15.5,-15.4), "THE ROLLING DICE")
+footpath(tavDoor, -SQ-2)
 for i = 1, 3 do
-	P("Tavern_BenchSeat", Vector3.new(7,0.5,2), tcf*CFrame.new(-25+i*8,3.6,-21), WOOD, Enum.Material.WoodPlanks, tav)
-	P("Tavern_BenchLeg", Vector3.new(0.6,2.6,1.6), tcf*CFrame.new(-25+i*8,2,-21), TIMBER, Enum.Material.Wood, tav)
+	P("Tavern_BenchSeat", Vector3.new(7,0.5,2), tcf*CFrame.new(-22+i*8,3.6,-19), WOOD, Enum.Material.WoodPlanks, tav)
+	P("Tavern_BenchLeg", Vector3.new(0.6,2.6,1.6), tcf*CFrame.new(-22+i*8,2,-19), TIMBER, Enum.Material.Wood, tav)
 end
 
 -- Blacksmith
-local smi, scf = building("BlacksmithForge", 66,112,30,28,16,0, PLASTER2, ROOF_B)
+local smi, scf, smiDoor = building("BlacksmithForge", 84,CROSS_Z,30,26,16,90, PLASTER2, ROOF_B)
 chimney(scf,-11,8,15,true)
 smi.Door_Panel:Destroy()
-P("Forge_OpenBay", Vector3.new(13,9,2.2), scf*CFrame.new(0,9,-13.3), Color3.fromRGB(26,22,20), Enum.Material.Slate, smi)
-sign(smi, scf*CFrame.new(0,15,-15.4), "THE IRON HEARTH", Color3.fromRGB(255,178,110))
-P("Forge_Hearth", Vector3.new(7,4,5), scf*CFrame.new(0,7.3,-6), STONE_F, Enum.Material.Brick, smi)
-local coals = P("Forge_Coals", Vector3.new(5,0.8,3.6), scf*CFrame.new(0,9.6,-6), Color3.fromRGB(255,120,40), Enum.Material.Neon, smi)
+P("Forge_OpenBay", Vector3.new(13,9,2.2), scf*CFrame.new(0,9,-12.3), Color3.fromRGB(26,22,20), Enum.Material.Slate, smi)
+sign(smi, scf*CFrame.new(0,15,-14.4), "THE IRON HEARTH", Color3.fromRGB(255,178,110))
+footpath(smiDoor, SQ+2)
+P("Forge_Hearth", Vector3.new(7,4,5), scf*CFrame.new(0,7.3,-5), STONE_F, Enum.Material.Brick, smi)
+local coals = P("Forge_Coals", Vector3.new(5,0.8,3.6), scf*CFrame.new(0,9.6,-5), Color3.fromRGB(255,120,40), Enum.Material.Neon, smi)
 local coalLight = Instance.new("PointLight"); coalLight.Color = Color3.fromRGB(255,146,64); coalLight.Range = 38; coalLight.Brightness = 3; coalLight.Parent = coals
 local coalEm = Instance.new("ParticleEmitter"); coalEm.Rate = 20; coalEm.Lifetime = NumberRange.new(0.6,1.4)
 coalEm.Speed = NumberRange.new(4,8); coalEm.Size = NumberSequence.new(0.5); coalEm.Transparency = NumberSequence.new(0.2)
 coalEm.Color = ColorSequence.new(Color3.fromRGB(255,172,72)); coalEm.Parent = coals
-P("Anvil_Stump", Vector3.new(2.4,2.4,2.4), scf*CFrame.new(-8,6.8,-2), TIMBER, Enum.Material.Wood, smi)
-P("Anvil_Body", Vector3.new(1.9,1.3,4), scf*CFrame.new(-8,8.6,-2), Color3.fromRGB(62,62,68), Enum.Material.Metal, smi)
-P("Anvil_Horn", Vector3.new(1.4,1,1.6), scf*CFrame.new(-8,8.6,-4.6), Color3.fromRGB(62,62,68), Enum.Material.Metal, smi)
-P("Quench_Trough", Vector3.new(4,2,2.6), scf*CFrame.new(9,6.6,-2), TIMBER, Enum.Material.Wood, smi)
-P("Quench_Water", Vector3.new(3.4,0.3,2), scf*CFrame.new(9,7.5,-2), Color3.fromRGB(58,96,128), Enum.Material.Glass, smi, { Transparency = 0.35 })
-P("WeaponRack_Frame", Vector3.new(0.6,6,7), scf*CFrame.new(12,8.5,3), TIMBER, Enum.Material.Wood, smi)
+P("Anvil_Stump", Vector3.new(2.4,2.4,2.4), scf*CFrame.new(-8,6.8,-1), TIMBER, Enum.Material.Wood, smi)
+P("Anvil_Body", Vector3.new(1.9,1.3,4), scf*CFrame.new(-8,8.6,-1), Color3.fromRGB(62,62,68), Enum.Material.Metal, smi)
+P("Anvil_Horn", Vector3.new(1.4,1,1.6), scf*CFrame.new(-8,8.6,-3.6), Color3.fromRGB(62,62,68), Enum.Material.Metal, smi)
+P("Quench_Trough", Vector3.new(4,2,2.6), scf*CFrame.new(9,6.6,-1), TIMBER, Enum.Material.Wood, smi)
+P("Quench_Water", Vector3.new(3.4,0.3,2), scf*CFrame.new(9,7.5,-1), Color3.fromRGB(58,96,128), Enum.Material.Glass, smi, { Transparency = 0.35 })
+P("WeaponRack_Frame", Vector3.new(0.6,6,7), scf*CFrame.new(11,8.5,3), TIMBER, Enum.Material.Wood, smi)
 for i = 1, 5 do
-	P("Rack_Blade", Vector3.new(0.25,5,0.8), scf*CFrame.new(11.4,9,0.4+i*1.3)*CFrame.Angles(math.rad(12),0,0), Color3.fromRGB(184,188,196), Enum.Material.Metal, smi)
+	P("Rack_Blade", Vector3.new(0.25,5,0.8), scf*CFrame.new(10.4,9,0.4+i*1.3)*CFrame.Angles(math.rad(12),0,0), Color3.fromRGB(184,188,196), Enum.Material.Metal, smi)
 end
 
--- Apothecary
-local apo, acf = building("Apothecary", 0,214,28,24,15,180, Color3.fromRGB(206,214,196), Color3.fromRGB(72,92,80))
-chimney(acf,10,7,10,true)
-sign(apo, acf*CFrame.new(0,14,-13.4), "GREEN FLASK APOTHECARY", Color3.fromRGB(180,240,190))
-P("Apothecary_Shelf", Vector3.new(17,0.5,1.6), acf*CFrame.new(0,9.4,-11.6), WOOD, Enum.Material.WoodPlanks, apo)
+-- Apothecary terminates the main road at the north end, facing back down it.
+local apo, acf = building("Apothecary", MAIN_X,NORTH_Z,28,22,15,0, Color3.fromRGB(206,214,196), Color3.fromRGB(72,92,80))
+chimney(acf,10,6,10,true)
+sign(apo, acf*CFrame.new(0,14,-12.4), "GREEN FLASK APOTHECARY", Color3.fromRGB(180,240,190))
+P("Apothecary_Shelf", Vector3.new(17,0.5,1.6), acf*CFrame.new(0,9.4,-10.6), WOOD, Enum.Material.WoodPlanks, apo)
 for i = 1, 6 do
 	local hue = ({ Color3.fromRGB(120,240,150), Color3.fromRGB(150,180,255), Color3.fromRGB(255,160,200),
 		Color3.fromRGB(255,220,120), Color3.fromRGB(190,140,255), Color3.fromRGB(140,240,240) })[i]
-	local flask = P("Apothecary_Flask", Vector3.new(1.1,1.6,1.1), acf*CFrame.new(-7+i*2.4,10.4,-11.6), hue, Enum.Material.Neon, apo)
+	local flask = P("Apothecary_Flask", Vector3.new(1.1,1.6,1.1), acf*CFrame.new(-7+i*2.4,10.4,-10.6), hue, Enum.Material.Neon, apo)
 	local fl = Instance.new("PointLight"); fl.Color = hue; fl.Range = 8; fl.Brightness = 1.1; fl.Parent = flask
 end
 
--- Cottages
-for i, s in ipairs({ {-92,178,22,18,12,14},{-40,196,20,17,12,-8},{44,196,21,18,12,6},
-	{92,176,22,18,12,-16},{-100,140,20,17,11,90},{100,140,20,17,11,-90} }) do
-	local _, cf = building("Cottage_"..i, s[1],s[2],s[3],s[4],s[5],s[6],
-		(i%2 == 0) and PLASTER or PLASTER2, (i%3 == 0) and ROOF_B or ROOF_A)
-	if i%2 == 1 then chimney(cf, s[3]*0.3, s[4]*0.25, 9, i%4 == 1) end
-end
-
---============================================================ PAVING
-local TILE = { Color3.fromRGB(138,134,126), Color3.fromRGB(118,114,108), Color3.fromRGB(152,146,134),
-	Color3.fromRGB(126,110,94), Color3.fromRGB(104,100,96), Color3.fromRGB(146,132,112) }
-
-local function paveStrip(x1,z1,x2,z2,width,label)
-	local dx,dz = x2-x1, z2-z1
-	local len = math.sqrt(dx*dx + dz*dz)
-	local ang = math.atan2(dx,dz)
-	local rows, cols = math.floor(len/4), math.floor(width/4)
-	for r = 0, rows do
-		for c = 0, cols do
-			local t = r/math.max(rows,1)
-			local off = (c-cols/2)*4 + ((r%2 == 0) and 1 or -1)
-			local base = CFrame.new(x1+dx*t,0,z1+dz*t)*CFrame.Angles(0,ang,0)
-			P("PathTile_"..label, Vector3.new(3.7+rng:NextNumber(-0.3,0.3),0.45,3.7+rng:NextNumber(-0.3,0.3)),
-				base*CFrame.new(off,3.2,0)*CFrame.Angles(0,rng:NextNumber(-0.06,0.06),0),
-				TILE[rng:NextInteger(1,#TILE)],
-				(rng:NextNumber() < 0.35) and Enum.Material.Slate or Enum.Material.Cobblestone, Paths)
-		end
-	end
-end
-paveStrip(0,58,0,150,22,"MainRoad")
-paveStrip(-60,155,60,155,18,"MarketRow")
-paveStrip(0,150,0,210,16,"NorthLane")
-for ring = 1, 9 do
-	local rad = ring*4.4
-	local count = math.floor(rad*1.5)
-	for i = 1, count do
-		local a = (i/count)*math.pi*2 + ring*0.3
-		P("PlazaTile", Vector3.new(4,0.5,4),
-			CFrame.new(math.cos(a)*rad,3.25,155+math.sin(a)*rad)*CFrame.Angles(0,-a,0),
-			TILE[rng:NextInteger(1,#TILE)],
-			(ring%3 == 0) and Enum.Material.Slate or Enum.Material.Cobblestone, Paths)
+--[[
+	Two mirrored terraces flanking the main road, evenly spaced, every door
+	facing the road. The z spacing is a constant so the rhythm stays exact —
+	that regularity is what separates a planned neighbourhood from scatter.
+]]
+local houseCount = 0
+for i, z in ipairs({ 78, 106, 190, 218 }) do
+	for _, side in ipairs({ -1, 1 }) do
+		local rot = (side == -1) and -90 or 90   -- west row faces east, east row faces west
+		local wall = ((i + (side == 1 and 1 or 0)) % 2 == 0) and PLASTER or PLASTER2
+		local _, cf, door = building(string.format("Cottage_%s%d", (side == -1) and "W" or "E", i),
+			side*ROW_X, z, 22, 18, 12, rot, wall, (i%2 == 0) and ROOF_B or ROOF_A)
+		chimney(cf, 6, 5, 8, (i%2 == 1))
+		footpath(door, side*(ROAD_W/2+1))
+		houseCount += 1
 	end
 end
 
@@ -439,29 +499,51 @@ local function lampPost(x,z)
 	local m = Instance.new("Model"); m.Name = "LampPost"; m.Parent = Lights
 	P("LampPost_Base", Vector3.new(2.4,1.2,2.4), CFrame.new(x,4,z), STONE_F, Enum.Material.Cobblestone, m)
 	P("LampPost_Column", Vector3.new(0.9,12,0.9), CFrame.new(x,10.6,z), TIMBER, Enum.Material.Wood, m)
-	P("LampPost_Arm", Vector3.new(0.6,0.6,2.4), CFrame.new(x,16.4,z-1), TIMBER, Enum.Material.Wood, m)
-	P("Lantern_Housing", Vector3.new(2.2,2.6,2.2), CFrame.new(x,15.2,z-2), Color3.fromRGB(52,44,36), Enum.Material.Metal, m, { Transparency = 0.25 })
-	local core = P("Lantern_Core", Vector3.new(1.4,1.8,1.4), CFrame.new(x,15.2,z-2), Color3.fromRGB(255,196,110), Enum.Material.Neon, m)
-	P("Lantern_Cap", Vector3.new(2.6,0.5,2.6), CFrame.new(x,16.7,z-2), Color3.fromRGB(52,44,36), Enum.Material.Metal, m)
+	P("Lantern_Housing", Vector3.new(2.2,2.6,2.2), CFrame.new(x,17.2,z), Color3.fromRGB(52,44,36), Enum.Material.Metal, m, { Transparency = 0.25 })
+	local core = P("Lantern_Core", Vector3.new(1.4,1.8,1.4), CFrame.new(x,17.2,z), Color3.fromRGB(255,196,110), Enum.Material.Neon, m)
+	P("Lantern_Cap", Vector3.new(2.6,0.5,2.6), CFrame.new(x,18.7,z), Color3.fromRGB(52,44,36), Enum.Material.Metal, m)
 	local l = Instance.new("PointLight")
 	l.Color = Color3.fromRGB(255,190,112); l.Range = 30; l.Brightness = 2.1; l.Shadows = true; l.Parent = core
 end
-for _, p in ipairs({ {-16,74},{16,74},{-16,104},{16,104},{-30,140},{30,140},{-30,172},{30,172},
-	{-16,196},{16,196},{-46,155},{46,155},{-88,158},{88,158} }) do lampPost(p[1],p[2]) end
+
+-- Paired at a fixed interval down the main road, along the cross street, and
+-- at the four corners of the square. Regular spacing, not hand-placed.
+for z = GATE_Z+16, NORTH_Z-8, 28 do
+	if math.abs(z-CROSS_Z) > SQ-4 then
+		for _, side in ipairs({ -1, 1 }) do lampPost(side*(ROAD_W/2+4), z) end
+	end
+end
+for x = -104, 104, 26 do
+	if math.abs(x) > SQ+4 then
+		for _, side in ipairs({ -1, 1 }) do lampPost(x, CROSS_Z+side*(CROSS_W/2+4)) end
+	end
+end
+for _, sx in ipairs({ -1, 1 }) do
+	for _, sz in ipairs({ -1, 1 }) do lampPost(sx*(SQ-6), CROSS_Z+sz*(SQ-6)) end
+end
 
 --============================================================ SPAWN
--- Plaza tiles top out at y=3.5. The pad sits ON that. A pad buried inside the
--- plaza spawns the character intersecting solids and physics ejects them.
+--[[
+	Fully hidden, dead centre of the town square.
+
+	Transparency 1, no decals or textures, no shadow, and CanCollide off so it
+	cannot be felt underfoot either — characters spawn just above it and settle
+	onto the plaza flagstones, which are the real floor. Verified in a live
+	session: they land at y~6.5 on a 3.55 surface and do not fall through.
+]]
 local sp = Instance.new("SpawnLocation")
-sp.Name = "SpawnLocation"; sp.Size = Vector3.new(16,0.6,16); sp.CFrame = CFrame.new(0,3.8,155)
-sp.Anchored = true; sp.CastShadow = true; sp.Neutral = true
-sp.Color = Color3.fromRGB(164,156,142); sp.Material = Enum.Material.Slate
-sp.TopSurface = Enum.SurfaceType.Smooth; sp.Parent = Village
-for i = 1, 20 do
-	local a = (i/20)*math.pi*2
-	P("SpawnInlay", Vector3.new(1.3,0.35,1.3), CFrame.new(math.cos(a)*9,3.75,155+math.sin(a)*9)*CFrame.Angles(0,-a,0),
-		Color3.fromRGB(198,186,164), Enum.Material.Slate, Village, { CanCollide = false })
-end
+sp.Name = "SpawnLocation"
+sp.Size = Vector3.new(12,0.4,12)
+sp.CFrame = CFrame.new(MAIN_X,4.4,CROSS_Z)
+sp.Anchored = true
+sp.Transparency = 1
+sp.CanCollide = false
+sp.CanQuery = false
+sp.CastShadow = false
+sp.Neutral = true
+sp.Enabled = true
+sp.Parent = Village
+
 local safe = P("SafeZone_Volume", Vector3.new(270,60,220), CFrame.new(0,30,152), Color3.new(1,1,1), Enum.Material.SmoothPlastic, Village,
 	{ Transparency = 1, CanCollide = false, CanQuery = false, CastShadow = false })
 safe:SetAttribute("SafeZone", true); safe:SetAttribute("ZoneId", "Village")
@@ -489,34 +571,49 @@ local function stall(x,z,rot,col,label)
 	local t = Instance.new("TextLabel"); t.Size = UDim2.fromScale(1,1); t.BackgroundTransparency = 1
 	t.Font = Enum.Font.GothamBold; t.TextScaled = true; t.TextColor3 = Color3.fromRGB(246,236,214); t.Text = label; t.Parent = g
 end
-stall(-46,132,0,Color3.fromRGB(178,66,58),"PRODUCE")
-stall(46,132,0,Color3.fromRGB(64,110,168),"POTIONS")
-stall(-46,180,180,Color3.fromRGB(206,162,62),"TRINKETS")
-stall(46,180,180,Color3.fromRGB(78,142,94),"SUPPLIES")
+-- All four stalls inside the square as two facing rows either side of centre,
+-- making a market street across the plaza rather than four scattered props.
+stall(-27,CROSS_Z-26,-90,Color3.fromRGB(178,66,58),"PRODUCE")
+stall(-27,CROSS_Z+26,-90,Color3.fromRGB(206,162,62),"TRINKETS")
+stall( 27,CROSS_Z-26, 90,Color3.fromRGB(64,110,168),"POTIONS")
+stall( 27,CROSS_Z+26, 90,Color3.fromRGB(78,142,94),"SUPPLIES")
 
+-- Well sits in the north-west courtyard. On the road axis it blocked the one
+-- route players are meant to walk straight down.
+local WELL_X, WELL_Z = -92, 168
 local well = Instance.new("Model"); well.Name = "StoneWell"; well.Parent = Props
 for i = 1, 16 do
 	local a = (i/16)*math.pi*2
-	P("Well_Stone", Vector3.new(1.4,3,1.4), CFrame.new(-14+math.cos(a)*3.4,4.9,190+math.sin(a)*3.4)*CFrame.Angles(0,-a,0), STONE_F, Enum.Material.Cobblestone, well)
+	P("Well_Stone", Vector3.new(1.4,3,1.4), CFrame.new(WELL_X+math.cos(a)*3.4,4.9,WELL_Z+math.sin(a)*3.4)*CFrame.Angles(0,-a,0), STONE_F, Enum.Material.Cobblestone, well)
 end
-P("Well_Water", Vector3.new(0.3,5.4,5.4), CFrame.new(-14,5.4,190)*CFrame.Angles(0,0,math.rad(90)), Color3.fromRGB(48,88,124), Enum.Material.Glass, well,
+P("Well_Water", Vector3.new(0.3,5.4,5.4), CFrame.new(WELL_X,5.4,WELL_Z)*CFrame.Angles(0,0,math.rad(90)), Color3.fromRGB(48,88,124), Enum.Material.Glass, well,
 	{ Transparency = 0.28, Shape = Enum.PartType.Cylinder })
 for _, ox in ipairs({ -3.6, 3.6 }) do
-	P("Well_Post", Vector3.new(0.7,6,0.7), CFrame.new(-14+ox,9.4,190), TIMBER, Enum.Material.Wood, well)
+	P("Well_Post", Vector3.new(0.7,6,0.7), CFrame.new(WELL_X+ox,9.4,WELL_Z), TIMBER, Enum.Material.Wood, well)
 end
-pitchedPair(well, "Well_Roof", CFrame.new(-14,12.4,190), 8, 6, 34, 0.5, ROOF_A, Enum.Material.Slate, "X")
+pitchedPair(well, "Well_Roof", CFrame.new(WELL_X,12.4,WELL_Z), 8, 6, 34, 0.5, ROOF_A, Enum.Material.Slate, "X")
+for x = -8, 8, 4 do
+	for z = -8, 8, 4 do
+		P("Footpath_Tile", Vector3.new(3.8,0.5,3.8), CFrame.new(WELL_X+x,3.28,WELL_Z+z), Color3.fromRGB(124,116,104), Enum.Material.Cobblestone, Paths)
+	end
+end
 
+-- Barrels stacked against the tavern wall, hay in the east courtyard, cart
+-- parked parallel to the cross street. All lined up rather than strewn.
 for i = 1, 5 do
-	P("HayBale", Vector3.new(4,3.4,3.4), CFrame.new(96+rng:NextNumber(-5,5),4.9,196+i*4.6)*CFrame.Angles(0,0,math.rad(90)),
+	P("Barrel", Vector3.new(3.2,2.6,2.6), CFrame.new(-100,2.6,CROSS_Z-16+i*3.4)*CFrame.Angles(0,0,math.rad(90)), WOOD, Enum.Material.WoodPlanks, Props, { Shape = Enum.PartType.Cylinder })
+end
+for i = 1, 4 do
+	P("HayBale", Vector3.new(4,3.4,3.4), CFrame.new(100,4.9,CROSS_Z+14+i*4.6)*CFrame.Angles(0,0,math.rad(90)),
 		Color3.fromRGB(206,178,96), Enum.Material.Grass, Props, { Shape = Enum.PartType.Cylinder })
 end
 local cart = Instance.new("Model"); cart.Name = "MerchantCart"; cart.Parent = Props
-P("Cart_Bed", Vector3.new(8,1.2,4.6), CFrame.new(-78,5.6,150), WOOD, Enum.Material.WoodPlanks, cart)
+P("Cart_Bed", Vector3.new(8,1.2,4.6), CFrame.new(-62,5.6,CROSS_Z-20), WOOD, Enum.Material.WoodPlanks, cart)
 for _, oz in ipairs({ 2.1, -2.1 }) do
-	P("Cart_Rail", Vector3.new(8,1.6,0.4), CFrame.new(-78,7,150+oz), TIMBER, Enum.Material.Wood, cart)
+	P("Cart_Rail", Vector3.new(8,1.6,0.4), CFrame.new(-62,7,CROSS_Z-20+oz), TIMBER, Enum.Material.Wood, cart)
 end
 for _, o in ipairs({ {-2.8,-2.5},{-2.8,2.5} }) do
-	P("Cart_Wheel", Vector3.new(0.6,3.8,3.8), CFrame.new(-78+o[1],4.5,150+o[2])*CFrame.Angles(0,math.rad(90),math.rad(90)), TIMBER, Enum.Material.Wood, cart, { Shape = Enum.PartType.Cylinder })
+	P("Cart_Wheel", Vector3.new(0.6,3.8,3.8), CFrame.new(-62+o[1],4.5,CROSS_Z-20+o[2])*CFrame.Angles(0,math.rad(90),math.rad(90)), TIMBER, Enum.Material.Wood, cart, { Shape = Enum.PartType.Cylinder })
 end
 
 --============================================================ CLIFFS
