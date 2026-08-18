@@ -68,17 +68,21 @@ light — there are 169 of them and lighting them all would wreck performance.
 Workspace is not Rojo-managed. The world used to be regenerated from
 `tools/BuildWorld.luau`, but at ~14,000 parts that is no longer practical, so
 **the place file is now the source of truth for everything under Workspace**
-and `.rbxlx` is deliberately committed.
+and it is deliberately committed.
 
 `tools/BuildWorld.luau` is kept only as a record of the *original* village. It
 carries a warning banner. Do not run it — it would destroy the current world.
 
 After any world change:
 
-1. In Studio: **File → Save to File As**
-2. Save into this repo folder as **`RNGArmory.rbxlx`** (XML, not `.rbxl` —
-   the binary format does not diff)
+1. In Studio: **File → Download a Copy**  (a cloud-opened place has no
+   "Save to File As" — Download a Copy is the equivalent)
+2. Overwrite **`RNGArmory.rbxl`** in this repo folder
 3. Commit it alongside your scripts
+
+`RNGArmory.rbxl` is binary: it stores and restores perfectly but does not
+diff, and two people editing the world at once cannot merge it. Coordinate
+before world sessions.
 
 If you skip this, your geometry exists on your machine only and the other
 collaborator cannot see it.
@@ -97,7 +101,7 @@ src/shared/   → ReplicatedStorage      config, shared modules, remote manifest
 src/server/   → ServerScriptService    authoritative game systems
 src/client/   → StarterPlayerScripts   UI and input
 tools/        → not synced             one-off scripts
-RNGArmory.rbxlx                        the world (Workspace geometry)
+RNGArmory.rbxl                         the world (Workspace geometry)
 ```
 
 ---
@@ -146,7 +150,7 @@ editing to match.
 
 ### 5. Open the world
 
-Open **`RNGArmory.rbxlx`** from this folder in Studio. That is the world.
+Open **`RNGArmory.rbxl`** from this folder in Studio. That is the world.
 
 ### 6. Sync and play
 
@@ -169,8 +173,8 @@ git pull
 
 …work…
 
-Save the place if you touched the world (File → Save to File As →
-`RNGArmory.rbxlx`), then:
+Save the place if you touched the world (File → Download a Copy, overwriting
+`RNGArmory.rbxl`), then:
 
 ```bash
 git add -A && git commit -m "what changed" && git push

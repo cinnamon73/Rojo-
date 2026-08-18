@@ -105,9 +105,9 @@ The village was rebuilt end to end and is no longer a weak point. What remains:
   does not open. This is the biggest remaining gap in the village.
 - **NPCs** — no villagers, no shopkeepers. The market has stalls and wares but
   nobody tending them, which is now the most conspicuous absence.
-- **The guardhouse tower** outside the gate is the last un-rebuilt structure —
-  a plain 52-stud shaft with a stepped-pyramid cap, standing at 75.5, taller
-  than the castle keep. It needs redesigning or removing.
+- **A hidden spawn exists now** (`VillageSpawn`, behind the well). Before this
+  the place had no SpawnLocation at all — worth knowing if spawn behaviour
+  ever looks odd.
 - **Terrain elevation** — the ground is still a flat slab under the dressing.
 - **Zone 1 (`StarterZone`) needs remaking** — see Phase 5b. It has not had the
   village treatment and is visibly the roughest part of the game.
@@ -184,4 +184,5 @@ The HUD and panels are functional but visually unfinished.
 - Create gamepasses and developer products, paste ids into `MonetizationConfig`
 - Upload audio and icons, paste ids into `AssetConfig`
 - Source or commission real meshes for armour and enemies
-- **Save the place as `RNGArmory.rbxlx` after world changes** — see README
+- **Save the place after world changes** — File → Download a Copy, overwriting
+  `RNGArmory.rbxl`. See README, "Saving the world".

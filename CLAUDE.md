@@ -29,13 +29,15 @@ services *inside Studio* gets overwritten on the next sync. Put Luau in `src/`.
 **Workspace is NOT managed by Rojo.** It used to be regenerated from
 [`tools/BuildWorld.luau`](tools/BuildWorld.luau), but the world is now ~14,000
 parts and that is no longer practical. **The place file is the source of truth
-for everything under Workspace**, `.rbxlx` is deliberately committed, and the
-builder is legacy — it carries a warning banner and running it would destroy
-the current world.
+for everything under Workspace**, `RNGArmory.rbxl` is deliberately committed,
+and the builder is legacy — it carries a warning banner and running it would
+destroy the current world.
 
-**Save the place after any world change**: File → Save to File As →
-`RNGArmory.rbxlx` in the repo folder, then commit it. Geometry you do not save
-exists on your machine only.
+**Save the place after any world change**: File → **Download a Copy** (a
+cloud-opened place has no "Save to File As"), overwriting `RNGArmory.rbxl` in
+the repo folder, then commit it. Geometry you do not save exists on your
+machine only. The file is binary: it restores perfectly but does not diff, and
+two people editing the world at once cannot merge it.
 
 ### Geometry lessons, each of which cost real bugs
 
@@ -56,6 +58,27 @@ exists on your machine only.
 - **The path surface is one flat plane** at `y = 0.30` with zero overlaps. That
   is what makes z-fighting impossible rather than suppressed. Vary colour and
   material, never height.
+- **Build assemblies as chains, not from a common origin.** Place each piece
+  from the endpoint of the one it attaches to: a bar of length `L` pointing
+  along `d` with its base at `B` has centre `B + d*(L/2)` and ends at
+  `B + d*L`. Every fixture built by eye-tuned offsets — 68 torches, 6 market
+  stalls, 2 lean-tos — came out with floating pieces. Rotating a part moves
+  its ends, so offsets guessed before the rotation never meet after it.
+- **Rings of blocks on an arc need a depth stagger.** Voussoirs rotated about
+  Z keep their faces parallel, so every block in the ring sits on one plane
+  and they z-fight however narrow you make them. Size them from measured
+  neighbour spacing AND offset alternate blocks along their own normal.
+- **Recovering a yaw from a LookVector is `atan2(-L.X, -L.Z)`**, not
+  `atan2(L.X, L.Z)` — the latter is θ+π and silently flips the building. This
+  has now spun a building backwards twice.
+- **The curtain wall is a curve, not a rectangle.** Anything joining it must
+  read the bay's actual bearing. Axis-aligned gate wings left a 12-stud gap.
+- **A "floating parts" test must accept ground support**, or every prop
+  standing on the paving reads as broken. Raycast down before flagging.
+- **Coplanar-overlap tests over-report.** They count masses that meet flush
+  inside a wall, and they treat a rolled cylinder as a box. Only pairs with
+  *both* faces exposed on a shared plane actually flicker. Check a screenshot
+  before acting on a large count.
 
 **Screenshot at player eye height before trusting any geometry change.** A
 top-down view has hidden every one of the bugs above.
@@ -132,8 +155,8 @@ Worth knowing before you assume a system is finished:
 - **No audio anywhere.** Every id in `AssetConfig` is `0`.
 - **Buildings are shells.** No interiors; doors do not open. And the village has
   no NPCs — the market has stalls and wares but nobody tending them.
-- **The guardhouse outside the gate is un-rebuilt** — a plain 52-stud shaft with
-  a stepped-pyramid cap at 75.5, taller than the castle keep.
+- **A hidden `VillageSpawn` sits behind the well.** Before it was added the
+  place had no SpawnLocation at all.
 - **Zone 1 (`StarterZone`) needs remaking.** The hunting grounds were built in
   an early pass and have not had any of the village treatment — no organic
   paths, no lighting, no dressing pass. It is the next big world job and it is
