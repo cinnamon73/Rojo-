@@ -22,7 +22,7 @@ and coins, level up, roll better. The systems are unpolished; the world is not.
 | Inventory | Grid, 8 filters, search, equip/unequip, sell, lock, stat comparison |
 | Equipment | 7 slots, aggregate stats, Power, visible weapon models |
 | Combat | 6 enemy types, aggro/chase/attack/leash AI, crits, modifier effects |
-| World | Walled village with castle, market, 11 buildings, lit at dusk. ~14,000 parts |
+| World | Walled village with castle, market, 11 buildings, lit at dusk. ~14,000 parts. Zone 1 awaiting rebuild |
 | Characters | Standard R15 body for everyone; head, face, hair and accessories preserved |
 | Anti-exploit | Server decides every outcome; token-bucket limits on all remotes |
 
@@ -47,7 +47,16 @@ Village/
   Foliage/          141 trees, 233 shrubs, ground cover
   Lamps/            13 lantern posts
 StarterZone/        hunting grounds, slime pit, goblin camps, boss arena
+                    — being rebuilt from scratch, see ROADMAP Phase 5b
 ```
+
+**Zone 1 is the next big job.** `StarterZone` was built in an early pass and
+never got the village treatment, so it is visibly the roughest part of the
+game — and it is where players spend their combat time. The rebuild puts it on
+**Roblox voxel Terrain** for genuine hills, ravines and craters, the first use
+of Terrain in this project; structures, props and vegetation stay as Parts. The
+village is read-only while that work runs. ROADMAP Phase 5b carries the layout,
+the ~6,000 part budget and the five review checkpoints.
 
 **The path system is a single flat surface.** Every path tile sits at exactly
 `y = 0.30` with no overlaps, which is what makes z-fighting structurally
@@ -103,6 +112,13 @@ src/client/   → StarterPlayerScripts   UI and input
 tools/        → not synced             one-off scripts
 RNGArmory.rbxl                         the world (Workspace geometry)
 ```
+
+**The world and the combat system meet at exactly one place: attributes.**
+`EnemyService` walks every descendant of `Workspace.World` and spawns from any
+`BasePart` carrying an `EnemyId` string attribute, reading `MaxAlive` and
+`Radius` alongside it. Nothing is matched by name and no folder path is
+hardcoded — which means a zone can be torn down and rebuilt freely, but a
+typo'd `EnemyId` fails silently. See CLAUDE.md, "The enemy spawn contract".
 
 ---
 

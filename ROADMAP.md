@@ -34,16 +34,85 @@ systems on top of broken ones.
 
 `StarterZone` was built in an early pass and never got the treatment the
 village did. It is now visibly the worst-looking part of the game, and it is
-where players spend their combat time.
+where players spend their combat time. It is being **rebuilt from scratch**,
+not patched.
 
-- Organic path network, built the same way as the village: one flat surface at
-  a single height, no overlaps, colour and material variation only
-- Lighting pass — the zone is unlit while the village is lit at dusk
-- Terrain elevation and variation rather than a flat slab
-- Dressing: proper copses, rocks, ruins, camp detail
-- Rework the slime pit, goblin camps and boss arena as real places rather
-  than markers with props around them
-- The zone gate between village and zone needs to read as a real boundary
+**The village is not Zone 1 and is not part of this work.** Zone 1 begins
+beyond the village gate. The entire village — walls, gate, buildings, roads,
+lighting, props — is read-only for the duration of this phase. Proximity does
+not mean ownership: if something sits near the zone boundary but belongs to the
+village, it stays.
+
+#### Decisions taken
+
+| | Decision |
+|---|---|
+| Landforms | **Roblox voxel Terrain**, the first use of it in this project |
+| Structures, props, vegetation | Parts, as everywhere else |
+| Atmosphere | A small client script blending fog/ambient by player position |
+| Part budget | ~6,000, taking the place to roughly 15,000 total |
+| Review | Five checkpoints, screenshots at each before continuing |
+
+Everything except the terrain itself still obeys the house rule: every
+generated `Part` / `WedgePart` / `MeshPart` is `Anchored = true` and
+`CastShadow = true`. Voxel Terrain has neither property, which is the one
+deliberate exception.
+
+#### Layout
+
+The gate faces south at `z = 66`, road running out to `z ≈ 24`, so the zone is
+a lobe extending into negative Z — roughly **520 × 460 studs** against the
+village's ~560 span. Comparable, slightly smaller: the brief is density over
+size.
+
+| Chapter | Roughly |
+|---|---|
+| Gate apron, outskirts | z 24 → −40 |
+| Outer forest | −40 → −140 |
+| Goblin territory (west lobe) | −140 → −250 |
+| Abandoned battlefield (centre/east) | −160 → −280 |
+| Slime hollow (east, low ground) | −220 → −300 |
+| Deep forest | −280 → −370 |
+| Goblin King domain and arena | −370 → −450 |
+| Zone 2 gate | far south, ~−470 |
+
+Perimeter is a ridge-and-cliff arc west, a ravine on the east flank, and dense
+timber closing the south. Never a straight run and never a visible wall of
+world edge.
+
+#### Checkpoints
+
+| | Stage | Delivered |
+|---|---|---|
+| 1 | Perimeter and terrain sculpt | Bare landforms — ridge, ravine, hollows, battlefield scarring, arena bowl. No props. Mistakes are cheapest to fix here. |
+| 2 | Main route and combat spaces | Road from the gate, forks, clearings, camp footprints, arena floor, spawn markers wired up |
+| 3 | Structures | Camps, watchtowers, ruins, trench works, Zone 2 gate, arena build |
+| 4 | Vegetation and dressing | Forest, undergrowth, rocks, debris, slime pools |
+| 5 | Atmosphere | Lighting, the fog-blend script, final sweep |
+
+#### Risks identified before starting
+
+- **The village/zone ground seam.** `Ground_Pasture` is a Part cylinder, radius
+  411 centred at `(0, 380)`, so it ends at about `z = −31` — barely past the
+  gate. Voxel Terrain meeting a flat Part slab at that line will show a seam
+  unless the terrain edge is tucked under the slab and the join hidden in the
+  gate approach. Solve it at checkpoint 1, not checkpoint 5.
+- **Slime pools must be Parts, not Terrain water.** `Terrain.WaterColor` is a
+  single global property; making it slime-green would turn every body of water
+  in the place green. Parts also give proper glow and translucency.
+- **Vegetation is where the budget lives or dies.** A naive tree is 8–15 parts;
+  400 of them would eat 5,000 on their own. Build a small set of tree
+  archetypes and clone them — which also keeps the forest readable rather than
+  noisy.
+- **The arena is ~450 studs from spawn**, with no shortcut back. Worth deciding
+  whether the Zone 2 gate area doubles as a return point.
+
+#### Enemy placement
+
+All six defined enemies get a home in the layout: `Slime`, `Goblin`, `Wolf`,
+`GoblinWarrior`, `EliteGoblin`, `GoblinKing`. New spawn markers must carry the
+attribute contract `EnemyService` reads — see CLAUDE.md, "The enemy spawn
+contract".
 
 ---
 

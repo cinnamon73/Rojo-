@@ -33,6 +33,16 @@ for everything under Workspace**, `RNGArmory.rbxl` is deliberately committed,
 and the builder is legacy — it carries a warning banner and running it would
 destroy the current world.
 
+**The world is Parts, not voxel Terrain — with one coming exception.** Every
+existing surface, including the ground, is a `Part`; `Ground_Pasture` is a
+cylinder of radius 411 centred at `(0, 380)`, so it ends at about `z = −31`,
+barely past the village gate. **Zone 1 is being rebuilt on real voxel Terrain**
+(see ROADMAP Phase 5b), which makes that boundary a seam to hide deliberately
+rather than discover later. Two Terrain facts worth carrying: Terrain is not a
+`Part`, so it cannot be `Anchored` or `CastShadow` — it is the sole exception
+to that rule — and `Terrain.WaterColor` is **global**, so Terrain water can
+never be slime-green in one place and blue in another.
+
 **Save the place after any world change**: File → **Download a Copy** (a
 cloud-opened place has no "Save to File As"), overwriting `RNGArmory.rbxl` in
 the repo folder, then commit it. Geometry you do not save exists on your
@@ -117,6 +127,31 @@ Rojo suffix conventions: `.server.luau` → `Script`, `.client.luau` →
 - Small modules, clear names, comments only where the logic is genuinely
   non-obvious.
 
+## The enemy spawn contract
+
+This matters more than it looks, because it is the only link between the world
+geometry and the combat system, and it is entirely attribute-driven.
+
+`EnemyService.populate()` walks **every descendant of `Workspace.World`** and
+picks up any `BasePart` carrying an `EnemyId` string attribute. Nothing is
+matched by name, and no folder path is hardcoded.
+
+| Attribute | Meaning |
+|---|---|
+| `EnemyId` | Required, string. Must match an id in `EnemyConfig`. |
+| `MaxAlive` | How many live at this marker at once. Defaults to `2`. |
+| `Radius` | Scatter radius around the marker. |
+
+Two consequences:
+
+- **Deleting and rebuilding a zone breaks nothing**, provided the new markers
+  carry the same attributes. You are free to restructure folders.
+- **A marker with a typo'd `EnemyId` fails silently.** `EnemyConfig.Get`
+  returns nil and the marker is skipped with no warning.
+
+Defined ids: `Slime`, `Goblin`, `Wolf`, `GoblinWarrior`, `EliteGoblin`,
+`GoblinKing`. The boss marker is `BossSpawn` and carries `BossId`.
+
 ## Build phases
 
 **[ROADMAP.md](ROADMAP.md) is the authoritative plan.** Read it before starting
@@ -133,7 +168,8 @@ of broken ones.
 | 3 | Inventory — item instances, equip/unequip, sell, favourite, compare | Done |
 | 4 | Combat — weapons, attacks, damage, enemy AI, rewards | Done |
 | 5 | World — village, castle, paths, lighting, dressing | Done |
-| 6 | Boss — Goblin King, phases, telegraphs, rare drops | **Next** |
+| 5b | Zone 1 rebuild — hunting grounds on voxel Terrain | **Next** |
+| 6 | Boss — Goblin King, phases, telegraphs, rare drops | |
 | 7 | Progression — quests, dailies, boosts, zone gates | |
 | 8 | Polish — sound, VFX, UI animation, announcements, settings | |
 | 9 | Monetization — gamepasses, products, VIP, cosmetics | |
@@ -157,10 +193,14 @@ Worth knowing before you assume a system is finished:
   no NPCs — the market has stalls and wares but nobody tending them.
 - **A hidden `VillageSpawn` sits behind the well.** Before it was added the
   place had no SpawnLocation at all.
-- **Zone 1 (`StarterZone`) needs remaking.** The hunting grounds were built in
-  an early pass and have not had any of the village treatment — no organic
-  paths, no lighting, no dressing pass. It is the next big world job and it is
-  visibly rougher than everything inside the walls.
+- **Zone 1 (`StarterZone`) is being rebuilt from scratch.** The hunting grounds
+  were built in an early pass and never had any of the village treatment — no
+  organic paths, no lighting, no dressing. It is visibly rougher than
+  everything inside the walls, and it is where players actually spend their
+  combat time. **ROADMAP Phase 5b carries the full spec**: voxel Terrain for
+  landforms, Parts for everything else, a ~6,000 part budget, and five review
+  checkpoints. While that work is live, **the village is read-only** — it is
+  not Zone 1, and proximity to the boundary does not make something part of it.
 
 ## Outstanding manual steps
 
