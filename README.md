@@ -22,7 +22,7 @@ what is left to build and what needs a second pass.
 | Inventory | Grid, 8 filters, search, equip/unequip, sell, lock, stat comparison |
 | Equipment | 7 slots, aggregate stats, Power, visible weapon models |
 | Combat | 6 enemy types, aggro/chase/attack/leash AI, crits, modifier effects |
-| World | Village safe hub, Verdant Fields, boss arena (built but empty) |
+| World | Fortified walled village, enclosed hunting grounds, slime pit, goblin camps, boss arena (empty) |
 | Characters | Standard R15 body for everyone; head, face, hair and accessories preserved |
 | Anti-exploit | Server decides every outcome; token-bucket limits on all remotes |
 

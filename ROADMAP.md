@@ -125,15 +125,20 @@ Only one animation exists: a single Motor6D swing arc per archetype.
 
 ### Map and buildings
 
-The village reads correctly but is thin, and Verdant Fields is sparse.
+The world was fully rebuilt: a fortified walled village and an enclosed
+overgrown hunting zone, ~7,200 parts, everything anchored and shadow-casting
+with semantic names. What remains is depth rather than structure.
 
-- Building interiors — everything is a solid shell with a door that does not open
-- Village needs population: NPCs, props, signage, market goods on the counters
-- Ground detail: paths worn into grass, flowerbeds, fences, clutter
-- Verdant Fields is a flat plane with scattered trees; it needs terrain variation,
-  landmarks, and a reason to explore in any particular direction
-- Boss arena is a floor and a ring of pillars — no atmosphere
-- Skybox, and a considered lighting pass for time of day
+- Building interiors — every building is still a solid shell with a door that
+  does not open. This is the biggest remaining gap in the village.
+- NPCs — no villagers, no shopkeepers, nothing alive inside the walls
+- Terrain variation — the ground is still a flat slab underneath the dressing.
+  Real elevation, water and worn dirt would do more than additional props.
+- Boss arena is a floor, pillars and braziers; it needs atmosphere befitting
+  the fight it will host
+- Skybox and a time-of-day pass — the lamp posts, forge and campfires all have
+  working PointLights, but it never gets dark enough to show them off
+- Interior light spill — windows read as glass but no light comes through them
 
 ### GUI cleanup
 
