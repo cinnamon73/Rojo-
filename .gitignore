@@ -2,12 +2,16 @@
 *.rbxl.lock
 *.rbxlx.lock
 
-# Place files. Your scripts live in src/ and are the real source of truth,
-# but Workspace geometry exists ONLY in the place file. If you want that
-# geometry version-controlled, comment these two lines out and commit the
-# .rbxlx (the XML format diffs; .rbxl is binary and will not).
+# Binary place format. Does not diff, do not commit.
 *.rbxl
-*.rbxlx
+
+# NOTE: .rbxlx is deliberately NOT ignored.
+#
+# Workspace geometry is not Rojo-managed, so the world exists only in the
+# place file. It is now ~14,000 parts and cannot practically be regenerated
+# from a builder script, so the XML place file IS the source of truth for
+# everything under Workspace. Save the place into this folder as
+# RNGArmory.rbxlx and commit it. See README, "Saving the world".
 
 # Rojo build output
 build/

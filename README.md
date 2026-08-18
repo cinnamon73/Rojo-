@@ -5,10 +5,10 @@ A Roblox RPG built around an RNG equipment system.
 > Roll for equipment → Equip better gear → Fight enemies → Earn currency →
 > Upgrade → Unlock new zones → Better loot → Repeat
 
-**Status: playable vertical slice.** The full loop runs end to end — roll,
-reveal, equip, walk out of the village, fight, earn XP and coins, level up, roll
-better. It is not polished and it is not finished. [ROADMAP.md](ROADMAP.md) has
-what is left to build and what needs a second pass.
+**Status: playable vertical slice in a finished-looking world.** The full loop
+runs end to end — roll, reveal, equip, walk out of the village, fight, earn XP
+and coins, level up, roll better. The systems are unpolished; the world is not.
+[ROADMAP.md](ROADMAP.md) has what is left.
 
 ---
 
@@ -22,11 +22,66 @@ what is left to build and what needs a second pass.
 | Inventory | Grid, 8 filters, search, equip/unequip, sell, lock, stat comparison |
 | Equipment | 7 slots, aggregate stats, Power, visible weapon models |
 | Combat | 6 enemy types, aggro/chase/attack/leash AI, crits, modifier effects |
-| World | Fortified walled village, enclosed hunting grounds, slime pit, goblin camps, boss arena (empty) |
+| World | Walled village with castle, market, 11 buildings, lit at dusk. ~14,000 parts |
 | Characters | Standard R15 body for everyone; head, face, hair and accessories preserved |
 | Anti-exploit | Server decides every outcome; token-bucket limits on all remotes |
 
 **Not built yet:** the boss, quests, daily rewards, shop, monetization, audio.
+
+---
+
+## The world
+
+Everything sits under `Workspace.World`.
+
+```
+Village/
+  Fortifications/   curtain wall (62 bays), 9 drum watch towers, gatehouse,
+                    gate hoardings, 62 wall torches, gate lighting
+  Castle/           bailey, gatehouse, keep with corner turrets, inner ward
+  Town/             tavern, general store, bakery, blacksmith, 7 houses
+  Outbuildings/     stable, barn, woodshed, granary along the gate road
+  Market/           six stalls ringing the well
+  Paths/            organic cobbled ways and dirt tracks, one flat surface
+  Yards/            fenced plots, vegetable beds and clutter per building
+  Foliage/          141 trees, 233 shrubs, ground cover
+  Lamps/            13 lantern posts
+StarterZone/        hunting grounds, slime pit, goblin camps, boss arena
+```
+
+**The path system is a single flat surface.** Every path tile sits at exactly
+`y = 0.30` with no overlaps, which is what makes z-fighting structurally
+impossible rather than something to keep suppressing. If you edit paths, keep
+that invariant — vary colour and material, never height.
+
+**Lighting is fixed at dusk** (`ClockTime 18.1`) with atmosphere, bloom and a
+warm shift. There are ~190 light sources: window glow, lanterns, wall torches,
+tower beacons and gate braziers. Arrow loops glow but deliberately cast no
+light — there are 169 of them and lighting them all would wreck performance.
+
+---
+
+## Saving the world
+
+**Read this before your first commit.**
+
+Workspace is not Rojo-managed. The world used to be regenerated from
+`tools/BuildWorld.luau`, but at ~14,000 parts that is no longer practical, so
+**the place file is now the source of truth for everything under Workspace**
+and `.rbxlx` is deliberately committed.
+
+`tools/BuildWorld.luau` is kept only as a record of the *original* village. It
+carries a warning banner. Do not run it — it would destroy the current world.
+
+After any world change:
+
+1. In Studio: **File → Save to File As**
+2. Save into this repo folder as **`RNGArmory.rbxlx`** (XML, not `.rbxl` —
+   the binary format does not diff)
+3. Commit it alongside your scripts
+
+If you skip this, your geometry exists on your machine only and the other
+collaborator cannot see it.
 
 ---
 
@@ -41,7 +96,8 @@ Anything a designer might reasonably want to tune lives in
 src/shared/   → ReplicatedStorage      config, shared modules, remote manifest
 src/server/   → ServerScriptService    authoritative game systems
 src/client/   → StarterPlayerScripts   UI and input
-tools/        → not synced             one-off scripts, e.g. the world builder
+tools/        → not synced             one-off scripts
+RNGArmory.rbxlx                        the world (Workspace geometry)
 ```
 
 ---
@@ -70,7 +126,7 @@ refuses because the tool is untrusted, run `rokit trust rojo-rbx/rojo` first.
 
 ### 3. Install the Rojo Studio plugin
 
-In Studio: **Toolbox → Creator Store → Plugins → search "Rojo" → Install**
+In Studio: **Toolbox → Creator Store → Plugins → search Rojo → Install**
 (publisher `rojo-rbx`).
 
 Do **not** use `rojo plugin install`. It looks up a
@@ -82,31 +138,26 @@ installed".
 
 In Studio: **Assistant → … → Manage MCP Servers → Enable Studio as MCP server**.
 
-`.mcp.json` in this repo already points Claude Code at the launcher via
+`.mcp.json` already points Claude Code at the launcher via
 `%LOCALAPPDATA%\Roblox\mcp.bat`, so Windows machines need no further config —
 just restart Claude Code so it picks the server up. On macOS the path is
 `/Applications/RobloxStudio.app/Contents/MacOS/StudioMCP` and `.mcp.json` needs
 editing to match.
 
-### 5. Build the world
+### 5. Open the world
 
-**The map is not in the repo as geometry — it is generated.** Workspace is not
-Rojo-managed and `.rbxlx` is gitignored, so the world lives here as a builder
-script instead. Cloning gets you the code but an empty place.
-
-Open the place in Studio, then paste the entire contents of
-[`tools/BuildWorld.luau`](tools/BuildWorld.luau) into the **Command Bar**
-(View → Command Bar) in **Edit mode** and press Enter. It is idempotent —
-running it twice produces one world, not two.
+Open **`RNGArmory.rbxlx`** from this folder in Studio. That is the world.
 
 ### 6. Sync and play
+
+Run this from the project folder — Rokit resolves the tool from `rokit.toml`,
+so it fails from anywhere else:
 
 ```bash
 rojo serve
 ```
 
-Click **Connect** in the Rojo panel, then press Play. You should spawn in the
-village plaza with a HUD, a working ROLL button, and enemies out past the gate.
+Click **Connect** in the Rojo panel, then press Play.
 
 ---
 
@@ -114,10 +165,12 @@ village plaza with a HUD, a working ROLL button, and enemies out past the gate.
 
 ```bash
 git pull
-rojo serve
 ```
 
 …work…
+
+Save the place if you touched the world (File → Save to File As →
+`RNGArmory.rbxlx`), then:
 
 ```bash
 git add -A && git commit -m "what changed" && git push
@@ -134,9 +187,13 @@ and neither Rojo nor Studio will merge anything for you. If you both run
 These cannot be done from code. Nothing breaks without them — the affected
 features stay inert rather than erroring — but they are required before launch.
 
+- [ ] **Set `Lighting.Technology` to `Future`** in Properties. Scripts cannot
+      set it; it needs elevated permission, and the command bar cannot even
+      read it. Until it is set, the ~190 light sources glow but do not properly
+      light the surfaces around them. This is the single biggest visual win
+      available and takes one click.
 - [ ] **Enable Studio Access to API Services** — Game Settings → Security.
-      Without it every DataStore call fails. Already enabled on the current
-      place; needed again on any new one.
+      Without it every DataStore call fails.
 - [ ] **Create gamepasses and developer products** on the Creator Dashboard and
       paste their ids into `src/shared/Config/MonetizationConfig.luau`. Every id
       is `0` today, which reads as inactive — nothing is granted, nothing errors.
@@ -147,6 +204,9 @@ features stay inert rather than erroring — but they are required before launch
 ---
 
 ## Troubleshooting
+
+**Rojo says it cannot find the tool.** You are not in the project folder. Rokit
+resolves tools from `rokit.toml`, so it must be run from here.
 
 **Rojo connects but changes never appear.** Check Plugins → Manage Plugins →
 Rojo has script injection permission. Denying it silently blocks updates to
@@ -161,9 +221,8 @@ unreachable.
 **Enemies spawn but never move.** They only step while at least one player is in
 the server, and they leash back to their marker if pulled too far.
 
-**Village geometry looks wrong.** Re-run `tools/BuildWorld.luau`. The
-pitched-roof maths is documented at the top of that file — it is easy to get
-wrong and only shows up at ground level.
+**The village looks flat and washed out.** `Lighting.Technology` is not set to
+`Future`. See the manual steps above.
 
 **Play-testing a change did nothing.** Rojo syncs to the Edit datamodel. A play
 session started before the sync landed is running the old code — stop, confirm

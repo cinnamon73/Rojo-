@@ -26,20 +26,39 @@ Two independent channels. Know which one you are using.
 **Rojo is authoritative for `src/`.** Anything you write into those three
 services *inside Studio* gets overwritten on the next sync. Put Luau in `src/`.
 
-**Workspace is NOT managed by Rojo**, and `.rbxlx` is gitignored — so the world
-would otherwise exist only inside one person's place file. It lives in the repo
-as a builder instead: [`tools/BuildWorld.luau`](tools/BuildWorld.luau), pasted
-into the Studio Command Bar in Edit mode. It is idempotent.
+**Workspace is NOT managed by Rojo.** It used to be regenerated from
+[`tools/BuildWorld.luau`](tools/BuildWorld.luau), but the world is now ~14,000
+parts and that is no longer practical. **The place file is the source of truth
+for everything under Workspace**, `.rbxlx` is deliberately committed, and the
+builder is legacy — it carries a warning banner and running it would destroy
+the current world.
 
-**Edit the builder, not the place.** Sculpting geometry by hand in Studio makes
-the world unreproducible and invisible to the other collaborator. If you change
-the map through MCP while iterating, fold the change back into the builder
-before you finish.
+**Save the place after any world change**: File → Save to File As →
+`RNGArmory.rbxlx` in the repo folder, then commit it. Geometry you do not save
+exists on your machine only.
 
-A geometry warning, because it cost three bugs: pitched roofs are easy to get
-wrong and only look wrong from ground level. The correct maths is documented at
-the top of the builder. **Screenshot at player eye height before trusting any
-geometry change** — a top-down view hid all three.
+### Geometry lessons, each of which cost real bugs
+
+- **Pitched roofs.** A slab at `z = s * run/2` takes rotation `s * pitch`, not
+  `-s * pitch`. `CFrame.Angles(φ,0,0)` maps local Z to `(0, -sin φ, cos φ)`.
+  Getting this backwards builds a valley instead of a ridge, and it is only
+  obvious from ground level.
+- **Cylinders lie along local X.** A `Cylinder` part needs a 90° roll about Z
+  to stand upright. Twenty-eight brazier bowls were built as barrels on their
+  side before this was spotted.
+- **Rotated parts need local-frame tests.** A world-axis-aligned box around a
+  rotated object over-covers badly and will swallow things you are looking for.
+- **Roof extents are not wall extents.** Roofs overhang walls by 8–13 studs
+  here. Carving ground using a building's full extent deletes the paving its
+  own door opens onto. Use the plinth.
+- **Props positioned relative to a plinth top will float** if they stand off
+  the plinth. This has now been fixed three separate times.
+- **The path surface is one flat plane** at `y = 0.30` with zero overlaps. That
+  is what makes z-fighting impossible rather than suppressed. Vary colour and
+  material, never height.
+
+**Screenshot at player eye height before trusting any geometry change.** A
+top-down view has hidden every one of the bugs above.
 
 ## Layout
 
@@ -90,7 +109,7 @@ of broken ones.
 | 2 | RNG — items, rarities, roll service, luck, pity, reveal, auto-roll | Done |
 | 3 | Inventory — item instances, equip/unequip, sell, favourite, compare | Done |
 | 4 | Combat — weapons, attacks, damage, enemy AI, rewards | Done |
-| 5 | World — village hub, Verdant Fields, spawns, arena, gate | Done |
+| 5 | World — village, castle, paths, lighting, dressing | Done |
 | 6 | Boss — Goblin King, phases, telegraphs, rare drops | **Next** |
 | 7 | Progression — quests, dailies, boosts, zone gates | |
 | 8 | Polish — sound, VFX, UI animation, announcements, settings | |
@@ -111,11 +130,22 @@ Worth knowing before you assume a system is finished:
 - **Armour and enemies are primitive rigs.** Weapons have real shaped geometry;
   armour is coloured boxes and enemies are assembled from blocks.
 - **No audio anywhere.** Every id in `AssetConfig` is `0`.
+- **Buildings are shells.** No interiors; doors do not open. And the village has
+  no NPCs — the market has stalls and wares but nobody tending them.
+- **The guardhouse outside the gate is un-rebuilt** — a plain 52-stud shaft with
+  a stepped-pyramid cap at 75.5, taller than the castle keep.
+- **Zone 1 (`StarterZone`) needs remaking.** The hunting grounds were built in
+  an early pass and have not had any of the village treatment — no organic
+  paths, no lighting, no dressing pass. It is the next big world job and it is
+  visibly rougher than everything inside the walls.
 
 ## Outstanding manual steps
 
 These cannot be done from code. Ask the user; do not work around them.
 
+- [ ] **Set `Lighting.Technology` to `Future`** in Properties. Scripts are not
+      permitted to set it, and cannot even read it. Until then the ~190 light
+      sources glow but do not light the surfaces around them.
 - [ ] **Enable Studio Access to API Services** — File → Game Settings →
       Security. Until this is on, every DataStore call fails and data saving
       cannot be tested.

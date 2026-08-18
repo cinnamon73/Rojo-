@@ -1,4 +1,22 @@
 --[[
+	================================================================
+	LEGACY — DO NOT RUN AGAINST THE CURRENT PLACE
+	================================================================
+
+	This builds the ORIGINAL axial village from an early pass. It is kept
+	only as a record of how the first world was generated.
+
+	The world has since been rebuilt entirely and is now ~14,000 parts:
+	castle, eleven buildings, an organic path network, market, yards,
+	outbuildings, foliage, a towered curtain wall and dusk lighting. None
+	of that is in this file, and running it would wreck the current place.
+
+	Workspace geometry now lives in the committed place file. See README,
+	"Saving the world".
+	================================================================
+]]
+
+--[[
 	BuildWorld — regenerates the entire world from scratch.
 
 	============================================================================
