@@ -2,16 +2,17 @@
 *.rbxl.lock
 *.rbxlx.lock
 
-# Binary place format. Does not diff, do not commit.
-*.rbxl
-
-# NOTE: .rbxlx is deliberately NOT ignored.
+# NOTE: place files are deliberately NOT ignored.
 #
 # Workspace geometry is not Rojo-managed, so the world exists only in the
-# place file. It is now ~14,000 parts and cannot practically be regenerated
-# from a builder script, so the XML place file IS the source of truth for
-# everything under Workspace. Save the place into this folder as
-# RNGArmory.rbxlx and commit it. See README, "Saving the world".
+# place file. It is ~14,000 parts and cannot practically be regenerated from
+# a builder script, so the place file IS the source of truth for everything
+# under Workspace. See README, "Saving the world".
+#
+# RNGArmory.rbxl is binary: it stores fine in git but will not produce
+# readable diffs, and two people editing the world at once cannot merge it.
+# Coordinate before making world changes. If Studio ever offers .rbxlx (XML),
+# prefer it — that format diffs.
 
 # Rojo build output
 build/
