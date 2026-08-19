@@ -192,6 +192,19 @@ end
 	No-ops when there is no weapon, so unarmed attacks simply do not animate
 	rather than erroring.
 ]]
+
+--[[
+	Per-player combo bookkeeping. Melee cycles slash -> backhand -> overhead;
+	pausing longer than COMBO_RESET drops back to the opener.
+
+	These declarations were deleted once by a mechanical edit that consumed
+	"the comment above the function" — which was the comment above THESE — and
+	every melee swing then died with "attempt to index nil" at the first
+	comboState lookup. If you move them, move their comment with them.
+]]
+local comboState: { [Player]: { Step: number, LastAt: number } } = {}
+local COMBO_RESET = 1.6
+
 --[[
 	Announces a swing on the FX bus. The animation itself runs CLIENT-side in
 	FXController on every machine — a 0.07s strike tweened on the server
