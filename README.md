@@ -31,7 +31,7 @@ loop. They still work; how much of each survives the new direction is open.
 
 | System | State |
 |---|---|
-| World | Walled village and a rebuilt hostile zone, both on voxel terrain. 13,438 parts, 258 light sources |
+| World | Walled village and a rebuilt hostile zone, both on voxel terrain. 14,174 parts, 223 light sources |
 | Combat | 6 enemy types, aggro/chase/attack/leash AI, crits, modifier effects |
 | Enemy spawning | Attribute-driven — any part with an `EnemyId` becomes a spawner |
 | Data & saving | DataStore with session locking, retry/backoff, autosave, shutdown flush |
@@ -57,22 +57,21 @@ Everything sits under `Workspace.World`. Ground is voxel Terrain throughout;
 structures, props and vegetation are Parts.
 
 ```
-Village/                        9,101 parts   <- the thing you defend
-  Foliage/         2,944  trees, shrubs, ground cover, outer treeline
-  Fortifications/  1,888  curtain wall (62 bays), 9 drum towers, gatehouse,
-                          62 wall torches - the defensive line
+Village/                        9,910 parts   <- the thing you defend
+  Fortifications/  2,941  the defensive line - see below
+  Foliage/         2,896  trees, shrubs, ground cover, outer treeline
   Town/            1,699  tavern, general store, bakery, blacksmith, 7 houses
   Yards/             920  fenced plots, vegetable beds, clutter
   Castle/            538  bailey, gatehouse, keep with corner turrets
   Lamps/             304  16 lantern posts along the paved ways
   Market/            266  six stalls ringing the well
   Outbuildings/      213  stable, barn, woodshed, granary
-  WallSkirt/         196
   Plaza/             132  the well, with a lantern on its roof ridge
   VillageSpawn            hidden spawn behind the well
+  _WallLine  _WallTowers  _WallGate    the wall geometry - do not delete
   _PathRoutes  _PathMask  the ONLY record of the road network - do not delete
 
-StarterZone/                    4,337 parts   <- where they come from
+StarterZone/                    4,264 parts   <- where they come from
   Vegetation/      2,204  forest by chapter, dead trees on the battlefield
   Structures/      1,215  goblin camp and outpost, 3 watchtowers, battlefield
                           trench works and ruins, slime pond, boss arena,
@@ -82,7 +81,38 @@ StarterZone/                    4,337 parts   <- where they come from
   EnemySpawns/        14  attribute-driven markers
 ```
 
-Terrain is roughly 489,000 voxel cells.
+14,174 parts in the world, 223 light sources, roughly 489,000 voxel cells.
+
+---
+
+## The walls, and getting onto them
+
+Rebuilt from scratch for players to fight from — the previous walls were
+scenery you could only look at.
+
+```
+Fortifications/     2,941 parts
+  Towers/           1,100   9 drum towers, each open through at walk level
+  Curtain/            783   62 bays, walk at y = 28.8, merlons to 34.4
+  WallStairs/         483   7 flights up from inside the village
+  Gatehouse/          311   twin-tower gate, barrel-vaulted passage
+  WallLighting/       199   62 wall torches and tower beacons
+  Guardhouse/          65   kept from the earlier build
+```
+
+The circuit is continuous: every tower carries a `Tower_WalkFloor` through it
+at walk height, so a player can run the full 1,907-stud perimeter without
+dropping off. Each tower also has an internal stair up to its deck.
+
+**The wall line is stored, not derived.** `_WallLine` holds 62 ordered joint
+points, `_WallTowers` the 9 tower centres, `_WallGate` the gate. Anything that
+attaches to the wall must read these — the wall is a curve, and treating it as
+a circle or a rectangle has broken geometry repeatedly.
+
+Stair spec, if you rebuild them: 22 treads, 2.6 run, 1.30 rise (27°), 8.0
+studs of clear walking width, offset 8.7 studs inboard of the wall line, rail
+outboard of the treads at 13.5. Flights are placed by bearing roughly every
+51°, clear of every tower, the gatehouse and the castle.
 
 ---
 
@@ -135,7 +165,7 @@ nothing unless you substitute a real width.
 
 ## Lighting and air
 
-**Lighting is fixed at dusk** (`ClockTime 18.1`). There are 258 light sources:
+**Lighting is fixed at dusk** (`ClockTime 18.1`). There are 223 light sources:
 window glow, 16 village lantern posts, the well lantern, 62 wall torches, tower
 beacons, gate braziers, and in the zone 21 torch posts, 4 junction cairns, camp
 fires, arena braziers and glowing fungus.
@@ -299,7 +329,7 @@ features stay inert rather than erroring — but they are required before launch
 
 - [ ] **Set `Lighting.Technology` to `Future`** in Properties. Scripts cannot
       set it; it needs elevated permission, and the command bar cannot even
-      read it. Until it is set, all **258** light sources glow but do not
+      read it. Until it is set, all **223** light sources glow but do not
       properly light the surfaces around them. This is the single biggest
       visual win available and takes one click.
 - [ ] **Enable Studio Access to API Services** — Game Settings → Security.

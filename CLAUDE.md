@@ -72,8 +72,22 @@ missing floors and never wipes.
 
 ## The world as it stands
 
-`Workspace.World` holds `Village` (9,101 parts) and `StarterZone` (4,337).
-13,438 parts and 258 light sources in total; terrain is ~489,000 voxel cells.
+`Workspace.World` holds `Village` (9,910 parts) and `StarterZone` (4,264).
+14,174 parts and 223 light sources in total; terrain is ~489,000 voxel cells.
+
+**The fortifications were rebuilt from scratch for players to fight from**
+(2,941 parts): 62 curtain bays with the walk at `y = 28.8` and merlons to
+`34.4`, 9 drum towers open through at walk level, a twin-tower gatehouse, and
+**7 stair flights** up from inside the village. The circuit is continuous — a
+`Tower_WalkFloor` carries the walk through every tower, so the full 1,907-stud
+perimeter is runnable.
+
+**The wall geometry is stored on the Village folder, not derived.** `_WallLine`
+(62 ordered joints), `_WallTowers` (9 centres), `_WallGate`. Anything attaching
+to the wall must read them. Two warnings from experience: these StringValues
+have been reverted by the other session mid-task, so **re-check `_WallTowers`
+actually holds corrected values before trusting it**, and the wall is a *curve* —
+treating it as a circle or a rectangle has broken geometry repeatedly.
 
 **Ground is voxel Terrain everywhere, and so are the roads.** The old
 `Ground_Pasture` Part disc and the 763-part `Paths` folder are both gone. Roads
@@ -154,8 +168,31 @@ Every one of these cost real bugs. Several cost the same bug twice.
 
 ### Geometry
 
-- **Pitched roofs.** A slab at `z = s * run/2` takes rotation `s * pitch`, not
-  `-s * pitch`. `CFrame.Angles(φ,0,0)` maps local Z to `(0, -sin φ, cos φ)`.
+- **Pitched roofs — and stair rails, and every other sloped slab.** A slab at
+  `z = s * run/2` takes rotation `s * pitch`, not `-s * pitch`.
+  `CFrame.Angles(φ,0,0)` maps local Z to `(0, -sin φ, cos φ)`. Built off
+  `CFrame.lookAt(p, p + ascentDirection)`, a rail wants **`+pitch`**. All eight
+  stair rails went in inverted and crossed their own flights like an X — and it
+  only showed from a 3/4 view, not from the side.
+- **A long assembly following the curtain wall must be built on the wall's arc
+  length, not on a chord.** Each stair flight is 57 studs; built along one
+  segment's direction it splayed up to 12 studs away from the wall it was
+  supposed to hug. Walk `_WallLine` by arc length and take the position and
+  frame from the line at each step. Rebuilt that way the centreline holds to
+  0.22 studs.
+- **A polyline's tangent jumps at every joint — smooth it.** Taking the raw
+  segment tangent gave a **15.6° yaw jump between two consecutive treads**, and
+  the advance along the flight collapsed from 2.6 studs to 0.18, bunching the
+  steps into a visible kink. Average the tangent over a window
+  (`(posAt(s+9) - posAt(s-9)).Unit`) and the worst jump falls to 1.34°.
+- **Rails, newels and copings belong OUTSIDE the walking strip.** Put them at
+  `inset + width/2 + thickness/2`, never inside the tread width — a rail set
+  1.6 studs into a 7-stud stair leaves 5.4, and a newel dropped on the
+  centreline blocks the entrance outright. Also remember **the curtain's own
+  plinth projects inward** and ate the inner 1.8 studs of the lower steps.
+- **Alternating colours across many small parts reads as a glitch.** Twenty
+  steps cycling four greys looked like corduroy / z-fighting. One stone colour
+  with a thin lighter nosing on each tread reads as masonry.
 - **Cylinders lie along local X.** A `Cylinder` needs a 90° roll about Z to
   stand upright. This is also how you make a flat disc.
 - **Recovering a yaw from a LookVector is `atan2(-L.X, -L.Z)`**, not
@@ -184,7 +221,7 @@ Every one of these cost real bugs. Several cost the same bug twice.
 
 ### Tests that lie
 
-Four separate false positives this project, and one of them was acted on and
+Eight separate false positives this project, and one of them was acted on and
 broke working geometry. Assume your check is wrong before you assume the world
 is.
 
@@ -202,6 +239,17 @@ is.
 - **Coplanar-overlap tests over-report.** They count masses meeting flush inside
   a wall and treat a rolled cylinder as a box. Check a screenshot before acting
   on a large count.
+- **A corridor-clearance probe counts the surfaces that define the corridor.**
+  Sweeping an 8-stud stair with a 1.4-wide box reported 827 intrusions — every
+  one was the box overlapping the wall face or the rail by about a tenth of a
+  stud at the very edge of the span. Inset the probe, or measure the gap
+  between the two bounding surfaces instead of hit-testing it.
+- **A walkable-surface probe must stop at the end of the surface.** Sampling
+  past the top landing reported a "25.8-stud jump" that was just the ray
+  reaching the ground beyond the structure. Bound the sweep to the thing you
+  are testing.
+- **A staircase's own ascending mass reads as an obstruction** to any headroom
+  check that looks forward and up. Exclude the flight's own steps.
 - **`math.noise` can return outside ±0.5.** Using it as a 0–1 roll without
   clamping overflows array indices.
 
@@ -281,7 +329,7 @@ Rojo suffix conventions: `.server.luau` → `Script`, `.client.luau` →
 
 These cannot be done from code. Ask the user; do not work around them.
 
-- [ ] **Set `Lighting.Technology` to `Future`.** Until then all 258 light
+- [ ] **Set `Lighting.Technology` to `Future`.** Until then all 223 light
       sources glow but do not light the surfaces around them.
 - [ ] **Enable Studio Access to API Services** — File → Game Settings →
       Security. Until this is on, every DataStore call fails.
@@ -312,3 +360,11 @@ collisions likely, so:
 6. **Announce structural changes in a commit message.** Renaming a service or
    changing a remote's signature breaks the other instance's assumptions
    silently.
+7. **Work in Workspace can vanish under you.** During the wall rebuild the
+   `Towers` folder (1,100 parts) and `WallStairs` (483) were deleted between two
+   of this session's own scripts — three separate times, along with the
+   `_WallTowers` StringValue reverting to pre-fix values. Team Create allows
+   simultaneous Workspace editing and there is no lock on it. So: **build and
+   verify in as few scripts as possible**, re-read the stored StringValues
+   rather than trusting an earlier write, and count parts before and after
+   anything long-running.
