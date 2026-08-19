@@ -33,6 +33,14 @@ export type Instance_ = {
 	Level: number,
 	Favorite: boolean,
 	ObtainedAt: number,
+	--[[
+		How many of this item you hold.
+
+		Optional so profiles written before stacking existed still load — every
+		read goes through GetCount(), which treats nil as 1. Do not make this
+		required without a migration in DataSchema.
+	]]
+	Count: number?,
 }
 
 local ItemInstance = {}
@@ -167,6 +175,25 @@ function ItemInstance.GetDisplayName(instance: Instance_): string
 	return template.Name
 end
 
+--[[
+	Name as it appears in lists: "Tattered Boots" on its own, or
+	"Tattered Boots x106" once the stack holds more than one.
+
+	Separate from GetDisplayName because the bare name is still what search
+	matches against and what announcements read out — nobody wants a global
+	banner saying someone obtained "TATTERED BOOTS X106".
+]]
+function ItemInstance.GetStackLabel(instance: Instance_): string
+	local count = ItemInstance.GetCount(instance)
+	local name = ItemInstance.GetDisplayName(instance)
+
+	if count <= 1 then
+		return name
+	end
+
+	return string.format("%s x%d", name, count)
+end
+
 --[[ Sell value, raised when the item carries a modifier. ]]
 function ItemInstance.GetSellValue(instance: Instance_): number
 	local template = ItemConfig.Get(instance.TemplateId)
@@ -187,6 +214,35 @@ end
 	saved data before it is trusted — a hand-edited profile must not be able to
 	inject a template id that does not exist.
 ]]
+--[[ How many of this item the stack holds. nil means a pre-stacking save. ]]
+function ItemInstance.GetCount(instance: Instance_): number
+	local count = instance.Count
+	if type(count) ~= "number" or count < 1 then
+		return 1
+	end
+	return math.floor(count)
+end
+
+--[[
+	Two items stack when this key matches.
+
+	Template AND modifier, because a Vampiric Iron Sword is a different thing
+	from a plain one and merging them would hide the modifier entirely.
+
+	Variance is deliberately NOT part of the key. It is a continuous roll, so
+	including it would mean nothing ever stacks — every Tattered Boots is
+	numerically unique. The stack therefore keeps the best-rolled copy and
+	counts the rest; see RNGService.Roll.
+]]
+function ItemInstance.StackKey(instance: Instance_): string
+	return instance.TemplateId .. "|" .. (instance.Modifier or "")
+end
+
+--[[ Sell value for the whole stack, not one unit. ]]
+function ItemInstance.GetStackSellValue(instance: Instance_): number
+	return ItemInstance.GetSellValue(instance) * ItemInstance.GetCount(instance)
+end
+
 function ItemInstance.IsValid(instance: any): boolean
 	if type(instance) ~= "table" then
 		return false

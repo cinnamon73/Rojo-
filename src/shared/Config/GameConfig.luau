@@ -56,6 +56,20 @@ GameConfig.Roll = {
 	-- Auto-roll is driven server-side on this interval, never by a client loop.
 	AutoRollEnabled = true,
 	MaxAutoRollDuration = 3600,
+
+	--[[
+		Auto-roll paces itself on this INSTEAD of racing the shared cooldown,
+		so each spin has room to land before the next one starts. Manual rolls
+		are untouched — clicking ROLL still only waits CooldownSeconds.
+	]]
+	AutoRollIntervalSeconds = 2.4,
+
+	--[[
+		Extra wait per multiplier rung landed. A chain is several spins rather
+		than one, and at the normal interval the sequence would be cut off by
+		the next roll starting before you had seen it.
+	]]
+	AutoRollChainPauseSeconds = 1.2,
 }
 
 GameConfig.RNG = {
@@ -67,6 +81,25 @@ GameConfig.RNG = {
 	-- Uncommon would be pointless and would eat the budget that should be
 	-- shifting players toward genuinely rare drops.
 	LuckMinRank = 3,
+
+	--[[
+		How much harder each tier above LuckMinRank scales with luck.
+
+		Without this, luck multiplies every boosted tier by the SAME factor, so
+		the ratios inside the boosted block never move — Rare:Epic:Legendary
+		stays 20:5:1 at any luck. The effect was that a 32x roll's most likely
+		outcome was a Rare, the lowest boosted tier, which reads as "my huge
+		multiplier did nothing".
+
+		Each rank above the threshold now raises luck to a slightly higher
+		power, so big multipliers push toward the TOP of the ladder rather than
+		just out of Common.
+
+		Zero restores the old flat behaviour. Crucially, at luck 1 this changes
+		nothing at all (1^x == 1), so base drop rates are untouched — it only
+		bites once a multiplier or a boost is actually in play.
+	]]
+	LuckRankScaling = 0.15,
 
 	-- Common can never be squeezed below this share of total weight, no matter
 	-- how much luck is stacked. Guarantees the distribution stays valid and

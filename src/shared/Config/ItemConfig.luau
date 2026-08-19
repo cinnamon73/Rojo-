@@ -54,6 +54,11 @@ export type ItemTemplate = {
 	Rarity: string,
 	Description: string,
 	BaseStats: Stats,
+	--[[
+		NOT ENFORCED. Kept as a tier hint for sorting and balance work only —
+		players can equip anything they roll, at any level. Nothing reads this
+		to allow or refuse an equip. See EquipmentService.Equip.
+	]]
 	LevelRequirement: number,
 	SellValue: number,
 	Icon: string?,

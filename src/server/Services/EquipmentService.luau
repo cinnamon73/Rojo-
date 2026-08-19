@@ -30,6 +30,9 @@ local DataService = require(script.Parent.DataService)
 local NetGuard = require(script.Parent.NetGuard)
 local ReplicationService = require(script.Parent.ReplicationService)
 local CharacterService = require(script.Parent.CharacterService)
+-- One-directional: RNGService knows nothing about equipment, so this cannot
+-- close a require cycle. Needed for the ItemRolled subscription in Start().
+local RNGService = require(script.Parent.RNGService)
 
 local log = Logger.new("EquipmentService")
 
@@ -169,14 +172,18 @@ function EquipmentService.Equip(player: Player, instanceId: any): any
 		return { Success = false, Error = "NoSuchSlot" }
 	end
 
-	if (profile.Progression.Level or 1) < template.LevelRequirement then
-		return {
-			Success = false,
-			Error = "LevelTooLow",
-			RequiredLevel = template.LevelRequirement,
-		}
-	end
+	--[[
+		No level gate: anything that drops can be worn immediately.
 
+		The loop is roll -> equip -> fight, and a drop you cannot use for six
+		levels breaks it at the exact moment it should feel best. Rarity and
+		drop weights already pace power; the level requirement paced it twice.
+
+		ItemConfig.LevelRequirement still exists as a tier hint for sorting and
+		balance, but nothing enforces it. Re-adding a check here means updating
+		that field's comment too, and the client no longer renders a
+		"requires level" line to match.
+	]]
 	profile.Equipment[template.Slot] = instanceId
 	afterChange(player)
 
@@ -205,6 +212,57 @@ function EquipmentService.Unequip(player: Player, slot: any): any
 	afterChange(player)
 
 	return { Success = true, Slot = slot, Power = EquipmentService.GetPower(profile) }
+end
+
+--[[
+	Equips `instance` if it beats what is already in its slot on Power.
+
+	Wired to RNGService.ItemRolled, so the loop becomes roll -> wear it if it
+	is better, with no panel to open. That matters most during auto-roll, where
+	the reveal is suppressed and the gear HUD is the only feedback the player
+	gets that anything improved.
+
+	STRICTLY greater, never equal. A sidegrade of identical power would still
+	rebuild the character's visuals and re-flash the HUD every time it landed,
+	which during auto-roll is a constant strobe for no benefit.
+
+	Deliberately ignores the Locked/favourite flag: locking protects an item
+	from being SOLD, not from being replaced in a slot, and the old item is not
+	destroyed — it goes back to the inventory.
+
+	Returns true if it actually changed anything.
+]]
+function EquipmentService.EquipIfBetter(player: Player, instance: any): boolean
+	local profile = DataService.Get(player)
+	if not profile or type(instance) ~= "table" then
+		return false
+	end
+
+	local template = ItemConfig.Get(instance.TemplateId)
+	if not template then
+		return false
+	end
+
+	local slot = template.Slot
+	-- nil means the slot is not real; "" means it is real and empty.
+	if profile.Equipment[slot] == nil then
+		return false
+	end
+
+	local currentId = profile.Equipment[slot]
+	local current = if currentId ~= "" then profile.Inventory.Items[currentId] else nil
+
+	local newPower = ItemInstance.GetPower(instance)
+	local currentPower = if current then ItemInstance.GetPower(current) else -1
+
+	if newPower <= currentPower then
+		return false
+	end
+
+	profile.Equipment[slot] = instance.Id
+	afterChange(player)
+
+	return true
 end
 
 function EquipmentService.SetFavorite(player: Player, instanceId: any, favorite: any)
@@ -254,6 +312,9 @@ function EquipmentService.Sell(player: Player, instanceIds: any, confirmed: any)
 	local toSell = {}
 	local needsConfirm = false
 	local total = 0
+	-- Stacks sold vs individual copies sold. #toSell is stacks; this is copies,
+	-- which is what the player counts and what ItemsSold should record.
+	local soldUnits = 0
 
 	for _, instanceId in ipairs(instanceIds) do
 		if type(instanceId) == "string" then
@@ -264,7 +325,10 @@ function EquipmentService.Sell(player: Player, instanceIds: any, confirmed: any)
 					needsConfirm = true
 				end
 				table.insert(toSell, instanceId)
-				total += ItemInstance.GetSellValue(instance)
+				-- Selling a stack sells every copy in it, so the payout has to
+				-- be per-stack, not per-unit.
+				soldUnits += ItemInstance.GetCount(instance)
+				total += ItemInstance.GetStackSellValue(instance)
 			end
 		end
 	end
@@ -277,7 +341,8 @@ function EquipmentService.Sell(player: Player, instanceIds: any, confirmed: any)
 		return {
 			Success = false,
 			Error = "ConfirmationRequired",
-			Count = #toSell,
+			Count = soldUnits,
+			Stacks = #toSell,
 			Value = math.floor(total * GameConfig.Economy.SellRefundRatio),
 		}
 	end
@@ -289,12 +354,12 @@ function EquipmentService.Sell(player: Player, instanceIds: any, confirmed: any)
 	end
 
 	profile.Currency.Coins += payout
-	profile.Stats.ItemsSold += #toSell
+	profile.Stats.ItemsSold += soldUnits
 	profile.Stats.CoinsEarned += payout
 
 	afterChange(player)
 
-	return { Success = true, Sold = #toSell, Payout = payout }
+	return { Success = true, Sold = soldUnits, Stacks = #toSell, Payout = payout }
 end
 
 --========================================================================
@@ -326,6 +391,24 @@ function EquipmentService.Start()
 			return { Success = false, Error = "BadRequest" }
 		end
 		return EquipmentService.Sell(player, payload.InstanceIds, payload.Confirmed)
+	end)
+
+	--[[
+		Auto-equip on roll.
+
+		Subscribed here rather than called from RNGService so the roll path
+		stays unaware of equipment — RNGService already announces what it
+		awarded, and this decides what to do about it.
+
+		ItemRolled fires before RNGService pushes the profile, so the equip
+		lands first and the client receives one already-correct profile rather
+		than an inventory update followed by an equipment update.
+	]]
+	RNGService.ItemRolled:Connect(function(player: Player, instance: any)
+		local ok, err = pcall(EquipmentService.EquipIfBetter, player, instance)
+		if not ok then
+			log:Warn("auto-equip failed for %s: %s", player.Name, tostring(err))
+		end
 	end)
 
 	NetGuard.OnEvent("FavoriteRequest", function(player, payload)
