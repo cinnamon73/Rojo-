@@ -87,23 +87,31 @@ AtmosphereConfig.Profiles = {
 	} :: Profile,
 
 	--[[
-		Beyond the gate. This is the heavy one: air you push through, with the
-		treeline dissolving rather than ending. Density 0.72 is close to the
-		practical ceiling before the HUD stops reading, and the raised ambient
-		stops the ground going black underneath it.
+		Beyond the gate. Heavier air than the village, with the treeline
+		dissolving rather than ending.
+
+		These numbers were MEASURED, not guessed. The original 0.72 / offset
+		0.40 was tested against reference blocks placed at 30/60/90/95 studs
+		down the route: at 0.72 everything past about 40 studs vanished, so an
+		enemy at bow range (90) or CombatController's reach (95) was invisible.
+		Lowering Offset is what buys back the near field — it is the dial that
+		pulls fog toward the camera — so density can stay high for distance
+		while the first hundred studs read clearly.
+
+		If you retune, re-run that test rather than eyeballing it.
 	]]
 	Wilds = {
 		Name = "Wilds",
 		FogColor = Color3.fromRGB(126, 142, 152),
-		FogStart = 12,
-		FogEnd = 240,
-		Density = 0.72,
-		Offset = 0.40,
+		FogStart = 30,
+		FogEnd = 330,
+		Density = 0.62,
+		Offset = 0.10,
 		Color = Color3.fromRGB(172, 186, 194),
 		Decay = Color3.fromRGB(70, 84, 96),
-		Glare = 0.70,
-		Haze = 3.6,
-		OutdoorAmbient = Color3.fromRGB(88, 98, 110),
+		Glare = 0.55,
+		Haze = 3.0,
+		OutdoorAmbient = Color3.fromRGB(92, 102, 114),
 	} :: Profile,
 }
 

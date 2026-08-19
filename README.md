@@ -1,97 +1,158 @@
 # RNG: ARMORY
 
-A Roblox RPG built around an RNG equipment system.
+**Medieval co-op wave survival / village defense**, built in Roblox.
 
-> Roll for equipment → Equip better gear → Fight enemies → Earn currency →
-> Upgrade → Unlock new zones → Better loot → Repeat
+Hold a walled village against waves that come up the road from the wilds beyond
+the gate. Fight on the ground, on the wall-walk and at the choke point; recover
+between waves; go back out for the boss.
 
-**Status: playable vertical slice in a finished-looking world.** The full loop
-runs end to end — roll, reveal, equip, walk out of the village, fight, earn XP
-and coins, level up, roll better. The systems are unpolished; the world is not.
-[ROADMAP.md](ROADMAP.md) has what is left.
+> ### This design is not locked
+>
+> The game is being built **iteratively**. Systems, enemies, wave structure,
+> objectives, progression, map areas and bosses are all still being decided,
+> and the direction has already changed once — the project began as an RNG
+> equipment RPG, and much of what exists was built for that shape.
+>
+> **The latest instruction wins.** When something new is asked for, adapt the
+> existing game around it rather than rebuilding. Keep what works. These
+> documents describe the *current* state and the *current* direction, not a
+> finished specification, and they are expected to change as the game does.
 
 ---
 
-## What works today
+## Where the game stands
+
+The **world is finished to a good standard** and reads as a defense map
+already: one gate, a curtain wall you can stand on, and a hostile zone with a
+road running out of it.
+
+The **systems are the rough half**, and several were built for the original RNG
+loop. They still work; how much of each survives the new direction is open.
 
 | System | State |
 |---|---|
-| Data & saving | DataStore with session locking, retry/backoff, autosave, shutdown flush |
-| RNG rolling | 39 items, 8 rarities, 10 modifiers, luck, pity — all server-side |
-| Roll reveal | Decelerating reel, rarity-tiered presentation, auto-roll with stop condition |
-| Inventory | Grid, 8 filters, search, equip/unequip, sell, lock, stat comparison |
-| Equipment | 7 slots, aggregate stats, Power, visible weapon models |
+| World | Walled village and a rebuilt hostile zone, both on voxel terrain. 13,438 parts, 258 light sources |
 | Combat | 6 enemy types, aggro/chase/attack/leash AI, crits, modifier effects |
-| World | Walled village on voxel terrain, castle, market, 11 buildings, lit at dusk. Zone 1 landforms rebuilt |
-| Characters | Standard R15 body for everyone; head, face, hair and accessories preserved |
+| Enemy spawning | Attribute-driven — any part with an `EnemyId` becomes a spawner |
+| Data & saving | DataStore with session locking, retry/backoff, autosave, shutdown flush |
+| RNG rolling | 39 items, 8 rarities, 10 modifiers, luck, pity, multiplier chains — all server-side |
+| Inventory | Unlimited, stacking, 8 filters, search, equip/unequip, sell, lock, compare |
+| Equipment | 7 slots, aggregate stats, Power, visible weapon models, auto-equip on upgrade |
+| Atmosphere | Fog and ambient blended by player position, village vs wilds |
 | Anti-exploit | Server decides every outcome; token-bucket limits on all remotes |
 
-**Not built yet:** the boss, quests, daily rewards, shop, monetization, audio.
+**Not built yet:** waves themselves, the boss fight, objectives, defenses,
+progression, audio, monetization.
+
+**Open questions the new direction raises**, none of them decided: rolling
+probably works better as a between-wave reward than as the main activity; zone
+travel and zone gates may not survive at all; the village needs somewhere for
+players to actually stand and hold.
 
 ---
 
 ## The world
 
-Everything sits under `Workspace.World`.
+Everything sits under `Workspace.World`. Ground is voxel Terrain throughout;
+structures, props and vegetation are Parts.
 
 ```
-Village/                        8,459 parts
-  Fortifications/  1,918  curtain wall (62 bays), 9 drum watch towers,
-                          gatehouse, gate hoardings, 62 wall torches
+Village/                        9,101 parts   <- the thing you defend
+  Foliage/         2,944  trees, shrubs, ground cover, outer treeline
+  Fortifications/  1,888  curtain wall (62 bays), 9 drum towers, gatehouse,
+                          62 wall torches - the defensive line
   Town/            1,699  tavern, general store, bakery, blacksmith, 7 houses
-  Yards/             920  fenced plots, vegetable beds and clutter
+  Yards/             920  fenced plots, vegetable beds, clutter
   Castle/            538  bailey, gatehouse, keep with corner turrets
   Lamps/             304  16 lantern posts along the paved ways
   Market/            266  six stalls ringing the well
   Outbuildings/      213  stable, barn, woodshed, granary
   WallSkirt/         196
   Plaza/             132  the well, with a lantern on its roof ridge
-  Foliage/         2,272  141 trees, 699 shrubs, 563 ground cover
-  _PathRoutes  _PathMask   the ONLY record of the road network - see below
   VillageSpawn            hidden spawn behind the well
-StarterZone/            0  no parts yet: landforms are voxel Terrain
+  _PathRoutes  _PathMask  the ONLY record of the road network - do not delete
+
+StarterZone/                    4,337 parts   <- where they come from
+  Vegetation/      2,204  forest by chapter, dead trees on the battlefield
+  Structures/      1,215  goblin camp and outpost, 3 watchtowers, battlefield
+                          trench works and ruins, slime pond, boss arena,
+                          the gate to Zone 2
+  Props/             739  boulders, fallen logs, stumps
+  Lights/            165  21 torch posts, 4 junction cairns, glowing fungus
+  EnemySpawns/        14  attribute-driven markers
 ```
 
-Terrain is ~498,000 voxel cells and there are 194 light sources.
+Terrain is roughly 489,000 voxel cells.
 
-**Zone 1's landforms are built.** `StarterZone` was sculpted from scratch on
-voxel Terrain — perimeter cliffs, a ravine, a slime hollow, a scarred
-battlefield with craters and trenches, a goblin plateau and the boss arena
-bowl, with a walkable route from the gate that never exceeds 25°. Structures,
-props and vegetation are still to come and stay as Parts. ROADMAP Phase 5b
-carries the layout, the ~6,000 part budget and the five review checkpoints.
+---
 
-**The ground is voxel Terrain, and so are the roads.** The old `Ground_Pasture`
-disc and the 763-part `Paths` folder are both gone. Roads are painted into the
-terrain as `Cobblestone`, dirt lanes as `Sandstone`/`Ground`. That makes
-z-fighting structurally impossible — there is no second surface to fight with.
+## Zone 1 — the wilds
 
-Terrain is held dead flat at `y = 0.10` under every part that meets the ground,
-using a mask built from their real footprints; hills (about 5 studs of relief)
-appear only in the open ring between the town and the curtain wall. **Only
-`Grass` and `LeafyGrass` grow blades**, so everywhere people walk is painted
-bare on purpose — the market square is paved right through, under the stalls
-and around the well. Roughly 70% of the village floor is green, 27% trodden
+Rebuilt from scratch on voxel Terrain. It runs south from the gate to
+`z = -500`, and it is the natural source of any attack on the village.
+
+| | |
+|---|---|
+| Perimeter | Rock cliffs, tall on the west, a ravine on the east flank, a ridge closing the south — the world is sealed all round |
+| Route network | A walkable spine from the gate to the arena, plus spurs to each combat space. **Nothing steeper than 26°** |
+| Goblin territory | Palisaded camp and a smaller outpost on a raised plateau, with watchtowers |
+| Battlefield | Scarred ground, 14 craters, 4 trenches with boarded revetments and firing steps, ruins, an abandoned siege engine |
+| Slime hollow | A single slime pond filling the sunken ground, shoreline cut by the terrain contour |
+| Boss arena | A bowl with a 12-pillar ring, braziers and the Goblin King's dais |
+| Zone 2 gate | Ruined coursed masonry set into the south ridge, carrying `RequiresPower = 1200` |
+
+Spawn markers: **Slime x4, Goblin x3, Wolf x3, GoblinWarrior x2,
+EliteGoblin x1**, plus a `BossSpawn` carrying `BossId = "GoblinKing"`.
+
+Verified on completion: zero holes over 5,625 samples, zero floating parts,
+every `EnemyId` resolving in `EnemyConfig`.
+
+---
+
+## The ground, the roads and the grass
+
+**Ground is voxel Terrain everywhere, and so are the roads.** The old
+`Ground_Pasture` Part disc and the 763-part `Paths` folder are both gone. Roads
+are painted into the terrain as `Cobblestone`, dirt lanes as
+`Sandstone`/`Ground`. That makes z-fighting structurally impossible — there is
+no second surface to fight with.
+
+Village terrain is held **dead flat at `y = 0.10`** under every part that meets
+the ground, using a mask built from their real footprints; hills appear only in
+the open ring between the town and the curtain wall.
+
+**Only `Grass` and `LeafyGrass` grow blades**, so everywhere people walk is
+painted bare on purpose. Roughly 70% of the village floor is green, 27% trodden
 earth, 3% paved.
 
 `_PathRoutes` and `_PathMask` on the Village folder are the only surviving
 record of the road network. **Do not delete them.** `_PathRoutes` is
-`kind|width|name|x,z;x,z;…` where `C` is a cobbled way and `D` a dirt lane —
+`kind|width|name|x,z;x,z;...` where `C` is a cobbled way and `D` a dirt lane —
 and the `Market` entry is stored with **width 0**, which silently paints
 nothing unless you substitute a real width.
 
-**Lighting is fixed at dusk** (`ClockTime 18.1`) with atmosphere, bloom and a
-warm shift. There are 194 light sources: window glow, 16 lantern posts, the
-well lantern, wall torches, tower beacons and gate braziers. Arrow loops glow
-but deliberately cast no light — there are 169 of them and lighting them all
-would wreck performance.
+---
 
-Fog and air are **not** static: `AtmosphereController` blends them by player
-position, so the wilds beyond the gate read thicker than the village. Tune
-`AtmosphereConfig`, never `Lighting` directly. Two traps are documented there:
-an `Atmosphere` object overrides legacy `FogStart`/`FogEnd` entirely, and the
-controller adopts an existing `Atmosphere` rather than adding a second, because
-two of them fight.
+## Lighting and air
+
+**Lighting is fixed at dusk** (`ClockTime 18.1`). There are 258 light sources:
+window glow, 16 village lantern posts, the well lantern, 62 wall torches, tower
+beacons, gate braziers, and in the zone 21 torch posts, 4 junction cairns, camp
+fires, arena braziers and glowing fungus.
+
+**Fog is not static.** `AtmosphereController` blends fog and ambient by player
+position across `BoundaryZ = -10`, so the wilds read heavier than the village.
+Tune `AtmosphereConfig`, never `Lighting` directly.
+
+Two traps documented in that config: an `Atmosphere` object **overrides legacy
+`FogStart`/`FogEnd` entirely**, and the controller adopts an existing
+`Atmosphere` rather than adding a second, because two of them fight.
+
+The Wilds profile was retuned after measurement. The authored
+`Density 0.72 / Offset 0.40` hid everything past about 40 studs, which would
+have made enemies invisible at `CombatController`'s 95-stud reach. It is now
+`0.62 / 0.10` — `Offset` is the dial that pulls fog toward the camera, so
+lowering it buys back the near field while keeping distance thick.
 
 ---
 
@@ -99,45 +160,23 @@ two of them fight.
 
 **Read this before you go looking for a save button.**
 
-This is a **Team Create place** on Roblox's cloud (place `76196845987264`,
-owned by a group). Both collaborators are in the same edit session and see the
-same `Workspace`. World edits propagate immediately — there is nothing to sync
-by hand, nothing to merge, and no way for your geometry to be stranded on your
-own machine.
+This is a **Team Create place** (place `76196845987264`, group-owned). Both
+collaborators edit the same live `Workspace` and see each other's changes
+immediately. Roblox holds the version history, and every earlier version is
+recoverable from the Creator Dashboard or File → Open from Roblox. **That is
+the first resort if the world is destroyed**, not the repo.
 
-Roblox keeps the version history. The place is on **version 125** at the time
-of writing, and every earlier version is recoverable from the Creator Dashboard
-or File → Open from Roblox. **That is the first resort if something destroys
-the world**, not the repo.
+`RNGArmory.rbxl` here is a **backup snapshot**, not the source of truth and not
+a sync mechanism. Refresh it before anything destructive, around a large
+structural job, and at milestones — **not after every world change**.
 
-### So what is `RNGArmory.rbxl` for?
+To refresh: File → **Download a Copy** (a cloud-opened place has no "Save to
+File As"), overwrite `RNGArmory.rbxl`, commit. The file is binary: it restores
+perfectly, does not diff, and cannot be merged.
 
-A **backup snapshot**, and nothing more. It is a restore point pinned to a
-commit, so a given revision of the code can be paired with the world that
-matched it. It is not how the world is shared and it is not the source of
-truth.
-
-Refresh it when a snapshot is actually worth having:
-
-- before running anything destructive — `tools/BuildWorld.luau` would wipe the
-  world outright
-- before and after a large structural job, such as the Phase 5b Zone 1 rebuild
-- at a milestone worth being able to return to
-
-There is no need to re-save it after every prop you move. Earlier revisions of
-this document said there was; that was wrong, and it was written before anyone
-checked whether the place was Team Create.
-
-To refresh it: **File → Download a Copy** (a cloud-opened place has no "Save to
-File As"), overwrite `RNGArmory.rbxl` in this repo folder, commit. The file is
-binary — it restores perfectly but does not diff, and two snapshots of the same
-world cannot be merged. That is fine for a backup and is the reason it is not
-used for collaboration.
-
-`tools/BuildWorld.luau` is kept only as a record of the *original* village. It
-carries a warning banner. Do not run it — it would destroy the current world.
-`tools/RestoreGround.luau` is its safe counterpart: it only adds missing
-floors and never wipes, so it is safe to run twice.
+`tools/BuildWorld.luau` is legacy and would destroy the current world; it
+carries a warning banner. `tools/RestoreGround.luau` is its safe counterpart —
+it only adds missing floors and never wipes.
 
 ---
 
@@ -149,19 +188,20 @@ Anything a designer might reasonably want to tune lives in
 `src/shared/Config/`, not in gameplay code. Full detail in [CLAUDE.md](CLAUDE.md).
 
 ```
-src/shared/   → ReplicatedStorage      config, shared modules, remote manifest
-src/server/   → ServerScriptService    authoritative game systems
-src/client/   → StarterPlayerScripts   UI and input
-tools/        → not synced             one-off scripts
-RNGArmory.rbxl                         the world (Workspace geometry)
+src/shared/   -> ReplicatedStorage      10 configs, shared modules, remote manifest
+src/server/   -> ServerScriptService    8 services
+src/client/   -> StarterPlayerScripts   7 controllers
+tools/        -> not synced             one-off world scripts
+RNGArmory.rbxl                          backup snapshot of the world
 ```
 
 **The world and the combat system meet at exactly one place: attributes.**
 `EnemyService` walks every descendant of `Workspace.World` and spawns from any
 `BasePart` carrying an `EnemyId` string attribute, reading `MaxAlive` and
 `Radius` alongside it. Nothing is matched by name and no folder path is
-hardcoded — which means a zone can be torn down and rebuilt freely, but a
-typo'd `EnemyId` fails silently. See CLAUDE.md, "The enemy spawn contract".
+hardcoded — so a zone can be torn down and rebuilt freely, and **wave spawners
+are a change to *when* it spawns rather than *how***. A typo'd `EnemyId` fails
+silently. See CLAUDE.md, "The enemy spawn contract".
 
 ---
 
@@ -209,7 +249,8 @@ editing to match.
 
 ### 5. Open the world
 
-Open **`RNGArmory.rbxl`** from this folder in Studio. That is the world.
+Open the Team Create place from Studio's home screen. `RNGArmory.rbxl` in this
+folder is only a backup snapshot — see "The world lives in the cloud" above.
 
 ### 6. Sync and play
 
@@ -258,9 +299,9 @@ features stay inert rather than erroring — but they are required before launch
 
 - [ ] **Set `Lighting.Technology` to `Future`** in Properties. Scripts cannot
       set it; it needs elevated permission, and the command bar cannot even
-      read it. Until it is set, the ~190 light sources glow but do not properly
-      light the surfaces around them. This is the single biggest visual win
-      available and takes one click.
+      read it. Until it is set, all **258** light sources glow but do not
+      properly light the surfaces around them. This is the single biggest
+      visual win available and takes one click.
 - [ ] **Enable Studio Access to API Services** — Game Settings → Security.
       Without it every DataStore call fails.
 - [ ] **Create gamepasses and developer products** on the Creator Dashboard and

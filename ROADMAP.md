@@ -1,286 +1,160 @@
 # RNG: ARMORY — roadmap
 
-Two tracks run in parallel:
+**Direction: medieval co-op wave survival / village defense.**
 
-- **Phases** — systems that do not exist yet.
-- **Polish** — systems that exist and work, but are placeholder quality.
-
-The world is now finished to a good standard. The *systems* are the rough half.
-
----
-
-## Build phases
-
-Build in order. Test each phase before starting the next, and do not stack new
-systems on top of broken ones.
-
-| Phase | Scope | State |
-|---|---|---|
-| 1 | Foundation — structure, config, remotes, data schema, saving, UI shell | ✅ Done |
-| 2 | RNG — items, rarities, roll service, luck, pity, reveal, auto-roll | ✅ Done — **reworked**, see below |
-| 3 | Inventory — item instances, equip/unequip, sell, favourite, comparison | ✅ Done — **reworked**, see below |
-| 4 | Combat — weapons, attacks, damage, enemy AI, rewards | ✅ Done |
-| 5 | World — village, castle, paths, lighting, dressing | ✅ Done |
-| 5b | **Zone 1 rebuild — the hunting grounds** | ⬜ Next |
-| 6 | **Boss — the Goblin King** | ⬜ Next |
-| 7 | Progression — quests, dailies, boosts, zone gate enforcement | ⬜ |
-| 8 | Polish — audio, VFX, notifications, settings UI | ⬜ |
-| 9 | Monetization — gamepasses, products, VIP, cosmetics | ⬜ |
-| 10 | Full test pass — rejoin, multiplayer, exploit attempts, mobile | ⬜ |
+> ### These phases are provisional
+>
+> The direction changed once already — the project began as an RNG equipment
+> RPG, and Phases 1–5b were built for that shape. What follows is the current
+> best plan, not a commitment. Expect it to be reordered, cut and added to as
+> the game is played and decided on.
+>
+> **Preserve what works.** New features adapt the existing game; they do not
+> justify rebuilding it.
 
 ---
 
-### Reworked since Phases 2 and 3 were first marked done
+## Done
 
-Both still read "Done" because their scope is delivered, but the systems
-underneath are not what the original entries describe. `CLAUDE.md` carries the
-full contracts — this is the short version of what changed and why.
-
-**Rolling is a chain, not a single draw.** A multiplier card sits in the pool;
-landing on it starts another roll with the next rung swapped in. From 4x up each
-rung guarantees a rarity floor (4x Rare, 8x Epic, 16x Legendary, 32x Mythic).
-Before the floors, a 32x's single likeliest outcome was a Rare, which read as
-the multiplier doing nothing.
-
-**Luck now scales harder at higher ranks** (`LuckRankScaling`). Flat luck left
-the ratios inside the boosted block untouched, so luck only moved you out of
-Common — never up the ladder. Base rates are provably unchanged: at luck 1 the
-exponent is inert.
-
-**Inventory is unlimited and duplicates stack.** Stacks key on template +
-modifier and keep the best-rolled copy. This is not cosmetic — without stacking,
-an uncapped inventory would grow the DataStore payload without bound.
-
-**Equipping lost its level gate**, and rolling auto-equips anything that beats
-the slot on Power.
-
-**The UI moved with it**: a painted gear tab (`GearController`), an always-on
-gear strip cut from the same uploaded asset as a sprite sheet
-(`GearHudController`), vertical case-opening reels that open side by side per
-chain step, and script-driven fog (`AtmosphereController`).
-
-Still untested in anger: none of this has been through a rejoin or a
-multiplayer session. Phase 10 has more to cover than it did.
-
-### Phase 5b — Zone 1 rebuild
-
-`StarterZone` was built in an early pass and never got the treatment the
-village did. It is now visibly the worst-looking part of the game, and it is
-where players spend their combat time. It is being **rebuilt from scratch**,
-not patched.
-
-**The village is not Zone 1 and is not part of this work.** Zone 1 begins
-beyond the village gate. The entire village — walls, gate, buildings, roads,
-lighting, props — is read-only for the duration of this phase. Proximity does
-not mean ownership: if something sits near the zone boundary but belongs to the
-village, it stays.
-
-#### Decisions taken
-
-| | Decision |
+| Phase | Scope |
 |---|---|
-| Landforms | **Roblox voxel Terrain**, the first use of it in this project |
-| Structures, props, vegetation | Parts, as everywhere else |
-| Atmosphere | A small client script blending fog/ambient by player position |
-| Part budget | ~6,000, taking the place to roughly 15,000 total |
-| Review | Five checkpoints, screenshots at each before continuing |
+| 1 | Foundation — structure, config, remotes, data schema, saving, UI shell |
+| 2 | RNG — items, rarities, roll service, luck, pity, multiplier chains, reveal |
+| 3 | Inventory — unlimited stacking inventory, equip/unequip, sell, compare |
+| 4 | Combat — weapons, attacks, damage, enemy AI, rewards |
+| 5 | World — village, castle, paths, lighting, dressing |
+| 5b | **Zone 1 rebuild** — the wilds beyond the gate, on voxel terrain |
 
-Everything except the terrain itself still obeys the house rule: every
-generated `Part` / `WedgePart` / `MeshPart` is `Anchored = true` and
-`CastShadow = true`. Voxel Terrain has neither property, which is the one
-deliberate exception.
+### Phase 5b as built
 
-#### Layout
+Five review checkpoints, all complete.
 
-The gate faces south at `z = 66`, road running out to `z ≈ 24`, so the zone is
-a lobe extending into negative Z — roughly **520 × 460 studs** against the
-village's ~560 span. Comparable, slightly smaller: the brief is density over
-size.
-
-| Chapter | Roughly |
-|---|---|
-| Gate apron, outskirts | z 24 → −40 |
-| Outer forest | −40 → −140 |
-| Goblin territory (west lobe) | −140 → −250 |
-| Abandoned battlefield (centre/east) | −160 → −280 |
-| Slime hollow (east, low ground) | −220 → −300 |
-| Deep forest | −280 → −370 |
-| Goblin King domain and arena | −370 → −450 |
-| Zone 2 gate | far south, ~−470 |
-
-Perimeter is a ridge-and-cliff arc west, a ravine on the east flank, and dense
-timber closing the south. Never a straight run and never a visible wall of
-world edge.
-
-#### Checkpoints
-
-| | Stage | Delivered |
+| | Stage | Result |
 |---|---|---|
-| 1 | Perimeter and terrain sculpt | ✅ **Done.** Landforms, ravine, slime hollow, battlefield with 14 craters and 4 trenches, arena bowl, walkable route (25° max), world edges closed. |
-| 2 | Main route and combat spaces | Road from the gate, forks, clearings, camp footprints, arena floor, spawn markers wired up |
-| 3 | Structures | Camps, watchtowers, ruins, trench works, Zone 2 gate, arena build |
-| 4 | Vegetation and dressing | Forest, undergrowth, rocks, debris, slime pools |
-| 5 | Atmosphere | Lighting, the fog-blend script, final sweep |
+| 1 | Perimeter and terrain | Cliffs, ravine, hollows, battlefield scarring, arena bowl. World sealed all round. |
+| 2 | Route and combat spaces | Walkable spine plus four spurs, nothing over 26°. 14 spawn markers wired to the attribute contract. |
+| 3 | Structures | Goblin camp and outpost, 3 watchtowers, trench works, ruins, siege engine, slime pond, arena, Zone 2 gate. |
+| 4 | Vegetation | 234 trees by chapter, 452 bushes and tufts, 451 boulders, logs, stumps, dead trees on the battlefield. |
+| 5 | Atmosphere | 21 torch posts, 4 junction cairns, glowing fungus. Wilds fog retuned against measured visibility. |
 
-#### Risks identified before starting
+Final: **4,337 parts (72% of the 6,000 budget)**, zero holes over 5,625
+samples, zero floating parts, every `EnemyId` resolving.
 
-- **The village/zone ground seam.** `Ground_Pasture` is a Part cylinder, radius
-  411 centred at `(0, 380)`, so it ends at about `z = −31` — barely past the
-  gate. Voxel Terrain meeting a flat Part slab at that line will show a seam
-  unless the terrain edge is tucked under the slab and the join hidden in the
-  gate approach. Solve it at checkpoint 1, not checkpoint 5.
-- **Slime pools must be Parts, not Terrain water.** `Terrain.WaterColor` is a
-  single global property; making it slime-green would turn every body of water
-  in the place green. Parts also give proper glow and translucency.
-- **Vegetation is where the budget lives or dies.** A naive tree is 8–15 parts;
-  400 of them would eat 5,000 on their own. Build a small set of tree
-  archetypes and clone them — which also keeps the forest readable rather than
-  noisy.
-- **The arena is ~450 studs from spawn**, with no shortcut back. Worth deciding
-  whether the Zone 2 gate area doubles as a return point.
-
-#### Enemy placement
-
-All six defined enemies get a home in the layout: `Slime`, `Goblin`, `Wolf`,
-`GoblinWarrior`, `EliteGoblin`, `GoblinKing`. New spawn markers must carry the
-attribute contract `EnemyService` reads — see CLAUDE.md, "The enemy spawn
-contract".
+Also done outside the phase plan: the **village floor converted to voxel
+terrain** with the roads painted into it and the `Paths` folder deleted, and the
+**outer treeline** bridging the village wall to the Zone 1 hills.
 
 ---
 
-### Phase 6 — Goblin King
+## Next
 
-The arena and gate are built and tagged; nothing spawns in them yet.
+### Phase 6 — the wave loop
 
-- Boss spawn from the `BossSpawn` marker (`BossId` attribute already set)
-- Multiple attacks: sword swing, ground slam, charge, summon adds
-- **Telegraphs** — a visible wind-up before each attack, so the fight is
-  readable rather than reflex-based
-- Phase transitions at health thresholds, changing attack mix and pace
-- Large on-screen boss health bar, distinct from ordinary enemy bars
-- Rare loot table with a genuinely better drop distribution
-- Server-wide announcement on an exceptional drop
-- Enforce the `RequiresPower = 1200` gate — the gate part exists and carries
-  the attribute, but nothing reads it, so players walk straight through
+The thing that makes it the game it now says it is. Nothing here exists yet.
 
-### Phase 7 — Progression
+- A `WaveService` that spawns from marker groups rather than statically
+- Wave counter, escalating composition, a defined start and end per wave
+- Recovery window between waves
+- Where waves enter from, and whether the gate is the only approach
+- What losing means — is there something in the village that can fall?
 
-- Quest system, data-driven like items and enemies
-- Daily rewards on a 7-day escalating track, with **server time authoritative**
-- Temporary boosts with durations, surfaced in the HUD
-- Zone gate enforcement and travel via the existing `ZoneTravelRequest` remote
-- Achievements and titles
+**`EnemyService` already discovers spawners by attribute**, so this is a change
+to *when* it spawns, not *how*. Reuse it.
 
-### Phase 8 — Polish
+### Phase 7 — defenses and the village as a fort
 
-- Audio throughout — UI, rolls, reveals by rarity tier, combat, boss
-- VFX for rare reveals, level ups, boss phases
-- Toast notifications and the global announcement banner
-- Settings panel wired to the settings already in the profile schema
-- Tutorial prompts for the first-join flow
+- Somewhere for players to actually hold. The wall-walk exists but nothing is
+  placed for it.
+- Buildable or repairable defenses, if that fits
+- Making the gate a real choke point rather than an open arch
+- Enforcing `RequiresPower = 1200` on the gates, which currently nothing reads
 
-### Phase 9 — Monetization
+### Phase 8 — the Goblin King
 
-- Gamepasses: VIP, Auto Roll, Fast Rolls, Extra Inventory, Extra Slot
-- Developer products: luck boosts, coin packs, XP boosts
-- `ProcessReceipt` handled safely — never grant twice
-- Cosmetics: trails, auras, weapon effects, titles
+The arena is built and `BossSpawn` carries `BossId`; nothing spawns from it.
 
-### Phase 10 — Full test pass
+- Multiple attacks with **visible telegraphs**, so the fight is readable
+- Phase transitions at health thresholds
+- Large on-screen boss health bar
+- Rare loot table, server-wide announcement on an exceptional drop
+- How the boss relates to waves — a wave milestone, or a trip out?
+
+### Phase 9 — progression
+
+Open, given the pivot. Rolling probably becomes a between-wave reward rather
+than the main activity. Quests, dailies and zone travel may not survive at all.
+
+### Phase 10 — polish
+
+Audio throughout, VFX for rare reveals and boss phases, toast notifications,
+settings panel, first-join tutorial.
+
+### Phase 11 — monetization
+
+Gamepasses, developer products, `ProcessReceipt` handled safely, cosmetics.
+
+### Phase 12 — full test pass
 
 Join, leave, rejoin, data integrity, multiple players, remote spam, invalid
-payloads, server shutdown mid-session, mobile layout and touch targets.
+payloads, shutdown mid-session, mobile layout and touch targets.
 
 ---
 
 ## Polish backlog
 
-Everything here **works**. It is placeholder quality and needs a proper pass.
-None of it is blocking.
+Everything here **works**. It is placeholder quality. None of it is blocking.
 
-### The world — largely done
+### The world
 
-The village was rebuilt end to end and is no longer a weak point. What remains:
-
-- **Building interiors** — every building is still a shell with a door that
-  does not open. This is the biggest remaining gap in the village.
+- **Building interiors** — every building is a shell with a door that does not
+  open. The biggest remaining gap in the village.
 - **NPCs** — no villagers, no shopkeepers. The market has stalls and wares but
-  nobody tending them, which is now the most conspicuous absence.
-- **A hidden spawn exists now** (`VillageSpawn`, behind the well). Before this
-  the place had no SpawnLocation at all — worth knowing if spawn behaviour
-  ever looks odd.
-- **Terrain elevation** — the ground is still a flat slab under the dressing.
-- **Zone 1 (`StarterZone`) needs remaking** — see Phase 5b. It has not had the
-  village treatment and is visibly the roughest part of the game.
-- Boss arena is a floor, pillars and braziers; it needs atmosphere.
+  nobody tending them.
+- Zone 2 exists only as a gate.
 
-### Models — armour and gear
+### Models
 
-Armour is coloured boxes welded at the right attach points. Weapons have real
-shaped geometry, armour does not.
+- **Armour** is coloured boxes welded at attach points. Weapons have real
+  geometry; armour does not. `ItemConfig.Appearance.MeshId` is the hook.
+- **Enemies** are primitive rigs (`Blob`, `Biped`, `Quadruped`) assembled at
+  spawn. They do not animate. A Goblin and a Goblin Warrior differ only in
+  colour and scale.
 
-- Real meshes for helmet, chest, legs, boots, accessory, gear
-- `ItemConfig.Appearance.MeshId` already exists as the hook
-- Attach offsets in `BodyConfig.AttachPoints` will need re-tuning per mesh
-- Rarity should read on the model, not just the icon
+### Animation
 
-### Models — enemies
+Only one animation exists: a single Motor6D swing arc per archetype. Needs idle
+poses, combo chains, hit reactions, real projectiles for bows and staves, and
+ability animations.
 
-Enemies are assembled from primitive rigs (`Blob`, `Biped`, `Quadruped`) at
-spawn time. They animate not at all.
+### GUI
 
-- Real models per enemy, hooked through `EnemyConfig.Appearance.ModelId`
-- Walk, attack, hurt and death animations
-- Distinct silhouettes — a Goblin and a Goblin Warrior currently differ only in
-  colour and scale
-
-### Animations — weapons and characters
-
-Only one animation exists: a single Motor6D swing arc per archetype.
-
-- Idle pose per archetype
-- Multi-hit combo chains rather than one repeated swing
-- Hit reactions on the player when damaged
-- Ranged archetypes need actual projectiles — bows and staves currently hit
-  instantly at up to 90 studs with no visible travel
-- Ability animations — the abilities are defined in config and granted on
-  Rare+ weapons but are not implemented at all
-- Footstep and landing effects
-
-### GUI cleanup
-
-The HUD and panels are functional but visually unfinished.
-
-- Consistent spacing and alignment pass across HUD, inventory and reveal
-- Item icons — every card currently shows text only
-- Inventory grid needs better density at small viewport sizes
-- Reveal card is plain; rare drops should feel dramatically different
-- Panels for Quests, Shop and Settings do not exist
-- Mobile: designed for but never tested on a device
-- Button, hover and disabled states are inconsistent between panels
+Consistent spacing pass, item icons (cards are text-only), better inventory
+density at small viewports, a more dramatic rare reveal, and panels for Quests,
+Shop and Settings which do not exist. Mobile designed for but never tested.
 
 ---
 
-## Known gaps and caveats
+## Known gaps
 
-- **Abilities are config-only.** Defined in `ItemConfig`, granted on Rare+
-  weapons, never implemented.
-- **The zone gate is decorative.** The part and attribute exist; nothing reads
-  them.
+- **Waves do not exist.** Enemies spawn from static markers.
+- **The boss does not spawn.**
+- **Both zone gates are decorative** — the attribute exists, nothing reads it.
+- **Abilities are config-only.**
 - **Four remotes are declared but sealed** — `DailyClaimRequest`,
   `QuestRequest`, `ShopRequest`, `ZoneTravelRequest`. They return
-  `NotImplemented` rather than hanging, which is intended until their phases land.
-- **Gear stat aggregation is only partly proven.** Baselines verified; adding
-  Health and MoveSpeed from equipped armour has not been explicitly tested.
-- **Mobile is untested on hardware**, and the world is now ~14,000 parts with
-  ~190 light sources, so a mobile performance check matters more than it did.
-- **No sound anywhere.** Every asset id is `0`.
+  `NotImplemented` rather than hanging.
+- **Gear stat aggregation is only partly proven.** Baselines verified; Health
+  and MoveSpeed from armour never explicitly tested.
+- **Mobile is untested on hardware**, and the world is now 13,438 parts with 258
+  light sources.
+- **No sound anywhere.**
 
 ---
 
 ## Manual steps (cannot be automated)
 
-- Set `Lighting.Technology` to `Future` — scripts are not permitted to
+- Set `Lighting.Technology` to `Future` — scripts are not permitted to. All 258
+  light sources currently glow without lighting anything.
 - Enable Studio Access to API Services on any new place
 - Create gamepasses and developer products, paste ids into `MonetizationConfig`
 - Upload audio and icons, paste ids into `AssetConfig`
@@ -288,45 +162,3 @@ The HUD and panels are functional but visually unfinished.
 - **Refresh the place backup** at milestones and before anything destructive —
   File → Download a Copy, overwriting `RNGArmory.rbxl`. Not needed after every
   world change: the place is Team Create and Roblox holds the version history.
-  See README, "The world lives in the cloud, not in the repo".
-
----
-
-## Village floor rebuild (done, outside the phase plan)
-
-The village ground was converted from the `Ground_Pasture` Part disc to voxel
-Terrain, matching Zone 1, and the 763-part `Paths` folder was deleted with the
-roads repainted directly into the terrain.
-
-- Terrain held flat at `y = 0.10` under all ~3,500 ground-meeting parts, from a
-  mask built off their real oriented footprints. Worst deviation 0.10 studs.
-- Gentle hills, ~5 studs of relief, only in the open ring at r 213–411.
-- Roads painted as `Cobblestone`, dirt lanes as `Sandstone`/`Ground`, rebuilt
-  from the `_PathRoutes` data rather than the deleted tiles.
-- Green went from 47% to ~70% of the village floor; zero hard structures left
-  standing on grass, so no blades push through paving or walls.
-
-**Zone 1 was re-sculpted at the same time** to fix a terrain-occupancy error
-that had put every surface exactly 2 studs above its designed height. Its
-landform heights are now what the spec says, and it meets the village floor
-with a 0.11-stud step at the gate.
-
-### Follow-up pass: market, lamps, foliage
-
-Converting the floor to terrain broke three things that were keyed to the old
-path *parts*. All are fixed.
-
-- **Market square** is paved right through. Every stall part (106/106) and the
-  whole well (81/81) stands on `Cobblestone` rather than on whatever material
-  its own footprint happened to produce.
-- **Lamps re-derived from the route polylines.** Three had been left more than
-  40 studs from any road and one was standing inside the gate brazier. They are
-  now spaced along the paved ways, 11–14 studs off each centreline, all seated
-  within 0.1 studs and none intersecting anything.
-- **Foliage cleared off the paving** — 32 parts moved rather than deleted, so
-  the count holds at 2,272. Trees move as clusters; canopies are still allowed
-  to overhang a square, which is what a real tree does.
-- **A lantern was added to the well roof**, built as a chain off the ridge cap
-  and matching the village's existing lantern geometry exactly.
-
-Village is 8,459 parts. Terrain is ~498,000 cells. 194 light sources.
