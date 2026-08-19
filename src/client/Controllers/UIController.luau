@@ -195,10 +195,18 @@ local function build(): ScreenGui
 
 	local margin = Theme.Layout.HUDMargin
 
-	-- Top-left: currency and level.
+	--[[
+		Every readout lives in one left-hand column: currency, level, then the
+		derived combat stats.
+
+		Power and Luck used to sit top-right. They moved because the gear strip
+		now owns the right edge, and numbers split across both sides while gear
+		occupies one of them reads as two competing HUDs. Labels left,
+		equipment right — each side has exactly one job.
+	]]
 	Create.new("Frame", {
 		Name = "TopLeft",
-		Size = UDim2.fromOffset(178, 120),
+		Size = UDim2.fromOffset(178, 240),
 		Position = UDim2.fromOffset(margin, margin),
 		BackgroundTransparency = 1,
 		Parent = root,
@@ -206,19 +214,8 @@ local function build(): ScreenGui
 		Create.ListLayout(Enum.FillDirection.Vertical, Theme.Spacing.S),
 		StatPill("Coins", "Coins", Theme.Color.Coins, 1),
 		LevelPill(2),
-	})
-
-	-- Top-right: derived combat stats.
-	Create.new("Frame", {
-		Name = "TopRight",
-		Size = UDim2.fromOffset(178, 120),
-		Position = UDim2.new(1, -178 - margin, 0, margin),
-		BackgroundTransparency = 1,
-		Parent = root,
-	}, {
-		Create.ListLayout(Enum.FillDirection.Vertical, Theme.Spacing.S, Enum.HorizontalAlignment.Right),
-		StatPill("Power", "Power", Theme.Color.Power, 1),
-		StatPill("Luck", "Luck", Theme.Color.Luck, 2),
+		StatPill("Power", "Power", Theme.Color.Power, 3),
+		StatPill("Luck", "Luck", Theme.Color.Luck, 4),
 	})
 
 	-- The primary action. Deliberately the largest thing on screen.

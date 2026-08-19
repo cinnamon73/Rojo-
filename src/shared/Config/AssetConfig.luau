@@ -57,6 +57,11 @@ AssetConfig.Images = {
 	SlotAccessory = 0,
 	SlotGear = 0,
 
+	-- The gear tab artwork: the full 1920x1080 reference, used as-is. Every
+	-- hitbox in GearController is a fraction of THIS image, so swapping in a
+	-- differently-proportioned one misaligns all of them at once.
+	GearPanel = 137111751495212,
+
 	CoinIcon = 0,
 	GemIcon = 0,
 	LuckIcon = 0,

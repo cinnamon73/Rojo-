@@ -201,7 +201,7 @@ local function renderDetail()
 		Parent = pane,
 	})
 
-	Create.Label(ItemInstance.GetDisplayName(instance), {
+	Create.Label(ItemInstance.GetStackLabel(instance), {
 		Size = UDim2.new(1, 0, 0, 28),
 		Font = Theme.Font.Bold,
 		TextSize = Theme.TextSize.Large,
@@ -293,18 +293,9 @@ local function renderDetail()
 		})
 	end
 
-	if template.LevelRequirement > 1 then
-		local level = (profile and profile.Progression and profile.Progression.Level) or 1
-		local met = level >= template.LevelRequirement
-		Create.Label(string.format("Requires level %d", template.LevelRequirement), {
-			Size = UDim2.new(1, 0, 0, 16),
-			Font = Theme.Font.Medium,
-			TextSize = Theme.TextSize.Tiny,
-			TextColor3 = if met then Theme.Color.TextDim else Theme.Color.Negative,
-			LayoutOrder = 9,
-			Parent = pane,
-		})
-	end
+	-- No "requires level" line: the server no longer gates equipping on level,
+	-- so showing a requirement here would describe a rule that does not exist.
+	-- See EquipmentService.Equip.
 
 	-- Actions
 	local actions = Create.new("Frame", {
@@ -389,7 +380,7 @@ local function makeCard(instance: any, order: number): Frame
 		BackgroundColor3 = if selectedId == instance.Id then Theme.Color.PanelHover else Theme.Color.Panel,
 		LayoutOrder = order,
 	}, {
-		Create.Label(if template then template.Name else "?", {
+		Create.Label(ItemInstance.GetStackLabel(instance), {
 			Size = UDim2.new(1, -16, 0, 32),
 			Position = UDim2.fromOffset(8, 10),
 			Font = Theme.Font.Medium,
@@ -491,8 +482,14 @@ local function renderGrid()
 	frame.CanvasSize = UDim2.fromOffset(0, rows * (96 + Theme.Spacing.S) + Theme.Spacing.S)
 
 	if countLabel then
-		local capacity = (client and client.Profile and client.Profile.Inventory and client.Profile.Inventory.BaseCapacity) or 0
-		countLabel.Text = string.format("%d shown  ·  %d / %d owned", shown, #items, capacity)
+		-- No capacity any more: duplicates stack, so what matters is how many
+		-- copies you own and how many distinct stacks that is.
+		local copies = 0
+		for _, instance in ipairs(items) do
+			copies += ItemInstance.GetCount(instance)
+		end
+
+		countLabel.Text = string.format("%d shown  ·  %d items in %d stacks", shown, copies, #items)
 	end
 end
 
@@ -700,8 +697,10 @@ function InventoryController.Start(clientState: any)
 	build()
 
 	UIController.NavActivated:Connect(function(name: string)
-		if name == "Inventory" or name == "Gear" then
-			activeFilter = if name == "Gear" then "Weapon" else "All"
+		-- "Gear" belongs to GearController now; this panel owns Inventory only.
+		-- Both answering it would open two overlapping panels on one click.
+		if name == "Inventory" then
+			activeFilter = "All"
 			InventoryController.SetOpen(not open)
 		end
 	end)
