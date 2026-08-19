@@ -57,15 +57,28 @@ it down. Its Zone 1 slab is an explicitly named `_TEMP` placeholder — Phase 5b
 replaces that with voxel Terrain, and it is in its own folder so it deletes in
 one click.
 
-**The world is Parts, not voxel Terrain — with one coming exception.** Every
-existing surface, including the ground, is a `Part`; `Ground_Pasture` is a
-cylinder of radius 411 centred at `(0, 380)`, so it ends at about `z = −31`,
-barely past the village gate. **Zone 1 is being rebuilt on real voxel Terrain**
-(see ROADMAP Phase 5b), which makes that boundary a seam to hide deliberately
-rather than discover later. Two Terrain facts worth carrying: Terrain is not a
-`Part`, so it cannot be `Anchored` or `CastShadow` — it is the sole exception
-to that rule — and `Terrain.WaterColor` is **global**, so Terrain water can
-never be slime-green in one place and blue in another.
+**The ground is voxel Terrain everywhere — village and Zone 1 both.** The old
+`Ground_Pasture` Part disc is gone, and so is the `Paths` folder: roads are now
+painted into the terrain as `Cobblestone`, tracks as `Sandstone`/`Ground`. Four
+things follow that will bite you if you do not know them.
+
+- **Terrain is not a `Part`.** It cannot be `Anchored` or `CastShadow` — the
+  sole exception to that rule. `Terrain.WaterColor` is **global**, so Terrain
+  water cannot be slime-green in one place and blue in another.
+- **Only `Grass` and `LeafyGrass` grow blades.** Painting either under paving or
+  against a wall pushes grass through it. Anywhere people walk is `Ground`,
+  `Mud`, `Cobblestone` or `Sandstone`, chosen from a per-cell footprint map.
+- **The village floor is pinned at `y = 0.10`** under every one of the ~3,500
+  parts that meet the ground, held flat by a mask built from their real
+  footprints, with hills only in the open ring at r 213–411. **Rebuild that mask
+  from live geometry before re-sculpting** or the buildings will end up on
+  hillsides.
+- **`_PathRoutes` and `_PathMask` on the Village folder are now the only record
+  of the road network.** The tiles they generated have been deleted. Do not
+  remove those StringValues. `_PathRoutes` is `kind|width|name|x,z;x,z;...`
+  where kind `C` is a cobbled way and `D` a dirt lane — and note the `Market`
+  entry is stored with **width 0**, which silently paints nothing unless you
+  substitute a real width.
 
 ### Geometry lessons, each of which cost real bugs
 
@@ -83,9 +96,21 @@ never be slime-green in one place and blue in another.
   own door opens onto. Use the plinth.
 - **Props positioned relative to a plinth top will float** if they stand off
   the plinth. This has now been fixed three separate times.
-- **The path surface is one flat plane** at `y = 0.30` with zero overlaps. That
-  is what makes z-fighting impossible rather than suppressed. Vary colour and
-  material, never height.
+- **Terrain occupancy is measured from the voxel CENTRE, not its bottom.**
+  `occ = (h - voxelCentreY) / 4` puts the surface at `h`. The intuitive
+  `(h - voxelBottom) / 4` puts it **exactly 2 studs too high**, everywhere, and
+  because the error is uniform the terrain still looks plausible — it was only
+  caught when village parts pinned at `y = 0.10` came out floating. Calibrate
+  against a test strip rather than reasoning about it; the correct form lands
+  within 0.003 studs.
+- **Raycasts do not see voxels written earlier in the same script.** Verify
+  terrain in a separate call or every probe reports the state before the write.
+  This has produced two phantom bug reports — 41 imaginary holes and a whole
+  calibration strip that read as empty.
+- **Axis-aligned footprints over-cover rotated parts badly.** Stamping village
+  buildings by AABB inflated every rotated one into a bare rectangle and
+  dissolved the dirt lanes into a patchwork. Test the cell centre against the
+  part's oriented rect in its own local frame instead.
 - **Build assemblies as chains, not from a common origin.** Place each piece
   from the endpoint of the one it attaches to: a bar of length `L` pointing
   along `d` with its base at `B` has centre `B + d*(L/2)` and ends at

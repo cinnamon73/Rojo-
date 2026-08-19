@@ -116,7 +116,7 @@ world edge.
 
 | | Stage | Delivered |
 |---|---|---|
-| 1 | Perimeter and terrain sculpt | Bare landforms — ridge, ravine, hollows, battlefield scarring, arena bowl. No props. Mistakes are cheapest to fix here. |
+| 1 | Perimeter and terrain sculpt | ✅ **Done.** Landforms, ravine, slime hollow, battlefield with 14 craters and 4 trenches, arena bowl, walkable route (25° max), world edges closed. |
 | 2 | Main route and combat spaces | Road from the gate, forks, clearings, camp footprints, arena floor, spawn markers wired up |
 | 3 | Structures | Camps, watchtowers, ruins, trench works, Zone 2 gate, arena build |
 | 4 | Vegetation and dressing | Forest, undergrowth, rocks, debris, slime pools |
@@ -289,3 +289,24 @@ The HUD and panels are functional but visually unfinished.
   File → Download a Copy, overwriting `RNGArmory.rbxl`. Not needed after every
   world change: the place is Team Create and Roblox holds the version history.
   See README, "The world lives in the cloud, not in the repo".
+
+---
+
+## Village floor rebuild (done, outside the phase plan)
+
+The village ground was converted from the `Ground_Pasture` Part disc to voxel
+Terrain, matching Zone 1, and the 763-part `Paths` folder was deleted with the
+roads repainted directly into the terrain.
+
+- Terrain held flat at `y = 0.10` under all ~3,500 ground-meeting parts, from a
+  mask built off their real oriented footprints. Worst deviation 0.10 studs.
+- Gentle hills, ~5 studs of relief, only in the open ring at r 213–411.
+- Roads painted as `Cobblestone`, dirt lanes as `Sandstone`/`Ground`, rebuilt
+  from the `_PathRoutes` data rather than the deleted tiles.
+- Green went from 47% to ~70% of the village floor; zero hard structures left
+  standing on grass, so no blades push through paving or walls.
+
+**Zone 1 was re-sculpted at the same time** to fix a terrain-occupancy error
+that had put every surface exactly 2 studs above its designed height. Its
+landform heights are now what the spec says, and it meets the village floor
+with a 0.11-stud step at the gate.

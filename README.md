@@ -22,7 +22,7 @@ and coins, level up, roll better. The systems are unpolished; the world is not.
 | Inventory | Grid, 8 filters, search, equip/unequip, sell, lock, stat comparison |
 | Equipment | 7 slots, aggregate stats, Power, visible weapon models |
 | Combat | 6 enemy types, aggro/chase/attack/leash AI, crits, modifier effects |
-| World | Walled village with castle, market, 11 buildings, lit at dusk. ~14,000 parts. Zone 1 awaiting rebuild |
+| World | Walled village on voxel terrain, castle, market, 11 buildings, lit at dusk. Zone 1 landforms rebuilt |
 | Characters | Standard R15 body for everyone; head, face, hair and accessories preserved |
 | Anti-exploit | Server decides every outcome; token-bucket limits on all remotes |
 
@@ -42,26 +42,33 @@ Village/
   Town/             tavern, general store, bakery, blacksmith, 7 houses
   Outbuildings/     stable, barn, woodshed, granary along the gate road
   Market/           six stalls ringing the well
-  Paths/            organic cobbled ways and dirt tracks, one flat surface
+  (roads are painted into the terrain now, not parts - see below)
   Yards/            fenced plots, vegetable beds and clutter per building
   Foliage/          141 trees, 233 shrubs, ground cover
   Lamps/            13 lantern posts
-StarterZone/        hunting grounds, slime pit, goblin camps, boss arena
-                    — being rebuilt from scratch, see ROADMAP Phase 5b
+StarterZone/        voxel-terrain landforms: cliffs, ravine, slime hollow,
+                    battlefield, goblin plateau, boss arena bowl
 ```
 
-**Zone 1 is the next big job.** `StarterZone` was built in an early pass and
-never got the village treatment, so it is visibly the roughest part of the
-game — and it is where players spend their combat time. The rebuild puts it on
-**Roblox voxel Terrain** for genuine hills, ravines and craters, the first use
-of Terrain in this project; structures, props and vegetation stay as Parts. The
-village is read-only while that work runs. ROADMAP Phase 5b carries the layout,
-the ~6,000 part budget and the five review checkpoints.
+**Zone 1's landforms are built.** `StarterZone` was sculpted from scratch on
+voxel Terrain — perimeter cliffs, a ravine, a slime hollow, a scarred
+battlefield with craters and trenches, a goblin plateau and the boss arena
+bowl, with a walkable route from the gate that never exceeds 25°. Structures,
+props and vegetation are still to come and stay as Parts. ROADMAP Phase 5b
+carries the layout, the ~6,000 part budget and the five review checkpoints.
 
-**The path system is a single flat surface.** Every path tile sits at exactly
-`y = 0.30` with no overlaps, which is what makes z-fighting structurally
-impossible rather than something to keep suppressing. If you edit paths, keep
-that invariant — vary colour and material, never height.
+**The ground is voxel Terrain, and so are the roads.** The old `Ground_Pasture`
+disc and the 763-part `Paths` folder are both gone. Roads are painted into the
+terrain as `Cobblestone`, dirt lanes as `Sandstone`/`Ground`. That makes
+z-fighting structurally impossible — there is no second surface to fight with.
+
+Terrain is held dead flat at `y = 0.10` under every part that meets the ground,
+using a mask built from their real footprints; hills appear only in the open
+ring between the town and the curtain wall. Only `Grass` and `LeafyGrass` grow
+blades, so everywhere people walk is painted bare on purpose.
+
+`_PathRoutes` and `_PathMask` on the Village folder are the only surviving
+record of the road network. Do not delete them.
 
 **Lighting is fixed at dusk** (`ClockTime 18.1`) with atmosphere, bloom and a
 warm shift. There are ~190 light sources: window glow, lanterns, wall torches,
