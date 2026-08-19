@@ -285,5 +285,7 @@ The HUD and panels are functional but visually unfinished.
 - Create gamepasses and developer products, paste ids into `MonetizationConfig`
 - Upload audio and icons, paste ids into `AssetConfig`
 - Source or commission real meshes for armour and enemies
-- **Save the place after world changes** — File → Download a Copy, overwriting
-  `RNGArmory.rbxl`. See README, "Saving the world".
+- **Refresh the place backup** at milestones and before anything destructive —
+  File → Download a Copy, overwriting `RNGArmory.rbxl`. Not needed after every
+  world change: the place is Team Create and Roblox holds the version history.
+  See README, "The world lives in the cloud, not in the repo".

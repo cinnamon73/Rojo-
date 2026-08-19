@@ -70,31 +70,49 @@ light — there are 169 of them and lighting them all would wreck performance.
 
 ---
 
-## Saving the world
+## The world lives in the cloud, not in the repo
 
-**Read this before your first commit.**
+**Read this before you go looking for a save button.**
 
-Workspace is not Rojo-managed. The world used to be regenerated from
-`tools/BuildWorld.luau`, but at ~14,000 parts that is no longer practical, so
-**the place file is now the source of truth for everything under Workspace**
-and it is deliberately committed.
+This is a **Team Create place** on Roblox's cloud (place `76196845987264`,
+owned by a group). Both collaborators are in the same edit session and see the
+same `Workspace`. World edits propagate immediately — there is nothing to sync
+by hand, nothing to merge, and no way for your geometry to be stranded on your
+own machine.
+
+Roblox keeps the version history. The place is on **version 125** at the time
+of writing, and every earlier version is recoverable from the Creator Dashboard
+or File → Open from Roblox. **That is the first resort if something destroys
+the world**, not the repo.
+
+### So what is `RNGArmory.rbxl` for?
+
+A **backup snapshot**, and nothing more. It is a restore point pinned to a
+commit, so a given revision of the code can be paired with the world that
+matched it. It is not how the world is shared and it is not the source of
+truth.
+
+Refresh it when a snapshot is actually worth having:
+
+- before running anything destructive — `tools/BuildWorld.luau` would wipe the
+  world outright
+- before and after a large structural job, such as the Phase 5b Zone 1 rebuild
+- at a milestone worth being able to return to
+
+There is no need to re-save it after every prop you move. Earlier revisions of
+this document said there was; that was wrong, and it was written before anyone
+checked whether the place was Team Create.
+
+To refresh it: **File → Download a Copy** (a cloud-opened place has no "Save to
+File As"), overwrite `RNGArmory.rbxl` in this repo folder, commit. The file is
+binary — it restores perfectly but does not diff, and two snapshots of the same
+world cannot be merged. That is fine for a backup and is the reason it is not
+used for collaboration.
 
 `tools/BuildWorld.luau` is kept only as a record of the *original* village. It
 carries a warning banner. Do not run it — it would destroy the current world.
-
-After any world change:
-
-1. In Studio: **File → Download a Copy**  (a cloud-opened place has no
-   "Save to File As" — Download a Copy is the equivalent)
-2. Overwrite **`RNGArmory.rbxl`** in this repo folder
-3. Commit it alongside your scripts
-
-`RNGArmory.rbxl` is binary: it stores and restores perfectly but does not
-diff, and two people editing the world at once cannot merge it. Coordinate
-before world sessions.
-
-If you skip this, your geometry exists on your machine only and the other
-collaborator cannot see it.
+`tools/RestoreGround.luau` is its safe counterpart: it only adds missing
+floors and never wipes, so it is safe to run twice.
 
 ---
 
@@ -189,16 +207,22 @@ git pull
 
 …work…
 
-Save the place if you touched the world (File → Download a Copy, overwriting
-`RNGArmory.rbxl`), then:
+World edits need no step here — the place is Team Create and your geometry is
+already shared and already versioned by Roblox. Refresh `RNGArmory.rbxl` only
+at a milestone or before something destructive.
 
 ```bash
 git add -A && git commit -m "what changed" && git push
 ```
 
 **Pull before you start and push when you finish.** Two people work on this repo
-and neither Rojo nor Studio will merge anything for you. If you both run
-`rojo serve` against the same Team Create place, last write wins.
+and git will not merge Studio's world for you — but it does not have to, because
+the world does not live here.
+
+**Only one person can Rojo-sync at a time.** The plugin claims a lock at
+`ServerStorage.__Rojo_SessionLock`; if the other side holds it you get *"Could
+not sync because user 'X' is already syncing"*. Delete that ObjectValue and
+press Connect to take it over. It does not remove anyone from Team Create.
 
 ---
 

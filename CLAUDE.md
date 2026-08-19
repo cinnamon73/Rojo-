@@ -26,12 +26,28 @@ Two independent channels. Know which one you are using.
 **Rojo is authoritative for `src/`.** Anything you write into those three
 services *inside Studio* gets overwritten on the next sync. Put Luau in `src/`.
 
-**Workspace is NOT managed by Rojo.** It used to be regenerated from
-[`tools/BuildWorld.luau`](tools/BuildWorld.luau), but the world is now ~14,000
-parts and that is no longer practical. **The place file is the source of truth
-for everything under Workspace**, `RNGArmory.rbxl` is deliberately committed,
-and the builder is legacy — it carries a warning banner and running it would
-destroy the current world.
+**Workspace is NOT managed by Rojo, and it is NOT delivered by the repo either.**
+This is a **Team Create cloud place**. Both collaborators edit the same live
+`Workspace` and see each other's changes immediately. Roblox holds the version
+history — the place is past version 125 and every earlier one is recoverable
+from the Creator Dashboard or File → Open from Roblox. **That is the first
+resort if the world gets destroyed.**
+
+`RNGArmory.rbxl` in this repo is a **backup snapshot**, not the source of truth
+and not a sync mechanism. Refresh it before anything destructive, around large
+structural jobs like the Phase 5b Zone 1 rebuild, and at milestones worth
+returning to — **not after every world change**. Earlier revisions of this file
+claimed geometry you do not save "exists on your machine only"; that was wrong,
+and it was written before anyone checked that the place was Team Create.
+
+To refresh it: File → **Download a Copy** (a cloud-opened place has no "Save to
+File As"), overwrite `RNGArmory.rbxl`, commit. Binary — restores perfectly,
+does not diff, cannot be merged. Fine for a backup, useless for collaboration,
+which is exactly why collaboration does not use it.
+
+[`tools/BuildWorld.luau`](tools/BuildWorld.luau) once regenerated the world, but
+at ~14,000 parts that is no longer practical. It is legacy, carries a warning
+banner, and running it would destroy the current world.
 
 [`tools/RestoreGround.luau`](tools/RestoreGround.luau) is the other world tool:
 same channel (paste into the Command Bar in Edit mode), but it only ADDS floors
@@ -50,12 +66,6 @@ rather than discover later. Two Terrain facts worth carrying: Terrain is not a
 `Part`, so it cannot be `Anchored` or `CastShadow` — it is the sole exception
 to that rule — and `Terrain.WaterColor` is **global**, so Terrain water can
 never be slime-green in one place and blue in another.
-
-**Save the place after any world change**: File → **Download a Copy** (a
-cloud-opened place has no "Save to File As"), overwriting `RNGArmory.rbxl` in
-the repo folder, then commit it. Geometry you do not save exists on your
-machine only. The file is binary: it restores perfectly but does not diff, and
-two people editing the world at once cannot merge it.
 
 ### Geometry lessons, each of which cost real bugs
 
@@ -360,8 +370,19 @@ collisions likely, so:
 3. **Write idempotent bootstrap code.** Services should be safe to start twice
    and safe to run against a partially-built tree. Assume nothing about what
    already exists.
-4. **Two `rojo serve` instances race.** If you both sync to the same Team Create
-   place, last write wins. Check the DataModel before pushing, not after.
-5. **Announce structural changes in a commit message.** Renaming a service or
+4. **Only one person can Rojo-sync at a time.** The Rojo plugin claims a lock —
+   an `ObjectValue` at `ServerStorage.__Rojo_SessionLock` whose `Value` is the
+   holder's `Player`. If it is held, the other side gets *"Could not sync
+   because user 'X' is already syncing"*. To take it over, delete that
+   ObjectValue and press Connect; the plugin claims a fresh one. This does not
+   remove anyone from Team Create and is not the same thing as evicting a
+   collaborator.
+5. **Run world scripts once.** Non-idempotent Command Bar scripts have already
+   left duplicate `Atmosphere`, `BloomEffect`, `SunRaysEffect` and `Sky`
+   objects in `Lighting`. Two enabled Bloom effects stack, and two Atmospheres
+   fight; the scene silently looked wrong for a while. Before adding a
+   singleton, adopt the existing one — `FindFirstChildOfClass` — rather than
+   creating a second.
+6. **Announce structural changes in a commit message.** Renaming a service or
    changing a remote's signature breaks the other instance's assumptions
    silently.
