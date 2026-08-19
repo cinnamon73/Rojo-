@@ -106,11 +106,11 @@ local RANGED_STEP: StepPoses =
 --========================================================================
 
 type Rig = {
-	Shoulder: Motor6D?,
-	Waist: Motor6D?,
+	-- Joint refs: {Target, Prop, Original}. Motor6D poses through its own C0;
+	-- AnimationConstraint through its Attachment0's CFrame (C0 is read-only).
+	Shoulder: any,
+	Waist: any,
 	Grip: Weld?,
-	ShoulderC0: CFrame,
-	WaistC0: CFrame,
 	GripC1: CFrame,
 	Token: number,
 }
@@ -140,6 +140,40 @@ local function getRig(character: Model): Rig?
 	local hand = character:FindFirstChild("RightHand", true)
 	local grip = hand and hand:FindFirstChild("RightGrip")
 
+	--[[
+		THE CLASS CHECK THAT COST A NIGHT. Live rigs here have ZERO Motor6Ds:
+		the joints are AnimationConstraint instances (Roblox's newer joint
+		system) with the same names, in the same parts, exposing the same
+		C0/C1/Transform CFrames — measured live, not assumed. The original
+		IsA("Motor6D") silently discarded them, the search "succeeded", the
+		missing-joints warning stayed quiet, and the body half of every swing
+		never ran. Accept both classes; never tighten this back to Motor6D.
+	]]
+	--[[
+		A joint we can pose, reduced to (target instance, property, original).
+
+		Motor6D: tween its own C0. AnimationConstraint: C0 is READ-ONLY —
+		measured live, TweenService refuses it — because the constraint derives
+		its frames from attachments. The writable equivalent is Attachment0's
+		CFrame, which the Animator never touches (it writes Transform), so
+		posing it layers over walk animations exactly like Motor6D C0 did.
+	]]
+	local function jointRef(x: Instance?): any
+		if not x then
+			return nil
+		end
+		if x:IsA("Motor6D") then
+			return { Target = x, Prop = "C0", Original = x.C0 }
+		end
+		if x.ClassName == "AnimationConstraint" then
+			local a0 = (x :: any).Attachment0
+			if a0 then
+				return { Target = a0, Prop = "CFrame", Original = a0.CFrame }
+			end
+		end
+		return nil
+	end
+
 	-- If the joints are STILL missing, say what the rig actually contains —
 	-- one paste of this line ends the guessing for good.
 	if not shoulder or not waist then
@@ -157,11 +191,9 @@ local function getRig(character: Model): Rig?
 	end
 
 	local rig: Rig = {
-		Shoulder = if shoulder and shoulder:IsA("Motor6D") then shoulder else nil,
-		Waist = if waist and waist:IsA("Motor6D") then waist else nil,
+		Shoulder = jointRef(shoulder),
+		Waist = jointRef(waist),
 		Grip = grip,
-		ShoulderC0 = if shoulder and shoulder:IsA("Motor6D") then shoulder.C0 else CFrame.new(),
-		WaistC0 = if waist and waist:IsA("Motor6D") then waist.C0 else CFrame.new(),
 		GripC1 = grip.C1,
 		Token = (cached and cached.Token or 0),
 	}
@@ -185,10 +217,12 @@ local function applyPose(rig: Rig, p: Pose, reach: number, info: TweenInfo)
 	end
 
 	if rig.Shoulder then
-		TweenService:Create(rig.Shoulder, info, { C0 = rig.ShoulderC0 * scale(p.Shoulder) }):Play()
+		TweenService:Create(rig.Shoulder.Target, info,
+			{ [rig.Shoulder.Prop] = rig.Shoulder.Original * scale(p.Shoulder) }):Play()
 	end
 	if rig.Waist then
-		TweenService:Create(rig.Waist, info, { C0 = rig.WaistC0 * scale(p.Waist) }):Play()
+		TweenService:Create(rig.Waist.Target, info,
+			{ [rig.Waist.Prop] = rig.Waist.Original * scale(p.Waist) }):Play()
 	end
 	if rig.Grip then
 		-- Weld maths: rest C1 is gripPose⁻¹, and (C1⁻¹ · offset)⁻¹ = offset⁻¹ · C1
@@ -200,10 +234,12 @@ end
 
 local function restore(rig: Rig, info: TweenInfo)
 	if rig.Shoulder then
-		TweenService:Create(rig.Shoulder, info, { C0 = rig.ShoulderC0 }):Play()
+		TweenService:Create(rig.Shoulder.Target, info,
+			{ [rig.Shoulder.Prop] = rig.Shoulder.Original }):Play()
 	end
 	if rig.Waist then
-		TweenService:Create(rig.Waist, info, { C0 = rig.WaistC0 }):Play()
+		TweenService:Create(rig.Waist.Target, info,
+			{ [rig.Waist.Prop] = rig.Waist.Original }):Play()
 	end
 	if rig.Grip then
 		TweenService:Create(rig.Grip, info, { C1 = rig.GripC1 }):Play()
