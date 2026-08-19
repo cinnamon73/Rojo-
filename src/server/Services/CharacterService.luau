@@ -246,13 +246,17 @@ function CharacterService.SwingWeapon(player: Player)
 		return
 	end
 
-	-- Out fast, back slower: the snap is what makes a hit feel like it landed.
-	TweenService:Create(weld, TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+	--[[
+		0.14s out, brief hold, 0.26s back. The old 0.09s strike was verified
+		live to be sub-perceptual — the weapon moved, but nobody could see it.
+		A swing that cannot be seen might as well not exist.
+	]]
+	TweenService:Create(weld, TweenInfo.new(0.14, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 		C1 = swung:Inverse(),
 	}):Play()
-	task.delay(0.11, function()
+	task.delay(0.2, function()
 		if weld.Parent then
-			TweenService:Create(weld, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			TweenService:Create(weld, TweenInfo.new(0.26, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 				C1 = rest:Inverse(),
 			}):Play()
 		end

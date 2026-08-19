@@ -41,7 +41,7 @@ end
 
 --[[ Soft impact flash plus a spark burst. The bread-and-butter hit effect. ]]
 function VFX.Burst(position: Vector3, color: Color3, scale: number?)
-	local size = (scale or 1) * 2.2
+	local size = (scale or 1) * 3.4
 
 	local flash = basePart(Enum.PartType.Ball, Vector3.new(size, size, size) * 0.4, color)
 	flash.Position = position
@@ -50,8 +50,8 @@ function VFX.Burst(position: Vector3, color: Color3, scale: number?)
 
 	local emitter = Instance.new("ParticleEmitter")
 	emitter.Color = ColorSequence.new(color)
-	emitter.Lifetime = NumberRange.new(0.25, 0.45)
-	emitter.Speed = NumberRange.new(6, 14)
+	emitter.Lifetime = NumberRange.new(0.45, 0.8)
+	emitter.Speed = NumberRange.new(8, 18)
 	emitter.SpreadAngle = Vector2.new(180, 180)
 	emitter.Size = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 0.5 * (scale or 1)),
@@ -61,14 +61,14 @@ function VFX.Burst(position: Vector3, color: Color3, scale: number?)
 	emitter.LightEmission = 0.8
 	emitter.Rate = 0
 	emitter.Parent = flash
-	emitter:Emit(math.floor(14 * (scale or 1)))
+	emitter:Emit(math.floor(22 * (scale or 1)))
 
-	TweenService:Create(flash, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+	TweenService:Create(flash, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		Size = Vector3.new(size, size, size),
 		Transparency = 1,
 	}):Play()
 
-	Debris:AddItem(flash, 1)
+	Debris:AddItem(flash, 1.4)
 end
 
 --[[
@@ -84,16 +84,16 @@ function VFX.Tracer(from: Vector3, to: Vector3, color: Color3, thickness: number
 		return
 	end
 
-	local beam = basePart(Enum.PartType.Block, Vector3.new(thickness or 0.14, thickness or 0.14, distance), color)
+	local beam = basePart(Enum.PartType.Block, Vector3.new(thickness or 0.3, thickness or 0.3, distance), color)
 	beam.CFrame = CFrame.lookAt(from:Lerp(to, 0.5), to)
 	beam.Transparency = 0.1
 	beam.Parent = Workspace
 
-	TweenService:Create(beam, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+	TweenService:Create(beam, TweenInfo.new(0.38, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		Transparency = 1,
 	}):Play()
 
-	Debris:AddItem(beam, 0.4)
+	Debris:AddItem(beam, 0.7)
 end
 
 --[[ Expanding flat ring on the ground. Casts, pulses, area telegraphs. ]]
@@ -105,12 +105,12 @@ function VFX.GroundRing(position: Vector3, color: Color3, radius: number, durati
 	ring.Transparency = 0.25
 	ring.Parent = Workspace
 
-	TweenService:Create(ring, TweenInfo.new(duration or 0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+	TweenService:Create(ring, TweenInfo.new(duration or 0.85, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		Size = Vector3.new(0.18, radius * 2, radius * 2),
 		Transparency = 1,
 	}):Play()
 
-	Debris:AddItem(ring, (duration or 0.45) + 0.2)
+	Debris:AddItem(ring, (duration or 0.85) + 0.2)
 end
 
 --[[

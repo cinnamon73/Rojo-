@@ -189,7 +189,7 @@ handlers.SpinningSlash = function(player, definition, _payload)
 				return
 			end
 
-			VFX.GroundRing(root.Position, themeOf(player), SPIN_RADIUS, 0.4)
+			VFX.GroundRing(root.Position, themeOf(player), SPIN_RADIUS, 0.7)
 
 			for _, model in ipairs(enemiesWithin(root.Position, SPIN_RADIUS)) do
 				EnemyService.Damage(model, damage, player)

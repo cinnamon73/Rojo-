@@ -189,6 +189,26 @@ Defined ids: `Slime`, `Goblin`, `Wolf`, `GoblinWarrior`, `EliteGoblin`,
 
 ## Terrain, geometry and testing lessons
 
+### Live-testing the game from the Studio command bar
+
+Hard-won, all three verified this session:
+
+- **The command bar has its OWN module cache.** `require`ing a server module
+  from it during Play gives a FRESH instance whose internal state is empty —
+  DataService.Get returns nil for loaded players, Select fails with
+  ProfileNotLoaded. To exercise real systems, fire the real remotes from the
+  CLIENT context instead: `Remotes.X:InvokeServer(...)` goes through NetGuard
+  into the server's actual module instances.
+- **The client/server toggle** (the monitor icon beside Stop) switches which
+  context the command bar executes in. The Output's "All Contexts" dropdown is
+  only a display filter.
+- **An effect that exists is not an effect that reads.** Part-count polling
+  proved VFX spawning and replicating while four consecutive screenshots showed
+  nothing: 0.28-0.45s lifetimes are sub-perceptual in normal play. When
+  something "does not work" visually, first check whether it is absent or
+  merely too fast — the fixes are entirely different.
+
+
 Every one of these cost real bugs. Several cost the same bug twice.
 
 ### Terrain
