@@ -8,8 +8,9 @@
 	move like the reference GIF is now a matter of pasting ids into this file,
 	not writing code:
 
-	  1. Find or author the animation (Studio Animation Editor, a marketplace
-	     combat pack, or Mixamo -> Blender -> Roblox retarget).
+	  1. Author the animation with tools/blender_rig.py: it rebuilds the REAL
+	     R15 skeleton in Blender from a Studio dump, IK-pins both hands to the
+	     weapon, and bakes Roblox Pose CFrames straight back out.
 	  2. Upload it to the CGS Student Development GROUP — group-owned, so both
 	     collaborators' sessions can play it. Personal uploads only work for
 	     the uploader.
@@ -37,9 +38,15 @@ AnimationConfig.Swings = {
 	Sword = { 522635514, 522635514, 522638767 },
 	Dagger = { 522635514, 522635514, 522638767 },
 	Greatsword = { 522635514, 522635514, 522638767 },
-	-- Step 3 is BerserkerCrash: our own keyframed overhead slam (authored in
-	-- tools/BerserkerAnimations.luau, uploaded to the group 2026-08-19).
-	Greataxe = { 522635514, 522635514, 98764921362960 },
+	--[[
+		The Berserker's own two-hit combo, authored in Blender against a
+		DEFAULT R15 rig and baked to Roblox poses (tools/blender_rig.py):
+		  1. BerserkerCleave - horizontal cleave, hips leading
+		  2. BerserkerCrash  - overhead slam down the centre line
+		Two entries, so this weapon is a TWO-hit combo; GetComboLength reads
+		the length of this list rather than assuming three.
+	]]
+	Greataxe = { 95534608969579, 98764921362960 },
 	PaladinBlade = { 522635514, 522635514, 522638767 },
 	RoyalBlade = { 522635514, 522635514, 522638767 },
 
@@ -67,7 +74,8 @@ AnimationConfig.SpeedScale = {
 	same weapon still need the heavy-weapon slowdown.
 ]]
 AnimationConfig.StepSpeeds = {
-	Greataxe = { 0.72, 0.72, 1.0 },
+	-- Authored at real timing in Blender, so no scaling.
+	Greataxe = { 1.0, 1.0 },
 } :: { [string]: { number } }
 
 --[[ Seconds the blade trail stays on from the start of an uploaded swing,
@@ -80,6 +88,18 @@ function AnimationConfig.GetSwingId(archetype: string?, step: number): number
 		return 0
 	end
 	return set[((step - 1) % #set) + 1] or 0
+end
+
+--[[
+	How many swings this weapon's combo cycles through.
+
+	Read from the animation list so a weapon's combo length is a property of
+	its CONTENT, not a number hardcoded in the server. The greataxe has two
+	authored swings; everything else still cycles the three catalog steps.
+]]
+function AnimationConfig.GetComboLength(archetype: string?): number
+	local set = AnimationConfig.Swings[archetype or ""]
+	return if set and #set > 0 then #set else 3
 end
 
 function AnimationConfig.GetSpeed(archetype: string?, step: number?): number

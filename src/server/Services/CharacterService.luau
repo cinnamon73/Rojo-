@@ -26,6 +26,7 @@ local Config = ReplicatedStorage:WaitForChild("Config")
 local BodyConfig = require(Config.BodyConfig)
 local ClassConfig = require(Config.ClassConfig)
 local WeaponModels = require(Modules.WeaponModels)
+local AnimationConfig = require(Config.AnimationConfig)
 local Remotes = require(Modules.Remotes)
 local Logger = require(Modules.Logger)
 local Signal = require(Modules.Signal)
@@ -233,10 +234,16 @@ function CharacterService.SwingWeapon(player: Player)
 		local state = comboState[player]
 		local now = os.clock()
 
+		-- Combo length comes from how many swings the weapon actually has
+		-- authored. Hardcoding 3 here made the greataxe's two-hit combo play
+		-- cleave, crash, cleave-again-as-step-3 - a stutter with no animation
+		-- of its own.
+		local steps = AnimationConfig.GetComboLength(archetype)
+
 		if not state or now - state.LastAt > COMBO_RESET then
 			state = { Step = 1, LastAt = now }
 		else
-			state = { Step = (state.Step % 3) + 1, LastAt = now }
+			state = { Step = (state.Step % steps) + 1, LastAt = now }
 		end
 		comboState[player] = state
 		step = state.Step
