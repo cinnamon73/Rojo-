@@ -68,51 +68,53 @@ export type Profile = {
 
 AtmosphereConfig.Profiles = {
 	--[[
-		Inside the walls, on a cloudy afternoon. Light haze only — enough to
-		soften the far side of the village and give the hills some depth,
-		nowhere near the heavy dusk fog this used to carry.
+		Inside the walls, on a dark overcast afternoon. Heavy grey air — the far
+		side of the village goes soft and the hills read as silhouettes — but
+		the near field stays clear enough to fight in.
 	]]
 	Village = {
 		Name = "Village",
-		FogColor = Color3.fromRGB(196, 199, 203),
-		FogStart = 60,
-		FogEnd = 900,
-		Density = 0.20,
-		Offset = 0.00,
-		Color = Color3.fromRGB(206, 208, 210),
-		Decay = Color3.fromRGB(142, 146, 152),
+		FogColor = Color3.fromRGB(138, 143, 150),
+		FogStart = 45,
+		FogEnd = 700,
+		Density = 0.46,
+		Offset = 0.02,
+		Color = Color3.fromRGB(146, 150, 156),
+		Decay = Color3.fromRGB(86, 90, 97),
 		Glare = 0.03,
-		Haze = 0.90,
-		OutdoorAmbient = Color3.fromRGB(154, 155, 158),
+		Haze = 2.30,
+		OutdoorAmbient = Color3.fromRGB(120, 123, 128),
 	} :: Profile,
 
 	--[[
-		Beyond the gate. Still heavier air than the village so the treeline
-		dissolves rather than ends, but this is overcast daylight now, not
-		dusk.
+		Beyond the gate. Heavier again than the village so the treeline
+		dissolves rather than ends. Still daylight, just a thoroughly grim
+		afternoon.
 
 		Whatever you retune this to, FOG MUST NOT HIDE ENEMIES AT ENGAGEMENT
 		RANGE. CombatController targets to 95 studs and bows reach 90. An
 		earlier dusk profile at Density 0.72 / Offset 0.40 hid everything past
 		about 40 studs, which made enemies invisible at both. Offset is the
 		dial that pulls fog toward the camera — raising it eats the near field
-		fastest, which is why it sits at 0 here.
+		fastest, which is why it stays at 0.02 even though Density is high.
 
-		Test it the way that one was tested: reference blocks at 30/60/90/95
-		studs down the route, looked at from the gate. Do not eyeball it.
+		Density 0.54 here was TESTED, not guessed: reference blocks at
+		30/60/90/95 studs down the route from the gate, with this profile
+		applied to Lighting, all four still clearly readable. Re-run that test
+		if you retune. Do not eyeball it.
 	]]
 	Wilds = {
 		Name = "Wilds",
-		FogColor = Color3.fromRGB(178, 184, 190),
-		FogStart = 45,
-		FogEnd = 620,
-		Density = 0.30,
-		Offset = 0.00,
-		Color = Color3.fromRGB(192, 197, 202),
-		Decay = Color3.fromRGB(120, 128, 138),
-		Glare = 0.06,
-		Haze = 1.40,
-		OutdoorAmbient = Color3.fromRGB(138, 141, 146),
+		FogColor = Color3.fromRGB(122, 128, 137),
+		FogStart = 38,
+		FogEnd = 520,
+		Density = 0.54,
+		Offset = 0.02,
+		Color = Color3.fromRGB(134, 139, 147),
+		Decay = Color3.fromRGB(70, 75, 84),
+		Glare = 0.05,
+		Haze = 2.80,
+		OutdoorAmbient = Color3.fromRGB(104, 108, 115),
 	} :: Profile,
 }
 
