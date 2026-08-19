@@ -33,6 +33,14 @@ for everything under Workspace**, `RNGArmory.rbxl` is deliberately committed,
 and the builder is legacy — it carries a warning banner and running it would
 destroy the current world.
 
+[`tools/RestoreGround.luau`](tools/RestoreGround.luau) is the other world tool:
+same channel (paste into the Command Bar in Edit mode), but it only ADDS floors
+that are missing and never wipes. It exists because the ground went missing once
+and rebuilding it by hand from the documented dimensions was slower than writing
+it down. Its Zone 1 slab is an explicitly named `_TEMP` placeholder — Phase 5b
+replaces that with voxel Terrain, and it is in its own folder so it deletes in
+one click.
+
 **The world is Parts, not voxel Terrain — with one coming exception.** Every
 existing surface, including the ground, is a `Part`; `Ground_Pasture` is a
 cylinder of radius 411 centred at `(0, 380)`, so it ends at about `z = −31`,
@@ -152,6 +160,116 @@ Two consequences:
 Defined ids: `Slime`, `Goblin`, `Wolf`, `GoblinWarrior`, `EliteGoblin`,
 `GoblinKing`. The boss marker is `BossSpawn` and carries `BossId`.
 
+## The roll pipeline
+
+This changed substantially and is now the core of the game's feel. Read it
+before touching `RNGService`, `MultiplierConfig` or `RollController`.
+
+**One RollRequest can be several rolls.** The pool contains a **multiplier
+card** alongside the items. Landing on it awards nothing — it consumes that roll
+and immediately starts another, with the next rung swapped into the pool in its
+place (2x → 4x → 8x → 16x → 32x). The chain ends the first time you land on a
+real item. All of it resolves in one server pass, so a chain cannot be used to
+dodge the roll cooldown.
+
+`MultiplierConfig.RollChain` returns the final value, the final rung, and the
+**ordered list of rungs landed on**. The client replays that list as one spin
+each. Do not reconstruct the chain client-side — what it draws must be what
+actually happened.
+
+**From 4x up, every rung sets a rarity floor** (`MinRarity` on the ladder):
+4x → Rare, 8x → Epic, 16x → Legendary, 32x → Mythic. Everything below the floor
+gets weight **zero**, not "very small" — the guarantee is the point. Two things
+exist solely to keep it honest, and breaking either reintroduces Commons into a
+floored roll:
+
+- `PickRarity`'s fallback returns the highest tier that still had weight, never
+  a hardcoded `"Common"`.
+- `MinCommonWeightRatio` (which floors Common's share at 4%) is **skipped**
+  whenever a floor is active.
+
+**Luck scales harder at higher ranks.** `LuckRankScaling` raises each tier above
+`LuckMinRank` to a slightly higher power of luck. Without it, luck multiplied
+every boosted tier equally, the ratios inside the boosted block never moved, and
+a 32x's most likely outcome was a *Rare* — the lowest boosted tier. At luck 1
+the exponent is inert (`1^x == 1`), so **base drop rates are unchanged**.
+
+**The multiplier applies on top of the `MaxLuck` clamp**, not before it.
+`MaxLuck` caps stacked boosts; a roll multiplier is a separate deliberate spike.
+Folding it in first makes 8x and 16x identical for anyone near the ceiling.
+
+## Inventory: unlimited, and it stacks
+
+There is **no capacity**. `InventoryFull` no longer exists anywhere.
+
+Duplicates stack instead of taking slots, keyed on **template + modifier**
+(`ItemInstance.StackKey`), so a Vampiric Iron Sword never merges with a plain
+one. `Inventory.Items` is now a map of **stacks**, not of individual items.
+
+Two consequences that will bite if missed:
+
+- **`Count` is optional.** Profiles written before stacking have no such field.
+  Every read goes through `ItemInstance.GetCount()`, which treats nil as 1. Do
+  not make it required without a migration.
+- **A stack keeps the best-rolled copy.** `Variance` is a continuous roll, so
+  duplicates are never identical and something must be discarded. The weaker
+  roll is dropped and the stack keeps its original `Id` — so equipment
+  references stay valid, and a stack you are *wearing* silently improves when a
+  better copy lands.
+
+That bound is also what makes an unlimited inventory safe: the profile grows by
+distinct item-and-modifier combinations, not by rolls, so a long auto-roll run
+cannot grow the DataStore payload without limit.
+
+**Equipping has no level requirement.** `ItemConfig.LevelRequirement` still
+exists as a tier hint for sorting and balance work, but **nothing enforces it**
+and the client no longer renders a "requires level" line. Anything that drops
+can be worn immediately.
+
+**Rolling auto-equips upgrades.** `EquipmentService` subscribes to
+`RNGService.ItemRolled` and equips the new item if it beats the slot on Power —
+strictly greater, so sidegrades do not churn character visuals. Subscribed from
+EquipmentService rather than called from RNGService, so the roll path stays
+unaware of equipment.
+
+## Client UI conventions
+
+- **Labels left, equipment right.** Every numeric readout (coins, level, power,
+  luck) lives in UIController's single left-hand column; the gear strip owns the
+  top-right corner. Do not split numbers across both sides.
+- **`GearController` is laid out on artwork, not on layouts.** The gear tab is
+  one painted image with invisible hitboxes on top. Every rect is a **fraction
+  of the 1596x924 template**, measured from the image by edge detection rather
+  than estimated. Re-cut the artwork and every number is wrong — re-run the
+  measurement rather than nudging them by hand.
+- **`GearHudController` cuts its icons out of that same uploaded asset** at
+  runtime via `ImageRectOffset`/`ImageRectSize`, sprite-sheet style, so the HUD
+  needs no art of its own. Its rects are in the pixel space of the **uploaded
+  1024x593** image (the template scaled by 1024/1596); re-upload at a different
+  size and they must be rescaled. Icons are sized to equal **area**, not to a
+  bounding box, or square frames (belt, rings) read half again bigger than tall
+  ones (sword, chest).
+- **Auto-roll paces itself** on `AutoRollIntervalSeconds`, plus
+  `AutoRollChainPauseSeconds` per rung landed — not on the shared roll cooldown.
+  Manual rolls are unaffected. The old behaviour rolled faster than the reveal
+  could play, so spins were cut off mid-flight.
+
+## Lighting is owned by a script
+
+`AtmosphereController` drives fog, atmosphere and outdoor ambient from the
+player's Z position, blending a clear village profile into a heavy wilds one
+across the gate.
+
+Lighting is **not** in the Rojo tree (`default.project.json` claims only
+ReplicatedStorage, ServerScriptService and StarterPlayerScripts), so a
+hand-tuned Atmosphere in the place file would sit outside version control and be
+overwritten at runtime anyway. Tune `AtmosphereConfig`, not Lighting.
+
+Two traps. An **`Atmosphere` object overrides legacy fog entirely** — while one
+exists `FogStart`/`FogEnd`/`FogColor` do nothing, and all visible thickness
+comes from `Density`/`Offset`/`Haze`. And the controller **adopts** any existing
+Atmosphere rather than adding a second, because two of them fight and flicker.
+
 ## Build phases
 
 **[ROADMAP.md](ROADMAP.md) is the authoritative plan.** Read it before starting
@@ -188,7 +306,17 @@ Worth knowing before you assume a system is finished:
   `NotImplemented` rather than hanging. That is intended until their phase lands.
 - **Armour and enemies are primitive rigs.** Weapons have real shaped geometry;
   armour is coloured boxes and enemies are assembled from blocks.
-- **No audio anywhere.** Every id in `AssetConfig` is `0`.
+- **No audio anywhere.** Every sound id in `AssetConfig` is `0`. Images are no
+  longer all zero — `Images.GearPanel` is a real uploaded asset, owned by the
+  **CGS Student Development group**, and both gear UIs depend on it.
+- **The gear panel artwork paints 14 slot frames; the game has 7.** The unused
+  seven get an explicit locked treatment in `GearController`. They are not
+  broken slots — delete an entry from `LOCKED_RECTS` the day a real slot claims
+  one.
+- **The gear tab's "Drop" button sells.** The artwork says Drop, but there is no
+  world-drop system; it is wired to `SellRequest` and labelled accordingly.
+- **`Inventory.BaseCapacity` is vestigial.** Still in the schema and still
+  replicated, but nothing enforces it now that duplicates stack.
 - **Buildings are shells.** No interiors; doors do not open. And the village has
   no NPCs — the market has stalls and wares but nobody tending them.
 - **A hidden `VillageSpawn` sits behind the well.** Before it was added the

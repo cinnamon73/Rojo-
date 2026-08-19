@@ -17,8 +17,8 @@ systems on top of broken ones.
 | Phase | Scope | State |
 |---|---|---|
 | 1 | Foundation — structure, config, remotes, data schema, saving, UI shell | ✅ Done |
-| 2 | RNG — items, rarities, roll service, luck, pity, reveal, auto-roll | ✅ Done |
-| 3 | Inventory — item instances, equip/unequip, sell, favourite, comparison | ✅ Done |
+| 2 | RNG — items, rarities, roll service, luck, pity, reveal, auto-roll | ✅ Done — **reworked**, see below |
+| 3 | Inventory — item instances, equip/unequip, sell, favourite, comparison | ✅ Done — **reworked**, see below |
 | 4 | Combat — weapons, attacks, damage, enemy AI, rewards | ✅ Done |
 | 5 | World — village, castle, paths, lighting, dressing | ✅ Done |
 | 5b | **Zone 1 rebuild — the hunting grounds** | ⬜ Next |
@@ -29,6 +29,38 @@ systems on top of broken ones.
 | 10 | Full test pass — rejoin, multiplayer, exploit attempts, mobile | ⬜ |
 
 ---
+
+### Reworked since Phases 2 and 3 were first marked done
+
+Both still read "Done" because their scope is delivered, but the systems
+underneath are not what the original entries describe. `CLAUDE.md` carries the
+full contracts — this is the short version of what changed and why.
+
+**Rolling is a chain, not a single draw.** A multiplier card sits in the pool;
+landing on it starts another roll with the next rung swapped in. From 4x up each
+rung guarantees a rarity floor (4x Rare, 8x Epic, 16x Legendary, 32x Mythic).
+Before the floors, a 32x's single likeliest outcome was a Rare, which read as
+the multiplier doing nothing.
+
+**Luck now scales harder at higher ranks** (`LuckRankScaling`). Flat luck left
+the ratios inside the boosted block untouched, so luck only moved you out of
+Common — never up the ladder. Base rates are provably unchanged: at luck 1 the
+exponent is inert.
+
+**Inventory is unlimited and duplicates stack.** Stacks key on template +
+modifier and keep the best-rolled copy. This is not cosmetic — without stacking,
+an uncapped inventory would grow the DataStore payload without bound.
+
+**Equipping lost its level gate**, and rolling auto-equips anything that beats
+the slot on Power.
+
+**The UI moved with it**: a painted gear tab (`GearController`), an always-on
+gear strip cut from the same uploaded asset as a sprite sheet
+(`GearHudController`), vertical case-opening reels that open side by side per
+chain step, and script-driven fog (`AtmosphereController`).
+
+Still untested in anger: none of this has been through a rejoin or a
+multiplayer session. Phase 10 has more to cover than it did.
 
 ### Phase 5b — Zone 1 rebuild
 

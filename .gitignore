@@ -22,3 +22,17 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# UI source art (gear panel template and its upload-sized crops).
+#
+# Deliberately NOT committed. This repo is public and the artwork is a
+# third-party UI kit (the mockup carries a "moon tribe" watermark), so its
+# licence needs checking before it is redistributed here.
+#
+# Nothing in the game needs these files: the panel is referenced by uploaded
+# asset id in AssetConfig.Images.GearPanel, and GearHudController cuts every
+# gear icon out of that same uploaded asset at runtime. These are only needed
+# to re-cut or re-upload the artwork.
+inventory_ui_transparent*.png
+armory-gear-panel*.png
+gear.zip
