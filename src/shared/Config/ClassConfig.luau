@@ -6,10 +6,11 @@
 	and it decides everything: stats, weapon, reach, and the one ability you
 	press. There is no equipment layer any more — a class IS the loadout.
 
-	Tiers are unlock gates, not power bands in a strict sense. A Tier 1 Archer is
-	meant to stay viable next to a Tier 3 Necromancer; the higher tiers trade raw
-	numbers for abilities that change what the team can do (an unkillable body, a
-	wall enemies must chew through, a second front made of skeletons).
+	Tiers are a LABEL, not a gate. There is no levelling: every class is free
+	from the first join except the King, which is the one paid class. The tier
+	number describes complexity — a Tier 1 Archer is meant to stay viable next
+	to a Tier 3 Necromancer; higher tiers trade raw numbers for abilities that
+	change what the team can do.
 
 	COOLDOWN INTENT
 	---------------
@@ -62,11 +63,11 @@ export type ClassDefinition = {
 
 	Ability: Ability,
 
-	--[[
-		Unlock gate. Tier 1 is available immediately; higher tiers open on
-		account level. King ignores this and checks the gamepass instead.
-	]]
-	UnlockLevel: number,
+	-- Banner and mannequin outfit colour on the class select screen.
+	ThemeColor: Color3,
+
+	-- King only. Everything else is free: there is no levelling and no unlock
+	-- ladder — tiers are a label describing complexity, not a gate.
 	RequiresGamepass: string?,
 }
 
@@ -99,7 +100,7 @@ local definitions: { [string]: ClassDefinition } = {
 			Cooldown = 18,
 			Duration = 6,
 		},
-		UnlockLevel = 1,
+		ThemeColor = Color3.fromRGB(96, 164, 96)
 	},
 
 	Swordsman = {
@@ -125,7 +126,7 @@ local definitions: { [string]: ClassDefinition } = {
 			Cooldown = 14,
 			Duration = 3,
 		},
-		UnlockLevel = 1,
+		ThemeColor = Color3.fromRGB(108, 132, 172)
 	},
 
 	--------------------------------------------------------------- tier 2
@@ -153,7 +154,7 @@ local definitions: { [string]: ClassDefinition } = {
 			Cooldown = 45,
 			Duration = 10,
 		},
-		UnlockLevel = 5,
+		ThemeColor = Color3.fromRGB(178, 84, 64)
 	},
 
 	Musketeer = {
@@ -179,7 +180,7 @@ local definitions: { [string]: ClassDefinition } = {
 			Cooldown = 9,
 			Duration = 0,
 		},
-		UnlockLevel = 8,
+		ThemeColor = Color3.fromRGB(140, 108, 72)
 	},
 
 	Assassin = {
@@ -205,7 +206,7 @@ local definitions: { [string]: ClassDefinition } = {
 			Cooldown = 12,
 			Duration = 5,
 		},
-		UnlockLevel = 12,
+		ThemeColor = Color3.fromRGB(84, 88, 108)
 	},
 
 	--------------------------------------------------------------- tier 3
@@ -232,7 +233,7 @@ local definitions: { [string]: ClassDefinition } = {
 			Cooldown = 40,
 			Duration = 12,
 		},
-		UnlockLevel = 18,
+		ThemeColor = Color3.fromRGB(214, 184, 100)
 	},
 
 	Necromancer = {
@@ -258,7 +259,7 @@ local definitions: { [string]: ClassDefinition } = {
 			Cooldown = 75,
 			Duration = 30,
 		},
-		UnlockLevel = 22,
+		ThemeColor = Color3.fromRGB(122, 86, 168)
 	},
 
 	--------------------------------------------------------------- paid
@@ -285,9 +286,7 @@ local definitions: { [string]: ClassDefinition } = {
 			Cooldown = 90,
 			Duration = 45,
 		},
-		-- Ignored: the gamepass is the gate. Kept at 1 so a future decision to
-		-- also require a level is a one-line change.
-		UnlockLevel = 1,
+		ThemeColor = Color3.fromRGB(196, 156, 60),
 		RequiresGamepass = "King",
 	},
 }
@@ -321,23 +320,14 @@ function ClassConfig.Get(classId: any): ClassDefinition?
 end
 
 --[[
-	Whether `profile` may play `classId`.
+	Whether this class may be played. Only the King has a gate: the gamepass.
 
 	Returns (allowed, reason). The reason is a machine-readable string the UI
-	turns into text, not a sentence — the server never writes player-facing
-	copy.
+	turns into text — the server never writes player-facing copy.
 ]]
-function ClassConfig.IsUnlocked(definition: ClassDefinition, profile: any, ownsGamepass: boolean?): (boolean, string?)
-	if definition.RequiresGamepass then
-		if ownsGamepass then
-			return true, nil
-		end
+function ClassConfig.IsUnlocked(definition: ClassDefinition, ownsGamepass: boolean?): (boolean, string?)
+	if definition.RequiresGamepass and not ownsGamepass then
 		return false, "GamepassRequired"
-	end
-
-	local level = (profile and profile.Progression and profile.Progression.Level) or 1
-	if level < definition.UnlockLevel then
-		return false, "LevelTooLow"
 	end
 
 	return true, nil

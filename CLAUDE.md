@@ -118,6 +118,23 @@ left alone.
 | 3 | Paladin, Necromancer |
 | Paid | King (gamepass) |
 
+**There is no levelling and no unlock ladder.** Tiers are labels describing
+complexity; every class is free except the King. Kills pay coins only —
+`Progression`'s XP functions still exist but nothing calls them, and the HUD
+shows a single coins pill.
+
+**JOINING IS A MENU, AND SPAWNING IS EXPLICIT.** `ClassService.Start` sets
+`Players.CharacterAutoLoads = false`. A joining player gets no character; the
+client shows the full-screen class menu (banner + mannequin per class) and the
+first `ClassSelectRequest` is what calls `LoadCharacter`. Consequences that
+will bite anyone who forgets:
+
+- **Nothing spawns players except ClassService.** A test script that waits for
+  `player.Character` after join will wait forever unless a class is picked.
+- **Respawn is manual too.** Auto-load off disables automatic respawn;
+  ClassService's `Died` hook reinstates it (same class, no menu, 5s delay).
+  Remove that hook and every death is permanent.
+
 Things worth knowing before editing any of it:
 
 - **Selection applies on the NEXT spawn**, never immediately. Re-statting a live
@@ -128,6 +145,8 @@ Things worth knowing before editing any of it:
 - **`ClassService.OwnsGamepass` returns false while unconfigured**, so King is
   unreachable until `MonetizationConfig` has real ids. That is correct, not a
   bug: an unconfigured pass should lock a class, not hand it out.
+- **`ClassConfig.IsUnlocked(definition, ownsGamepass)`** — two arguments now.
+  The old profile/level parameter is gone with the unlock ladder.
 - **`CharacterService` does not know classes exist.** It fires `CharacterReady`
   and `ClassService` listens. Going the other way closes a require cycle,
   because `ClassService` already depends on `CharacterService`.

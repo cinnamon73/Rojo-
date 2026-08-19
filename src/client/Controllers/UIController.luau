@@ -37,7 +37,6 @@ local scale: UIScale? = nil
 
 -- Live references to the bits that change every profile push.
 local bindings: { [string]: TextLabel } = {}
-local xpFill: Frame? = nil
 
 --========================================================================
 -- Components
@@ -90,63 +89,6 @@ local function StatPill(key: string, label: string, accent: Color3, order: numbe
 	})
 end
 
---[[ Level pill with an XP fill bar across the bottom. ]]
-local function LevelPill(order: number): Frame
-	local value = Create.Label("Lv 1", {
-		Name = "Value",
-		Font = Theme.Font.Bold,
-		TextSize = Theme.TextSize.Body,
-		TextColor3 = Theme.Color.Text,
-		Size = UDim2.new(1, -24, 0, 22),
-		Position = UDim2.fromOffset(12, 6),
-		TextXAlignment = Enum.TextXAlignment.Left,
-	})
-
-	local xpText = Create.Label("0 / 85", {
-		Name = "XPText",
-		Font = Theme.Font.Regular,
-		TextSize = Theme.TextSize.Tiny,
-		TextColor3 = Theme.Color.TextDim,
-		Size = UDim2.new(1, -24, 0, 22),
-		Position = UDim2.fromOffset(12, 6),
-		TextXAlignment = Enum.TextXAlignment.Right,
-	})
-
-	local fill = Create.new("Frame", {
-		Name = "Fill",
-		Size = UDim2.fromScale(0, 1),
-		BackgroundColor3 = Theme.Color.Accent,
-		BorderSizePixel = 0,
-	}, {
-		Create.Corner(Theme.Radius.Pill),
-	}) :: Frame
-
-	bindings.Level = value
-	bindings.XPText = xpText
-	xpFill = fill
-
-	return Create.Panel({
-		Name = "LevelPill",
-		Size = UDim2.fromOffset(178, 48),
-		BackgroundColor3 = Theme.Color.Panel,
-		BackgroundTransparency = 0.08,
-		LayoutOrder = order,
-	}, {
-		value,
-		xpText,
-		Create.new("Frame", {
-			Name = "XPTrack",
-			Size = UDim2.new(1, -24, 0, 5),
-			Position = UDim2.new(0, 12, 1, -11),
-			BackgroundColor3 = Theme.Color.Backdrop,
-			BorderSizePixel = 0,
-		}, {
-			Create.Corner(Theme.Radius.Pill),
-			fill,
-		}),
-	})
-end
-
 local function NavButton(text: string, order: number): Create.Button
 	return Create.Button(text, {
 		Name = text,
@@ -185,23 +127,19 @@ local function build(): ScreenGui
 	local margin = Theme.Layout.HUDMargin
 
 	--[[
-		Every readout lives in one left-hand column: currency, level, then the
-		derived combat stats.
-
-		Power and Luck are gone with the roll system: power came from aggregated
-		gear stats and luck only ever fed the roll weights. A class's numbers
-		are fixed and shown on the class select screen instead of ticking here.
+		One readout: coins. Power and Luck went with the roll system, and the
+		level pill went with levelling itself — kills pay coins, and what a
+		player can do comes from their class, not a number that climbs.
 	]]
 	Create.new("Frame", {
 		Name = "TopLeft",
-		Size = UDim2.fromOffset(178, 140),
+		Size = UDim2.fromOffset(178, 40),
 		Position = UDim2.fromOffset(margin, margin),
 		BackgroundTransparency = 1,
 		Parent = root,
 	}, {
 		Create.ListLayout(Enum.FillDirection.Vertical, Theme.Spacing.S),
 		StatPill("Coins", "Coins", Theme.Color.Coins, 1),
-		LevelPill(2),
 	})
 
 	--[[
@@ -243,37 +181,11 @@ function UIController.Render(profile: any)
 		return
 	end
 
+	-- Coins is the only live binding left. Level and XP went with levelling.
 	local coins = bindings.Coins
 	if coins and profile.Currency then
 		coins.Text = Progression.FormatNumber(profile.Currency.Coins or 0)
 	end
-
-	local levelLabel = bindings.Level
-	local xpText = bindings.XPText
-
-	if profile.Progression then
-		local level = profile.Progression.Level or 1
-		local xp = profile.Progression.XP or 0
-		local required = Progression.XPForNextLevel(level)
-
-		if levelLabel then
-			levelLabel.Text = "Lv " .. tostring(level)
-		end
-
-		if xpText then
-			xpText.Text = if required == math.huge
-				then "MAX"
-				else string.format("%s / %s", Progression.FormatNumber(xp), Progression.FormatNumber(required))
-		end
-
-		if xpFill then
-			TweenService:Create(xpFill, Theme.Tween.Normal, {
-				Size = UDim2.fromScale(Progression.GetProgress(level, xp), 1),
-			}):Play()
-		end
-	end
-
-	-- Power and Luck pills are gone; nothing to bind.
 end
 
 --[[ Single responsive knob: shrink the whole HUD on narrow viewports. ]]

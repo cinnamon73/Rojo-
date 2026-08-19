@@ -28,7 +28,6 @@ local Config = ReplicatedStorage:WaitForChild("Config")
 
 local GameConfig = require(Config.GameConfig)
 local Logger = require(Modules.Logger)
-local Progression = require(Modules.Progression)
 local Remotes = require(Modules.Remotes)
 
 local CharacterService = require(script.Parent.CharacterService)
@@ -184,8 +183,9 @@ local function onEnemyKilled(player: Player, definition: any)
 		return
 	end
 
+	-- Coins only. There is no XP and no levelling — kills pay currency, and
+	-- what a player can DO comes entirely from their class.
 	local coins = definition.CoinReward
-	local xp = definition.XPReward
 
 	profile.Currency.Coins += coins
 	profile.Stats.CoinsEarned += coins
@@ -195,26 +195,14 @@ local function onEnemyKilled(player: Player, definition: any)
 		profile.Stats.BossesDefeated += 1
 	end
 
-	local level, remaining, gained = Progression.AddXP(profile.Progression.Level, profile.Progression.XP, xp)
-	profile.Progression.Level = level
-	profile.Progression.XP = remaining
-
-	if gained > 0 then
-		-- Level changes max health, so push the new stats onto the character.
-		ClassService.ApplyToCharacter(player)
-		ReplicationService.Notify(player, string.format("Level %d!", level), "Success")
-	end
-
-	ReplicationService.Notify(player, string.format("+%d XP  +%d Coins", xp, coins), "Info")
+	ReplicationService.Notify(player, string.format("+%d Coins", coins), "Info")
 	ReplicationService.Push(player)
 
 	local feedback = Remotes.Get("CombatEvent") :: RemoteEvent
 	feedback:FireClient(player, {
 		Kind = "Kill",
 		EnemyName = definition.Name,
-		XP = xp,
 		Coins = coins,
-		LevelUp = gained > 0,
 	})
 end
 

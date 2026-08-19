@@ -15,6 +15,12 @@
 	mid-fight would let a player dodge a killing blow by becoming a Berserker,
 	and re-statting a live character mid-wave is exactly the sort of thing that
 	desyncs a health bar.
+
+	THIS SERVICE ALSO OWNS SPAWNING. CharacterAutoLoads is disabled: a joining
+	player sees the class menu over an empty world, and their first character
+	only loads when they confirm a class. That makes manual respawn-on-death
+	this service's job too — with auto-load off, Roblox will never respawn
+	anyone on its own, and forgetting that leaves every death permanent.
 ]]
 
 local Players = game:GetService("Players")
@@ -33,6 +39,8 @@ local ReplicationService = require(script.Parent.ReplicationService)
 local CharacterService = require(script.Parent.CharacterService)
 
 local log = Logger.new("ClassService")
+
+local RESPAWN_SECONDS = 5
 
 local ClassService = {}
 
@@ -138,23 +146,34 @@ function ClassService.Select(player: Player, classId: any): any
 		ownsGamepass = ClassService.OwnsGamepass(player, definition.RequiresGamepass)
 	end
 
-	local allowed, reason = ClassConfig.IsUnlocked(definition, profile, ownsGamepass)
+	local allowed, reason = ClassConfig.IsUnlocked(definition, ownsGamepass)
 	if not allowed then
 		return { Success = false, Error = reason }
 	end
 
-	if profile.Class == definition.Id then
-		return { Success = true, Class = definition.Id, Unchanged = true }
-	end
-
+	local changed = profile.Class ~= definition.Id
 	profile.Class = definition.Id
 
-	ClassService.ClassChanged:Fire(player, definition)
-	ReplicationService.Push(player)
+	if changed then
+		ClassService.ClassChanged:Fire(player, definition)
+		ReplicationService.Push(player)
+		log:Info("%s selected %s", player.Name, definition.Id)
+	end
 
-	log:Info("%s selected %s", player.Name, definition.Id)
+	--[[
+		First spawn happens HERE, not on join. CharacterAutoLoads is off so the
+		class menu fronts an empty world; confirming a class is what puts a
+		character in it. Spawned even when the pick did not change anything,
+		because re-confirming your old class from the join menu must still
+		spawn you.
+	]]
+	if not player.Character then
+		task.spawn(function()
+			player:LoadCharacter()
+		end)
+	end
 
-	return { Success = true, Class = definition.Id }
+	return { Success = true, Class = definition.Id, Changed = changed }
 end
 
 --[[
@@ -181,6 +200,12 @@ function ClassService.Start()
 	end
 	started = true
 
+	--[[
+		No character until a class is confirmed. See the header — this also
+		disables automatic respawn, which the Died hook below reinstates.
+	]]
+	Players.CharacterAutoLoads = false
+
 	NetGuard.OnFunction("ClassSelectRequest", function(player, payload)
 		if type(payload) ~= "table" then
 			return { Success = false, Error = "BadRequest" }
@@ -199,6 +224,35 @@ function ClassService.Start()
 		ClassService.ApplyToCharacter(player)
 		CharacterService.RefreshLoadout(player)
 	end)
+
+	-- Manual respawn, replacing the automatic one CharacterAutoLoads=false
+	-- turned off. Same class, no menu: the menu is a join ritual, not a death
+	-- penalty.
+	local function watchDeath(player: Player, character: Model)
+		local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
+		if not humanoid then
+			return
+		end
+
+		humanoid.Died:Connect(function()
+			task.delay(RESPAWN_SECONDS, function()
+				if player.Parent then
+					player:LoadCharacter()
+				end
+			end)
+		end)
+	end
+
+	local function watchPlayer(player: Player)
+		player.CharacterAdded:Connect(function(character)
+			task.spawn(watchDeath, player, character)
+		end)
+	end
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		watchPlayer(player)
+	end
+	Players.PlayerAdded:Connect(watchPlayer)
 
 	log:Info("started (%d classes)", ClassConfig.Count())
 end
