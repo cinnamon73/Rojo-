@@ -28,6 +28,8 @@ local NetGuard = require(Services.NetGuard)
 local ReplicationService = require(Services.ReplicationService)
 local CharacterService = require(Services.CharacterService)
 local ClassService = require(Services.ClassService)
+local MinionService = require(Services.MinionService)
+local AbilityService = require(Services.AbilityService)
 local EnemyService = require(Services.EnemyService)
 local CombatService = require(Services.CombatService)
 
@@ -83,8 +85,12 @@ local function main()
 	-- 5. Gameplay services. Classes before combat (combat reads class stats),
 	--    enemies before combat (combat subscribes to the kill signal).
 	ClassService.Start()
+	MinionService.Start()
 	EnemyService.Start()
 	CombatService.Start()
+	-- Last of the gameplay services: it registers a hook on EnemyService and
+	-- reads class stats, so both must already be up.
+	AbilityService.Start()
 
 	-- 5. Answer any declared-but-unimplemented RemoteFunction so clients get a
 	--    clean refusal instead of an invoke that never returns. Must run last.

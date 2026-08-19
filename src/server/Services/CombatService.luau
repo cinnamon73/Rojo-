@@ -35,6 +35,7 @@ local CharacterService = require(script.Parent.CharacterService)
 local DataService = require(script.Parent.DataService)
 local EnemyService = require(script.Parent.EnemyService)
 local ClassService = require(script.Parent.ClassService)
+local AbilityService = require(script.Parent.AbilityService)
 local NetGuard = require(script.Parent.NetGuard)
 local ReplicationService = require(script.Parent.ReplicationService)
 
@@ -112,7 +113,11 @@ function CombatService.Attack(player: Player, targetModel: any)
 	-- Cooldown from real attack speed. Checked before anything target-related
 	-- so a player swinging at nothing is still rate-limited.
 	local now = os.clock()
-	local cooldown = 1 / math.max(stats.AttackSpeed or 1, 0.1)
+	-- Rapidfire multiplies attack speed, which is the same thing as dividing
+	-- the gap between swings. Asked of AbilityService so this module never
+	-- learns what an ability is.
+	local attackSpeed = (stats.AttackSpeed or 1) * AbilityService.GetAttackSpeedBonus(player)
+	local cooldown = 1 / math.max(attackSpeed, 0.1)
 	local last = lastAttackAt[player]
 	if last and (now - last) < cooldown * 0.9 then
 		return
