@@ -11,7 +11,7 @@
 	matters: the former reads what is already loaded, the latter is a web call
 	that can fail or rate-limit on a full server.
 
-	Equipment models are placeholder geometry built from ItemConfig.Appearance.
+	The class weapon is placeholder geometry built by WeaponModels.
 	Swapping in real meshes means setting MeshId on the template — the welding,
 	attach points, and cleanup here do not change.
 ]]
@@ -24,17 +24,24 @@ local Modules = ReplicatedStorage:WaitForChild("Modules")
 local Config = ReplicatedStorage:WaitForChild("Config")
 
 local BodyConfig = require(Config.BodyConfig)
-local ItemConfig = require(Config.ItemConfig)
-local RarityConfig = require(Config.RarityConfig)
-local ItemInstance = require(Modules.ItemInstance)
+local ClassConfig = require(Config.ClassConfig)
 local WeaponModels = require(Modules.WeaponModels)
+local Remotes = require(Modules.Remotes)
 local Logger = require(Modules.Logger)
+local Signal = require(Modules.Signal)
 
 local DataService = require(script.Parent.DataService)
 
 local log = Logger.new("CharacterService")
 
 local CharacterService = {}
+
+--[[
+	Fires (player) once a spawned character is fully built and its profile is
+	loaded. ClassService listens for this to apply stats and the class weapon,
+	which keeps CharacterService from having to know classes exist.
+]]
+CharacterService.CharacterReady = Signal.new()
 
 local EQUIPMENT_FOLDER = "EquippedVisuals"
 
@@ -130,46 +137,6 @@ end
 	WeldConstraint rather than Motor6D: these are decorative and never animated
 	independently, and a weld survives the part being unanchored by physics.
 ]]
-local function buildPiece(instance: ItemInstance.Instance_, attachTo: BasePart, offset: CFrame, parent: Folder)
-	local template = ItemConfig.Get(instance.TemplateId)
-	if not template then
-		return
-	end
-
-	local rarity = RarityConfig.Get(instance.Rarity)
-	local appearance = template.Appearance
-
-	local part = Instance.new("Part")
-	part.Name = template.Id
-	part.Size = appearance.Size
-	part.Color = appearance.Color
-	part.Material = appearance.Material
-	part.CanCollide = false
-	part.CanQuery = false
-	part.CanTouch = false
-	part.Massless = true
-	part.Anchored = false
-	part.TopSurface = Enum.SurfaceType.Smooth
-	part.BottomSurface = Enum.SurfaceType.Smooth
-
-	-- Rare and above get a subtle glow in their rarity colour. Cheap, and it
-	-- makes good gear read at a glance in a crowd.
-	if rarity and rarity.VFXTier >= 3 then
-		local light = Instance.new("PointLight")
-		light.Color = rarity.GlowColor
-		light.Range = 6
-		light.Brightness = 0.6 + 0.2 * rarity.VFXTier
-		light.Parent = part
-	end
-
-	part.CFrame = attachTo.CFrame * offset
-	part.Parent = parent
-
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = attachTo
-	weld.Part1 = part
-	weld.Parent = part
-end
 
 --[[
 	Builds the weapon model and joints it to the right hand with a Motor6D.
@@ -179,34 +146,44 @@ end
 	animation costs no extra network traffic and stays in sync with the damage
 	the server already applied.
 ]]
-local function buildWeapon(instance: ItemInstance.Instance_, character: Model, parent: Folder)
-	local hand = character:FindFirstChild("RightHand") :: BasePart?
-	if not hand then
+local function buildWeapon(definition: ClassConfig.ClassDefinition, character: Model, _parent: Folder)
+	local player = Players:GetPlayerFromCharacter(character)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not player or not humanoid then
 		return
 	end
 
-	local model = WeaponModels.Build(instance)
+	local model = WeaponModels.Build(
+		definition.WeaponArchetype,
+		definition.WeaponColor,
+		definition.WeaponMaterial,
+		definition.Id .. "Weapon"
+	)
 	if not model then
 		return
 	end
 
-	local template = ItemConfig.Get(instance.TemplateId)
-	local archetype = template and template.Archetype
-	local grip = WeaponModels.GetGripOffset(archetype)
+	--[[
+		The weapon is a real Tool: it lives in the backpack, shows on the
+		hotbar, and can be stowed and drawn with the 1 key. Tool.Grip uses the
+		same hand-relative CFrame our Motor6D C0 did, so GetGripOffset carries
+		over unchanged — and swings tween Grip instead of a joint.
+	]]
+	local tool = Instance.new("Tool")
+	tool.Name = definition.Name
+	tool.CanBeDropped = false
+	tool.RequiresHandle = true
+	tool.Grip = WeaponModels.GetGripOffset(definition.WeaponArchetype)
+	tool:SetAttribute("Archetype", definition.WeaponArchetype)
+	tool:SetAttribute("ClassWeapon", true)
 
-	local handle = model.PrimaryPart :: BasePart
-	model.Parent = parent
-	handle.CFrame = hand.CFrame * grip
+	for _, child in ipairs(model:GetChildren()) do
+		child.Parent = tool
+	end
+	model:Destroy()
 
-	local motor = Instance.new("Motor6D")
-	motor.Name = "WeaponJoint"
-	motor.Part0 = hand
-	motor.Part1 = handle
-	motor.C0 = grip
-	motor.Parent = hand
-
-	-- Recorded so the swing animation can find it without a search.
-	model:SetAttribute("Archetype", archetype or "Sword")
+	tool.Parent = player:FindFirstChildOfClass("Backpack") or player
+	humanoid:EquipTool(tool)
 end
 
 --[[
@@ -215,41 +192,101 @@ end
 	No-ops when there is no weapon, so unarmed attacks simply do not animate
 	rather than erroring.
 ]]
+--[[
+	Announces a swing on the FX bus. The animation itself runs CLIENT-side in
+	FXController on every machine — a 0.07s strike tweened on the server
+	arrives as one or two network snapshots and looks like teleporting, which
+	is exactly the mistake the old weld tween made.
+
+	The server still owns the combo COUNT (slash -> backhand -> overhead,
+	resetting after COMBO_RESET seconds idle) so all clients draw the same
+	step and a future per-step damage bonus has a server-side number.
+]]
 function CharacterService.SwingWeapon(player: Player)
 	local character = player.Character
 	if not character then
 		return
 	end
 
-	local hand = character:FindFirstChild("RightHand")
-	local motor = hand and hand:FindFirstChild("WeaponJoint") :: Motor6D?
-	if not motor then
+	local tool = character:FindFirstChildOfClass("Tool")
+	if not tool or not tool:GetAttribute("ClassWeapon") then
 		return
 	end
 
-	local folder = character:FindFirstChild(EQUIPMENT_FOLDER)
-	local model = folder and folder:FindFirstChildWhichIsA("Model")
-	local archetype = model and model:GetAttribute("Archetype") or "Sword"
+	local archetype = (tool:GetAttribute("Archetype") or "Sword") :: string
+	local step = 1
 
-	local rest, swung = WeaponModels.GetSwing(archetype :: string)
+	if WeaponModels.IsMelee(archetype) then
+		local state = comboState[player]
+		local now = os.clock()
 
-	-- Out fast, back slower: the snap is what makes a hit feel like it landed.
-	TweenService:Create(motor, TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { C0 = swung }):Play()
-	task.delay(0.11, function()
-		if motor.Parent then
-			TweenService:Create(motor, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { C0 = rest }):Play()
+		if not state or now - state.LastAt > COMBO_RESET then
+			state = { Step = 1, LastAt = now }
+		else
+			state = { Step = (state.Step % 3) + 1, LastAt = now }
 		end
-	end)
+		comboState[player] = state
+		step = state.Step
+	end
+
+	local fx = Remotes.Get("FXEvent") :: RemoteEvent
+	fx:FireAllClients({
+		Kind = "Swing",
+		UserId = player.UserId,
+		Archetype = archetype,
+		Step = step,
+	})
 end
 
 --[[
-	Rebuilds every equipped item's model on the character.
+	Welds the class offhand (shield, parrying dagger) to the left forearm.
 
-	Destroys and rebuilds wholesale rather than diffing: equipment changes are
-	rare and a handful of parts is cheap, whereas diff bugs leave ghost armour
-	welded to players.
+	A WeldConstraint, not a Motor6D: offhands are never animated, and a weld
+	survives the arm being moved by animations without fighting them.
 ]]
-function CharacterService.RefreshEquipmentVisuals(player: Player)
+local function buildOffhand(definition: ClassConfig.ClassDefinition, character: Model, parent: Folder)
+	if not definition.Offhand then
+		return
+	end
+
+	local arm = character:FindFirstChild("LeftLowerArm") :: BasePart?
+	if not arm then
+		return
+	end
+
+	local model = WeaponModels.BuildOffhand(
+		definition.Offhand,
+		definition.WeaponColor,
+		definition.WeaponMaterial,
+		definition.Id .. "Offhand"
+	)
+	if not model then
+		return
+	end
+
+	local handle = model.PrimaryPart :: BasePart
+	model.Parent = parent
+
+	-- Flat against the outside of the forearm, face outward.
+	handle.CFrame = arm.CFrame * CFrame.new(-0.55, 0, 0) * CFrame.Angles(0, 0, math.rad(90))
+
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = arm
+	weld.Part1 = handle
+	weld.Parent = handle
+end
+
+--[[
+	Rebuilds the class weapon on the character.
+
+	Destroys and rebuilds wholesale rather than diffing. There is only one item
+	now, changes are rare, and diff bugs leave ghost weapons welded to players.
+
+	Reads the class from the profile via ClassConfig rather than asking
+	ClassService, deliberately: ClassService already depends on this module, and
+	going the other way would close a require cycle.
+]]
+function CharacterService.RefreshLoadout(player: Player)
 	local character = player.Character
 	if not character then
 		return
@@ -262,48 +299,26 @@ function CharacterService.RefreshEquipmentVisuals(player: Player)
 
 	clearVisuals(character)
 
-	-- Drop any joint left over from the previous weapon.
-	local hand = character:FindFirstChild("RightHand")
-	local oldMotor = hand and hand:FindFirstChild("WeaponJoint")
-	if oldMotor then
-		oldMotor:Destroy()
+	-- Retire the previous class weapon wherever it is: equipped (a child of
+	-- the character) or stowed (in the backpack).
+	for _, container in ipairs({ character, player:FindFirstChildOfClass("Backpack") }) do
+		if container then
+			for _, child in ipairs(container:GetChildren()) do
+				if child:IsA("Tool") and child:GetAttribute("ClassWeapon") then
+					child:Destroy()
+				end
+			end
+		end
 	end
 
 	local folder = Instance.new("Folder")
 	folder.Name = EQUIPMENT_FOLDER
 	folder.Parent = character
 
-	for slot, instanceId in pairs(profile.Equipment) do
-		if instanceId ~= "" then
-			local instance = profile.Inventory.Items[instanceId]
-			local attach = BodyConfig.AttachPoints[slot]
-
-			if instance and slot == "Weapon" then
-				buildWeapon(instance, character, folder)
-
-			elseif instance and attach then
-				local mirrored = BodyConfig.MirroredSlots[slot]
-
-				if mirrored then
-					-- Boots and similar: one model per side, mirrored across X.
-					for index, partName in ipairs(mirrored) do
-						local bodyPart = character:FindFirstChild(partName) :: BasePart?
-						if bodyPart then
-							local offset = attach.Offset
-							if index == 2 then
-								offset = CFrame.new(-offset.X, offset.Y, offset.Z) * (offset - offset.Position)
-							end
-							buildPiece(instance, bodyPart, offset, folder)
-						end
-					end
-				else
-					local bodyPart = character:FindFirstChild(attach.Part) :: BasePart?
-					if bodyPart then
-						buildPiece(instance, bodyPart, attach.Offset, folder)
-					end
-				end
-			end
-		end
+	local definition = ClassConfig.Get(profile.Class) or ClassConfig.Get(ClassConfig.Default)
+	if definition then
+		buildWeapon(definition, character, folder)
+		buildOffhand(definition, character, folder)
 	end
 end
 
@@ -332,10 +347,11 @@ local function onCharacterAdded(player: Player, character: Model)
 
 	CharacterService.ApplyBody(player)
 
-	-- ApplyDescription rebuilds body parts, so visuals must come after it or
-	-- they weld to parts that are about to be replaced.
+	-- ApplyDescription rebuilds body parts, so anything welded must come after
+	-- it or it attaches to parts that are about to be replaced.
 	task.wait(0.2)
-	CharacterService.RefreshEquipmentVisuals(player)
+
+	CharacterService.CharacterReady:Fire(player)
 end
 
 local started = false
@@ -345,6 +361,10 @@ function CharacterService.Start()
 		return
 	end
 	started = true
+
+	Players.PlayerRemoving:Connect(function(player)
+		comboState[player] = nil
+	end)
 
 	local function hook(player: Player)
 		player.CharacterAppearanceLoaded:Connect(function(character)

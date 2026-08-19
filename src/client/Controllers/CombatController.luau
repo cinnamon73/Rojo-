@@ -31,6 +31,7 @@ local Theme = require(UIModules.Theme)
 local Remotes = require(Modules.Remotes)
 local Logger = require(Modules.Logger)
 local GameConfig = require(Config.GameConfig)
+local ClassConfig = require(Config.ClassConfig)
 
 local log = Logger.new("CombatController")
 local player = Players.LocalPlayer
@@ -151,17 +152,33 @@ local function attack()
 		return
 	end
 
+	--[[
+		ALWAYS fire, target or not. The server swings at air on purpose ("the
+		player still pressed the button") — but that logic was unreachable,
+		because this used to return silently when nothing was in range. A click
+		that produces nothing at all is indistinguishable from a broken game,
+		and was reported as exactly that.
+	]]
 	local target = targetUnderCursor() or nearestEnemy()
-	if not target then
-		return
-	end
 
 	-- Local throttle only. The server enforces the real cooldown from the
 	-- player's attack speed; this just avoids flooding the remote.
 	attackCooldownUntil = now + 0.1
 
+	log:Info("attack: target=%s", target and target.Name or "air")
+
 	local remote = Remotes.Get("AttackRequest") :: RemoteEvent
 	remote:FireServer(target)
+end
+
+--[[
+	Debug handle so the full CLIENT attack path — targeting included — can be
+	exercised from the command bar. The earlier "verified" combat test fired
+	the remote directly and skipped everything in this file, which is how a
+	dead click chain shipped as working.
+]]
+function CombatController.DebugAttack()
+	attack()
 end
 
 --========================================================================
@@ -216,6 +233,38 @@ end
 -- Start
 --========================================================================
 
+--========================================================================
+-- Aim zoom
+--========================================================================
+
+local DEFAULT_FOV = 70
+local AIM_FOV = 52
+local aiming = false
+
+--[[
+	Ranged classes zoom while the attack button is held: press to shoulder the
+	bow and fire, release to relax. Purely a camera FOV tween — no accuracy
+	mechanic behind it (yet), so it can be cosmetic without lying about
+	anything.
+]]
+local function isRangedClass(): boolean
+	local profile = client and client.Profile
+	local definition = ClassConfig.Get(profile and profile.Class) or ClassConfig.Get(ClassConfig.Default)
+	return definition ~= nil and definition.AttackRange >= 30
+end
+
+local function setAiming(on: boolean)
+	if aiming == on then
+		return
+	end
+	aiming = on
+
+	local target = if on then AIM_FOV else DEFAULT_FOV
+	TweenService:Create(camera, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		FieldOfView = target,
+	}):Play()
+end
+
 local started = false
 
 function CombatController.Start(clientState: any)
@@ -228,10 +277,46 @@ function CombatController.Start(clientState: any)
 
 	ContextActionService:BindAction(ACTION_NAME, function(_, state)
 		if state == Enum.UserInputState.Begin then
+			if isRangedClass() then
+				setAiming(true)
+			end
 			attack()
+		elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+			setAiming(false)
 		end
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.UserInputType.MouseButton1, Enum.UserInputType.Touch, Enum.KeyCode.ButtonR2)
+
+	--[[
+		The weapon is a Tool, and an equipped Tool claims left-click as its
+		activation. Whether ContextActionService also still receives that click
+		varies by input path — so the tool's own Activated signal is bound as a
+		second trigger. Double-fires are absorbed by attack()'s 0.1s throttle.
+	]]
+	local function hookTool(character: Model)
+		local function onChild(child: Instance)
+			if child:IsA("Tool") and child:GetAttribute("ClassWeapon") then
+				child.Activated:Connect(attack)
+			end
+		end
+		for _, child in ipairs(character:GetChildren()) do
+			onChild(child)
+		end
+		character.ChildAdded:Connect(onChild)
+	end
+
+	if player.Character then
+		hookTool(player.Character)
+	end
+	player.CharacterAdded:Connect(hookTool)
+
+	-- A class swap can land while zoomed; a melee class stuck at aim FOV
+	-- would look broken with no way back.
+	client.ProfileChanged:Connect(function()
+		if not isRangedClass() then
+			setAiming(false)
+		end
+	end)
 
 	local feedback = Remotes.Get("CombatEvent") :: RemoteEvent
 	feedback.OnClientEvent:Connect(function(payload)

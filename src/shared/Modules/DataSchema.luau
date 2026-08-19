@@ -23,20 +23,6 @@ local DataSchema = {}
 
 DataSchema.Version = 1
 
---[[
-	Equipment slots. Values are item INSTANCE ids (see Inventory.Items), or ""
-	for an empty slot. Empty string rather than nil so the table survives the
-	JSON round-trip DataStores perform — nil keys simply vanish.
-]]
-DataSchema.EquipmentSlots = {
-	"Weapon",
-	"Helmet",
-	"Chest",
-	"Legs",
-	"Boots",
-	"Accessory",
-	"Gear",
-}
 
 DataSchema.Default = {
 	SchemaVersion = DataSchema.Version,
@@ -60,43 +46,20 @@ DataSchema.Default = {
 		XP = 0,
 	},
 
-	Inventory = {
-		-- Map of instanceId -> item instance. A map, not an array, so lookups
-		-- and deletions are O(1) and item ids stay stable.
-		Items = {},
-		NextInstanceId = 1,
-		BaseCapacity = 200,
-	},
+	--[[
+		The chosen class id. This replaced the entire inventory and equipment
+		system: a class IS the loadout now, so a player's power is one string.
 
-	Equipment = {
-		Weapon = "",
-		Helmet = "",
-		Chest = "",
-		Legs = "",
-		Boots = "",
-		Accessory = "",
-		Gear = "",
-	},
-
-	Luck = {
-		-- Permanent additive luck from progression and achievements.
-		Permanent = 0,
-	},
+		Reconcile backfills it for profiles saved before the pivot, and
+		ClassService falls back to the default for an unknown id, so a class
+		removed from ClassConfig cannot brick a save.
+	]]
+	Class = "Swordsman",
 
 	-- Active temporary boosts: { [boostId] = { Multiplier, ExpiresAt } }.
 	-- ExpiresAt is os.time() on the SERVER, never a client clock.
 	Boosts = {},
 
-	--[[
-		Rolls since a tier last dropped. RNGService reads these to soften bad
-		streaks; it never uses them to guarantee an outcome.
-	]]
-	Pity = {
-		Rare = 0,
-		Epic = 0,
-		Legendary = 0,
-		Mythic = 0,
-	},
 
 	Stats = {
 		TotalRolls = 0,

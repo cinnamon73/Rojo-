@@ -61,12 +61,11 @@ local function main()
 	local Controllers = script.Parent:WaitForChild("Controllers")
 
 	require(Controllers.UIController).Start(Client)
-	require(Controllers.RollController).Start(Client)
-	require(Controllers.InventoryController).Start(Client)
 	require(Controllers.CombatController).Start(Client)
-	require(Controllers.GearController).Start(Client)
 	require(Controllers.AtmosphereController).Start(Client)
-	require(Controllers.GearHudController).Start(Client)
+	require(Controllers.FXController).Start(Client)
+	require(Controllers.AbilityController).Start(Client)
+	require(Controllers.ClassSelectController).Start(Client)
 
 	log:Info("client ready")
 end

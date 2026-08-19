@@ -56,60 +56,34 @@ Remotes.Definitions = {
 		Description = "Server-wide banner for exceptionally rare drops and boss kills.",
 	},
 
+	FXEvent = {
+		Kind = "Event" :: RemoteKind,
+		Direction = "S->C",
+		Description = "Presentation bus: swings, impacts, casts. Tiny payloads; every client renders the effect locally so strike frames are smooth instead of replicated at network rate.",
+	},
+
 	CombatEvent = {
 		Kind = "Event" :: RemoteKind,
 		Direction = "S->C",
 		Description = "Damage numbers, hit and kill feedback. Presentation only — the damage is already applied server-side.",
 	},
 
-	RollResult = {
-		Kind = "Event" :: RemoteKind,
-		Direction = "S->C",
-		Description = "The authoritative outcome of a roll, sent after the server has already committed it to the profile.",
-	},
-
 	--========================================================================
 	-- Client -> Server (every one of these is untrusted input)
 	--========================================================================
-
-	RollRequest = {
-		Kind = "Function" :: RemoteKind,
-		Direction = "C->S",
-		Description = "Requests a single roll. Server enforces cooldown, computes rarity, and awards the item.",
-		Burst = 4,
-		RefillPerSecond = 2,
-	},
-
-	AutoRollRequest = {
-		Kind = "Event" :: RemoteKind,
-		Direction = "C->S",
-		Description = "Starts or stops server-driven auto-roll, with an optional stop-at-rarity threshold.",
-		Burst = 4,
-		RefillPerSecond = 1,
-	},
-
-	EquipRequest = {
-		Kind = "Function" :: RemoteKind,
-		Direction = "C->S",
-		Description = "Equips or unequips an owned item instance into its slot.",
-	},
-
-	SellRequest = {
-		Kind = "Function" :: RemoteKind,
-		Direction = "C->S",
-		Description = "Sells owned item instances. Refuses locked items and anything not actually owned.",
-	},
-
-	FavoriteRequest = {
-		Kind = "Event" :: RemoteKind,
-		Direction = "C->S",
-		Description = "Toggles the lock/favorite flag on an owned item instance.",
-	},
 
 	SettingsRequest = {
 		Kind = "Event" :: RemoteKind,
 		Direction = "C->S",
 		Description = "Persists a client setting change (volumes, reduced effects, damage numbers).",
+	},
+
+	ClassSelectRequest = {
+		Kind = "Function" :: RemoteKind,
+		Direction = "C->S",
+		Description = "Picks a class. Server re-checks the unlock and the gamepass; takes effect on the next spawn.",
+		Burst = 4,
+		RefillPerSecond = 1,
 	},
 
 	AttackRequest = {

@@ -34,14 +34,8 @@ function ReplicationService.BuildView(profile: any): any
 	return {
 		Currency = TableUtil.DeepCopy(profile.Currency),
 		Progression = TableUtil.DeepCopy(profile.Progression),
-		Inventory = {
-			Items = TableUtil.DeepCopy(profile.Inventory.Items),
-			BaseCapacity = profile.Inventory.BaseCapacity,
-		},
-		Equipment = TableUtil.DeepCopy(profile.Equipment),
-		Luck = TableUtil.DeepCopy(profile.Luck),
+		Class = profile.Class,
 		Boosts = TableUtil.DeepCopy(profile.Boosts),
-		Pity = TableUtil.DeepCopy(profile.Pity),
 		Stats = TableUtil.DeepCopy(profile.Stats),
 		Zones = TableUtil.DeepCopy(profile.Zones),
 		Settings = TableUtil.DeepCopy(profile.Settings),

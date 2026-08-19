@@ -2,11 +2,9 @@
 --[[
 	UIController — the persistent HUD.
 
-	Phase 1 scope: the shell and its live bindings. Everything reads from the
-	replicated profile view and updates when the server pushes a change. The
-	roll button and nav panels are wired to real behaviour in later phases; the
-	layout, responsiveness, and update path are real now so those phases only
-	add handlers.
+	Everything reads from the replicated profile view and updates when the
+	server pushes a change. Nav panels are wired to real behaviour by whichever
+	controller owns them; the HUD only announces the press.
 
 	Responsiveness is handled with a single UIScale driven by viewport width
 	rather than per-element scale rules. One knob, predictable everywhere, and
@@ -31,24 +29,14 @@ local player = Players.LocalPlayer
 
 local UIController = {}
 
---[[
-	Fired when the player presses ROLL. UIController owns the button's look and
-	state; RollController owns what pressing it means. Keeping those apart means
-	the HUD has no idea the RNG service exists.
-]]
-UIController.RollActivated = Signal.new()
-
 --[[ Fired with a panel name when a nav button is pressed. ]]
 UIController.NavActivated = Signal.new()
 
 local screenGui: ScreenGui? = nil
 local scale: UIScale? = nil
-local rollButton: Create.Button? = nil
-local autoButton: Create.Button? = nil
 
 -- Live references to the bits that change every profile push.
 local bindings: { [string]: TextLabel } = {}
-local xpFill: Frame? = nil
 
 --========================================================================
 -- Components
@@ -101,63 +89,6 @@ local function StatPill(key: string, label: string, accent: Color3, order: numbe
 	})
 end
 
---[[ Level pill with an XP fill bar across the bottom. ]]
-local function LevelPill(order: number): Frame
-	local value = Create.Label("Lv 1", {
-		Name = "Value",
-		Font = Theme.Font.Bold,
-		TextSize = Theme.TextSize.Body,
-		TextColor3 = Theme.Color.Text,
-		Size = UDim2.new(1, -24, 0, 22),
-		Position = UDim2.fromOffset(12, 6),
-		TextXAlignment = Enum.TextXAlignment.Left,
-	})
-
-	local xpText = Create.Label("0 / 85", {
-		Name = "XPText",
-		Font = Theme.Font.Regular,
-		TextSize = Theme.TextSize.Tiny,
-		TextColor3 = Theme.Color.TextDim,
-		Size = UDim2.new(1, -24, 0, 22),
-		Position = UDim2.fromOffset(12, 6),
-		TextXAlignment = Enum.TextXAlignment.Right,
-	})
-
-	local fill = Create.new("Frame", {
-		Name = "Fill",
-		Size = UDim2.fromScale(0, 1),
-		BackgroundColor3 = Theme.Color.Accent,
-		BorderSizePixel = 0,
-	}, {
-		Create.Corner(Theme.Radius.Pill),
-	}) :: Frame
-
-	bindings.Level = value
-	bindings.XPText = xpText
-	xpFill = fill
-
-	return Create.Panel({
-		Name = "LevelPill",
-		Size = UDim2.fromOffset(178, 48),
-		BackgroundColor3 = Theme.Color.Panel,
-		BackgroundTransparency = 0.08,
-		LayoutOrder = order,
-	}, {
-		value,
-		xpText,
-		Create.new("Frame", {
-			Name = "XPTrack",
-			Size = UDim2.new(1, -24, 0, 5),
-			Position = UDim2.new(0, 12, 1, -11),
-			BackgroundColor3 = Theme.Color.Backdrop,
-			BorderSizePixel = 0,
-		}, {
-			Create.Corner(Theme.Radius.Pill),
-			fill,
-		}),
-	})
-end
-
 local function NavButton(text: string, order: number): Create.Button
 	return Create.Button(text, {
 		Name = text,
@@ -196,60 +127,25 @@ local function build(): ScreenGui
 	local margin = Theme.Layout.HUDMargin
 
 	--[[
-		Every readout lives in one left-hand column: currency, level, then the
-		derived combat stats.
-
-		Power and Luck used to sit top-right. They moved because the gear strip
-		now owns the right edge, and numbers split across both sides while gear
-		occupies one of them reads as two competing HUDs. Labels left,
-		equipment right — each side has exactly one job.
+		One readout: coins. Power and Luck went with the roll system, and the
+		level pill went with levelling itself — kills pay coins, and what a
+		player can do comes from their class, not a number that climbs.
 	]]
 	Create.new("Frame", {
 		Name = "TopLeft",
-		Size = UDim2.fromOffset(178, 240),
+		Size = UDim2.fromOffset(178, 40),
 		Position = UDim2.fromOffset(margin, margin),
 		BackgroundTransparency = 1,
 		Parent = root,
 	}, {
 		Create.ListLayout(Enum.FillDirection.Vertical, Theme.Spacing.S),
 		StatPill("Coins", "Coins", Theme.Color.Coins, 1),
-		LevelPill(2),
-		StatPill("Power", "Power", Theme.Color.Power, 3),
-		StatPill("Luck", "Luck", Theme.Color.Luck, 4),
 	})
 
-	-- The primary action. Deliberately the largest thing on screen.
-	local roll = Create.Button("ROLL", {
-		Name = "RollButton",
-		Size = UDim2.fromOffset(240, 68),
-		Position = UDim2.new(0.5, -120, 1, -68 - margin - 56),
-		Font = Theme.Font.Display,
-		TextSize = Theme.TextSize.Title,
-		Parent = root,
-	}, function()
-		UIController.RollActivated:Fire()
-	end)
-
-	rollButton = roll
-
-	Create.Stroke(Theme.Color.AccentHover, Theme.Stroke.Medium, 0.4).Parent = roll.Instance
-
-	-- Auto-roll toggle, tucked beside the main button so it reads as secondary.
-	local auto = Create.Button("AUTO", {
-		Name = "AutoButton",
-		Size = UDim2.fromOffset(84, 68),
-		Position = UDim2.new(0.5, 128, 1, -68 - margin - 56),
-		BackgroundColor3 = Theme.Color.PanelRaised,
-		HoverColor = Theme.Color.PanelHover,
-		PressColor = Theme.Color.Panel,
-		Font = Theme.Font.Bold,
-		TextSize = Theme.TextSize.Small,
-		Parent = root,
-	}, function()
-		UIController.NavActivated:Fire("__AutoToggle")
-	end)
-
-	autoButton = auto
+	--[[
+		No ROLL button. The primary action is now attacking, which is bound
+		through CombatController rather than being a HUD button.
+	]]
 
 	-- Bottom-right navigation.
 	Create.new("Frame", {
@@ -264,10 +160,9 @@ local function build(): ScreenGui
 			CellPadding = UDim2.fromOffset(Theme.Spacing.S, Theme.Spacing.S),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
-		NavButton("Inventory", 1).Instance,
-		NavButton("Gear", 2).Instance,
-		NavButton("Quests", 3).Instance,
-		NavButton("Shop", 4).Instance,
+		NavButton("Class", 1).Instance,
+		NavButton("Quests", 2).Instance,
+		NavButton("Shop", 3).Instance,
 	})
 
 	return gui
@@ -286,45 +181,10 @@ function UIController.Render(profile: any)
 		return
 	end
 
+	-- Coins is the only live binding left. Level and XP went with levelling.
 	local coins = bindings.Coins
 	if coins and profile.Currency then
 		coins.Text = Progression.FormatNumber(profile.Currency.Coins or 0)
-	end
-
-	local levelLabel = bindings.Level
-	local xpText = bindings.XPText
-
-	if profile.Progression then
-		local level = profile.Progression.Level or 1
-		local xp = profile.Progression.XP or 0
-		local required = Progression.XPForNextLevel(level)
-
-		if levelLabel then
-			levelLabel.Text = "Lv " .. tostring(level)
-		end
-
-		if xpText then
-			xpText.Text = if required == math.huge
-				then "MAX"
-				else string.format("%s / %s", Progression.FormatNumber(xp), Progression.FormatNumber(required))
-		end
-
-		if xpFill then
-			TweenService:Create(xpFill, Theme.Tween.Normal, {
-				Size = UDim2.fromScale(Progression.GetProgress(level, xp), 1),
-			}):Play()
-		end
-	end
-
-	local luck = bindings.Luck
-	if luck and profile.Luck then
-		-- Base 1.0 plus permanent bonuses. Temporary boosts fold in at Phase 7.
-		luck.Text = string.format("%.2fx", 1 + (profile.Luck.Permanent or 0))
-	end
-
-	local power = bindings.Power
-	if power and profile.Stats then
-		power.Text = Progression.FormatNumber(profile.Stats.HighestPower or 0)
 	end
 end
 
@@ -379,23 +239,7 @@ function UIController.Start(client: any)
 	log:Info("HUD ready")
 end
 
---[[ Enables/disables the roll button — cooldown feedback. ]]
-function UIController.SetRollEnabled(enabled: boolean)
-	if rollButton then
-		rollButton.SetEnabled(enabled)
-	end
-end
 
---[[ Recolours the AUTO button to show whether auto-roll is running. ]]
-function UIController.SetAutoActive(active: boolean)
-	if not autoButton then
-		return
-	end
-
-	local button = autoButton.Instance
-	button.BackgroundColor3 = if active then Theme.Color.Positive else Theme.Color.PanelRaised
-	button.Text = if active then "STOP" else "AUTO"
-end
 
 --[[ The HUD's root frame, for controllers that need to parent into it. ]]
 function UIController.GetRoot(): Frame?

@@ -35,8 +35,11 @@ Working rules, in priority order:
 
 Nothing below is decided. Recorded so neither instance assumes:
 
-- **Rolling** is currently framed as the core loop. It probably works better as
-  a between-wave reward than as the main activity.
+- **Rolling is GONE.** Both collaborators decided to remove it rather than
+  demote it. RNGService, MultiplierConfig, RarityConfig, ItemConfig,
+  ItemInstance, ModifierConfig, EquipmentService and the four roll/gear
+  controllers are deleted. Do not reintroduce them — if a reward economy is
+  wanted, design one for waves rather than restoring the old one.
 - **Zone travel and zone gates** may not survive at all.
 - **The village** has no defensive positions designed as such yet — the
   wall-walk exists, but nothing is placed for players to hold.
@@ -110,6 +113,67 @@ you substitute a real width.
 slime pond, the boss arena, the Zone 2 gate, forest by chapter, and torch-post
 lighting along the routes.
 
+## Classes replaced equipment
+
+A player's power is one string: `profile.Class`. There is no inventory, no
+equipment slots, no rarity and no item instances. A class IS the loadout.
+
+`ClassConfig` holds eight definitions — stats, weapon archetype and tint, one
+ability, and an unlock gate. `ClassService` owns selection and pushes stats onto
+the character. Anything that used to ask "what is this player wearing?" now asks
+`ClassService.GetStats(profile)`, which returns the same shaped table
+`EquipmentService.GetAggregateStats` did, so `CombatService`'s damage roll was
+left alone.
+
+| Tier | Classes |
+|---|---|
+| 1 | Archer, Swordsman |
+| 2 | Berserker, Musketeer, Assassin |
+| 3 | Paladin, Necromancer |
+| Paid | King (gamepass) |
+
+**There is no levelling and no unlock ladder.** Tiers are labels describing
+complexity; every class is free except the King. Kills pay coins only —
+`Progression`'s XP functions still exist but nothing calls them, and the HUD
+shows a single coins pill.
+
+**JOINING IS A MENU, AND SPAWNING IS EXPLICIT.** `ClassService.Start` sets
+`Players.CharacterAutoLoads = false`. A joining player gets no character; the
+client shows the full-screen class menu (banner + mannequin per class) and the
+first `ClassSelectRequest` is what calls `LoadCharacter`. Consequences that
+will bite anyone who forgets:
+
+- **Nothing spawns players except ClassService.** A test script that waits for
+  `player.Character` after join will wait forever unless a class is picked.
+- **Respawn is manual too.** Auto-load off disables automatic respawn;
+  ClassService's `Died` hook reinstates it (same class, no menu, 5s delay).
+  Remove that hook and every death is permanent.
+
+Things worth knowing before editing any of it:
+
+- **Selection applies on the NEXT spawn**, never immediately. Re-statting a live
+  character mid-wave desyncs its health bar, and swapping to Berserker to dodge
+  a killing blow would be free.
+- **`ApplyToCharacter` preserves the health RATIO.** Setting Health to MaxHealth
+  on a stat refresh would be a free full heal — an exploit during a wave.
+- **`ClassService.OwnsGamepass` returns false while unconfigured**, so King is
+  unreachable until `MonetizationConfig` has real ids. That is correct, not a
+  bug: an unconfigured pass should lock a class, not hand it out.
+- **`ClassConfig.IsUnlocked(definition, ownsGamepass)`** — two arguments now.
+  The old profile/level parameter is gone with the unlock ladder.
+- **`CharacterService` does not know classes exist.** It fires `CharacterReady`
+  and `ClassService` listens. Going the other way closes a require cycle,
+  because `ClassService` already depends on `CharacterService`.
+- **Weapon appearance comes from the class.** `WeaponModels.Build` now takes
+  `(archetype, colour, material, name)` rather than an item instance.
+- **Balance is unproven.** The numbers in `ClassConfig` have never been played.
+  One deliberate departure from the brief is recorded in its header: Berserker's
+  undying is on a 45s cooldown, not the "medium" it was specified as, because
+  10s of immortality on a medium timer is over 50% uptime.
+
+Abilities are **defined but not implemented** — `AbilityService` does not exist
+yet. `AbilityRequest` is declared in the manifest and unhandled.
+
 ## The enemy spawn contract
 
 This matters more than it looks: it is the only link between world geometry and
@@ -138,6 +202,26 @@ Defined ids: `Slime`, `Goblin`, `Wolf`, `GoblinWarrior`, `EliteGoblin`,
 `GoblinKing`. The boss marker is `BossSpawn` and carries `BossId`.
 
 ## Terrain, geometry and testing lessons
+
+### Live-testing the game from the Studio command bar
+
+Hard-won, all three verified this session:
+
+- **The command bar has its OWN module cache.** `require`ing a server module
+  from it during Play gives a FRESH instance whose internal state is empty —
+  DataService.Get returns nil for loaded players, Select fails with
+  ProfileNotLoaded. To exercise real systems, fire the real remotes from the
+  CLIENT context instead: `Remotes.X:InvokeServer(...)` goes through NetGuard
+  into the server's actual module instances.
+- **The client/server toggle** (the monitor icon beside Stop) switches which
+  context the command bar executes in. The Output's "All Contexts" dropdown is
+  only a display filter.
+- **An effect that exists is not an effect that reads.** Part-count polling
+  proved VFX spawning and replicating while four consecutive screenshots showed
+  nothing: 0.28-0.45s lifetimes are sub-perceptual in normal play. When
+  something "does not work" visually, first check whether it is absent or
+  merely too fast — the fixes are entirely different.
+
 
 Every one of these cost real bugs. Several cost the same bug twice.
 

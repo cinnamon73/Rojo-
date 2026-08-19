@@ -56,6 +56,15 @@ type EnemyRecord = {
 	DamageBy: { [Player]: number },
 }
 
+--[[
+	Optional predicate: returns true for a player enemies must ignore.
+
+	Injected by AbilityService rather than required, because AbilityService
+	already depends on this module and requiring it back would close a cycle.
+	Nil until something registers one, so this module works standalone.
+]]
+local hiddenCheck: ((Player) -> boolean)? = nil
+
 local enemies: { [Model]: EnemyRecord } = {}
 local markerCounts: { [BasePart]: number } = {}
 local folder: Folder? = nil
@@ -385,6 +394,26 @@ function EnemyService.HandleDeath(record: EnemyRecord)
 	end)
 end
 
+--[[
+	Builds a rig from an EnemyConfig-shaped definition, without registering it
+	as an enemy.
+
+	Exposed for MinionService: summoned skeletons and knights are the same
+	construction problem as enemies, and duplicating eighty lines of welded
+	primitives to get a friendly one would guarantee the two drift apart.
+
+	The caller owns everything after this — parenting, AI, damage, cleanup.
+	Nothing here tags the model or adds it to the enemy table.
+]]
+--[[ Registers the predicate above. Pass nil to clear it. ]]
+function EnemyService.SetHiddenCheck(fn: ((Player) -> boolean)?)
+	hiddenCheck = fn
+end
+
+function EnemyService.BuildRig(definition: any): (Model, Humanoid, BasePart)
+	return buildRig(definition)
+end
+
 --[[ The record for a model, or nil. Used by CombatService to validate targets. ]]
 function EnemyService.GetRecord(model: Model): EnemyRecord?
 	return enemies[model]
@@ -415,7 +444,11 @@ local function nearestPlayer(position: Vector3, range: number): (Player?, number
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 
-		if root and humanoid and humanoid.Health > 0 then
+		-- An Assassin mid-Vanish is skipped entirely, so enemies retarget as
+		-- though they had walked out of range.
+		local hidden = hiddenCheck ~= nil and hiddenCheck(player)
+
+		if root and humanoid and humanoid.Health > 0 and not hidden then
 			local distance = (root.Position - position).Magnitude
 			if distance < closestDistance then
 				closest = player
