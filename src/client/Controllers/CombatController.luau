@@ -152,17 +152,33 @@ local function attack()
 		return
 	end
 
+	--[[
+		ALWAYS fire, target or not. The server swings at air on purpose ("the
+		player still pressed the button") — but that logic was unreachable,
+		because this used to return silently when nothing was in range. A click
+		that produces nothing at all is indistinguishable from a broken game,
+		and was reported as exactly that.
+	]]
 	local target = targetUnderCursor() or nearestEnemy()
-	if not target then
-		return
-	end
 
 	-- Local throttle only. The server enforces the real cooldown from the
 	-- player's attack speed; this just avoids flooding the remote.
 	attackCooldownUntil = now + 0.1
 
+	log:Info("attack: target=%s", target and target.Name or "air")
+
 	local remote = Remotes.Get("AttackRequest") :: RemoteEvent
 	remote:FireServer(target)
+end
+
+--[[
+	Debug handle so the full CLIENT attack path — targeting included — can be
+	exercised from the command bar. The earlier "verified" combat test fired
+	the remote directly and skipped everything in this file, which is how a
+	dead click chain shipped as working.
+]]
+function CombatController.DebugAttack()
+	attack()
 end
 
 --========================================================================
@@ -270,6 +286,29 @@ function CombatController.Start(clientState: any)
 		end
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.UserInputType.MouseButton1, Enum.UserInputType.Touch, Enum.KeyCode.ButtonR2)
+
+	--[[
+		The weapon is a Tool, and an equipped Tool claims left-click as its
+		activation. Whether ContextActionService also still receives that click
+		varies by input path — so the tool's own Activated signal is bound as a
+		second trigger. Double-fires are absorbed by attack()'s 0.1s throttle.
+	]]
+	local function hookTool(character: Model)
+		local function onChild(child: Instance)
+			if child:IsA("Tool") and child:GetAttribute("ClassWeapon") then
+				child.Activated:Connect(attack)
+			end
+		end
+		for _, child in ipairs(character:GetChildren()) do
+			onChild(child)
+		end
+		character.ChildAdded:Connect(onChild)
+	end
+
+	if player.Character then
+		hookTool(player.Character)
+	end
+	player.CharacterAdded:Connect(hookTool)
 
 	-- A class swap can land while zoomed; a melee class stuck at aim FOV
 	-- would look broken with no way back.
