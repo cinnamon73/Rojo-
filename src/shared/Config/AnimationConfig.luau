@@ -37,7 +37,9 @@ AnimationConfig.Swings = {
 	Sword = { 522635514, 522635514, 522638767 },
 	Dagger = { 522635514, 522635514, 522638767 },
 	Greatsword = { 522635514, 522635514, 522638767 },
-	Greataxe = { 522635514, 522635514, 522638767 },
+	-- Step 3 is BerserkerCrash: our own keyframed overhead slam (authored in
+	-- tools/BerserkerAnimations.luau, uploaded to the group 2026-08-19).
+	Greataxe = { 522635514, 522635514, 98764921362960 },
 	PaladinBlade = { 522635514, 522635514, 522638767 },
 	RoyalBlade = { 522635514, 522635514, 522638767 },
 
@@ -59,6 +61,15 @@ AnimationConfig.SpeedScale = {
 	Dagger = 1.35,
 } :: { [string]: number }
 
+--[[
+	Per-step speed overrides. Custom-authored animations carry their timing in
+	their own keyframes, so they play at 1.0 while catalog placeholders on the
+	same weapon still need the heavy-weapon slowdown.
+]]
+AnimationConfig.StepSpeeds = {
+	Greataxe = { 0.72, 0.72, 1.0 },
+} :: { [string]: { number } }
+
 --[[ Seconds the blade trail stays on from the start of an uploaded swing,
      before speed scaling. ]]
 AnimationConfig.TrailSeconds = 0.5
@@ -71,7 +82,14 @@ function AnimationConfig.GetSwingId(archetype: string?, step: number): number
 	return set[((step - 1) % #set) + 1] or 0
 end
 
-function AnimationConfig.GetSpeed(archetype: string?): number
+function AnimationConfig.GetSpeed(archetype: string?, step: number?): number
+	local perStep = AnimationConfig.StepSpeeds[archetype or ""]
+	if perStep and step then
+		local v = perStep[((step - 1) % #perStep) + 1]
+		if v then
+			return v
+		end
+	end
 	return AnimationConfig.SpeedScale[archetype or ""] or 1
 end
 

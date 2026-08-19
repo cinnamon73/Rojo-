@@ -330,7 +330,7 @@ local function animateSwing(character: Model, archetype: string, step: number)
 	]]
 	local uploadedId = AnimationConfig.GetSwingId(archetype, step)
 	if uploadedId > 0 then
-		local speed = AnimationConfig.GetSpeed(archetype)
+		local speed = AnimationConfig.GetSpeed(archetype, step)
 		if playUploaded(character, uploadedId, speed) then
 			log:Info("swing %s step %d anim=uploaded(%d) speed=%.2f", archetype, step, uploadedId, speed)
 			setTrail(character, true)
