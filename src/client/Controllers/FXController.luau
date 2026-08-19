@@ -219,6 +219,12 @@ local function animateSwing(character: Model, archetype: string, step: number)
 	rig.Token += 1
 	local token = rig.Token
 
+	-- TEMP diagnostic: one line per swing saying whether the body joints were
+	-- found. shoulder=false is the difference between swordplay and a wrist
+	-- flick, and it fails silently otherwise. Remove once poses are approved.
+	log:Info("swing %s step %d shoulder=%s waist=%s",
+		archetype, step, tostring(rig.Shoulder ~= nil), tostring(rig.Waist ~= nil))
+
 	-- Act 1: anticipation. Ease out so the weapon decelerates into the wound
 	-- pose — a linear rise reads as a robot arm.
 	applyPose(rig, acts.Wind, profile.Reach,
