@@ -35,8 +35,11 @@ Working rules, in priority order:
 
 Nothing below is decided. Recorded so neither instance assumes:
 
-- **Rolling** is currently framed as the core loop. It probably works better as
-  a between-wave reward than as the main activity.
+- **Rolling is GONE.** Both collaborators decided to remove it rather than
+  demote it. RNGService, MultiplierConfig, RarityConfig, ItemConfig,
+  ItemInstance, ModifierConfig, EquipmentService and the four roll/gear
+  controllers are deleted. Do not reintroduce them — if a reward economy is
+  wanted, design one for waves rather than restoring the old one.
 - **Zone travel and zone gates** may not survive at all.
 - **The village** has no defensive positions designed as such yet — the
   wall-walk exists, but nothing is placed for players to hold.
@@ -95,6 +98,48 @@ you substitute a real width.
 26°), goblin camps and watchtowers, a scarred battlefield with trench works, a
 slime pond, the boss arena, the Zone 2 gate, forest by chapter, and torch-post
 lighting along the routes.
+
+## Classes replaced equipment
+
+A player's power is one string: `profile.Class`. There is no inventory, no
+equipment slots, no rarity and no item instances. A class IS the loadout.
+
+`ClassConfig` holds eight definitions — stats, weapon archetype and tint, one
+ability, and an unlock gate. `ClassService` owns selection and pushes stats onto
+the character. Anything that used to ask "what is this player wearing?" now asks
+`ClassService.GetStats(profile)`, which returns the same shaped table
+`EquipmentService.GetAggregateStats` did, so `CombatService`'s damage roll was
+left alone.
+
+| Tier | Classes |
+|---|---|
+| 1 | Archer, Swordsman |
+| 2 | Berserker, Musketeer, Assassin |
+| 3 | Paladin, Necromancer |
+| Paid | King (gamepass) |
+
+Things worth knowing before editing any of it:
+
+- **Selection applies on the NEXT spawn**, never immediately. Re-statting a live
+  character mid-wave desyncs its health bar, and swapping to Berserker to dodge
+  a killing blow would be free.
+- **`ApplyToCharacter` preserves the health RATIO.** Setting Health to MaxHealth
+  on a stat refresh would be a free full heal — an exploit during a wave.
+- **`ClassService.OwnsGamepass` returns false while unconfigured**, so King is
+  unreachable until `MonetizationConfig` has real ids. That is correct, not a
+  bug: an unconfigured pass should lock a class, not hand it out.
+- **`CharacterService` does not know classes exist.** It fires `CharacterReady`
+  and `ClassService` listens. Going the other way closes a require cycle,
+  because `ClassService` already depends on `CharacterService`.
+- **Weapon appearance comes from the class.** `WeaponModels.Build` now takes
+  `(archetype, colour, material, name)` rather than an item instance.
+- **Balance is unproven.** The numbers in `ClassConfig` have never been played.
+  One deliberate departure from the brief is recorded in its header: Berserker's
+  undying is on a 45s cooldown, not the "medium" it was specified as, because
+  10s of immortality on a medium timer is over 50% uptime.
+
+Abilities are **defined but not implemented** — `AbilityService` does not exist
+yet. `AbilityRequest` is declared in the manifest and unhandled.
 
 ## The enemy spawn contract
 

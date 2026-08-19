@@ -27,8 +27,6 @@ local Modules = ReplicatedStorage:WaitForChild("Modules")
 local Config = ReplicatedStorage:WaitForChild("Config")
 
 local GameConfig = require(Config.GameConfig)
-local ItemConfig = require(Config.ItemConfig)
-local ModifierConfig = require(Config.ModifierConfig)
 local Logger = require(Modules.Logger)
 local Progression = require(Modules.Progression)
 local Remotes = require(Modules.Remotes)
@@ -36,7 +34,7 @@ local Remotes = require(Modules.Remotes)
 local CharacterService = require(script.Parent.CharacterService)
 local DataService = require(script.Parent.DataService)
 local EnemyService = require(script.Parent.EnemyService)
-local EquipmentService = require(script.Parent.EquipmentService)
+local ClassService = require(script.Parent.ClassService)
 local NetGuard = require(script.Parent.NetGuard)
 local ReplicationService = require(script.Parent.ReplicationService)
 
@@ -60,28 +58,13 @@ local RANGE_MARGIN = 8
 --========================================================================
 
 --[[
-	The player's attack reach, from their equipped weapon's archetype.
-	Ranged archetypes reach much further, which is the point of using one.
+	The player's reach, straight off their class.
+
+	Ranged classes reach much further, which is the entire point of picking one
+	and the reason this is per-class rather than a global constant.
 ]]
 local function attackRange(profile: any): number
-	local weaponId = profile.Equipment.Weapon
-	if weaponId == "" then
-		return 10
-	end
-
-	local instance = profile.Inventory.Items[weaponId]
-	local template = instance and ItemConfig.Get(instance.TemplateId)
-	if not template or not template.Archetype then
-		return 10
-	end
-
-	if template.Archetype == "Bow" or template.Archetype == "Staff" then
-		return 90
-	elseif template.Archetype == "Greatsword" then
-		return 14
-	end
-
-	return 12
+	return ClassService.GetStats(profile).AttackRange or 12
 end
 
 --[[
@@ -105,20 +88,6 @@ local function rollDamage(stats: { [string]: number }): (number, boolean)
 	return math.max(1, math.floor(damage + 0.5)), isCrit
 end
 
---[[ The modifier on the equipped weapon, if any. ]]
-local function weaponModifier(profile: any): ModifierConfig.Modifier?
-	local weaponId = profile.Equipment.Weapon
-	if weaponId == "" then
-		return nil
-	end
-
-	local instance = profile.Inventory.Items[weaponId]
-	if not instance or not instance.Modifier then
-		return nil
-	end
-
-	return ModifierConfig.Get(instance.Modifier)
-end
 
 --========================================================================
 -- Attack
@@ -138,7 +107,7 @@ function CombatService.Attack(player: Player, targetModel: any)
 		return
 	end
 
-	local stats = EquipmentService.GetAggregateStats(profile)
+	local stats = ClassService.GetStats(profile)
 
 	-- Cooldown from real attack speed. Checked before anything target-related
 	-- so a player swinging at nothing is still rate-limited.
@@ -177,48 +146,18 @@ function CombatService.Attack(player: Player, targetModel: any)
 	end
 
 	local damage, isCrit = rollDamage(stats)
-	local modifier = weaponModifier(profile)
-
-	-- Berserker scales with how hurt the attacker is.
-	if modifier and modifier.Effect and modifier.Effect.Kind == "LowHealthDamage" then
-		local missing = 1 - (humanoid.Health / math.max(humanoid.MaxHealth, 1))
-		damage = math.floor(damage * (1 + modifier.Effect.Value * missing))
-	end
 
 	local dealt = EnemyService.Damage(targetModel, damage, player)
 	if dealt <= 0 then
 		return
 	end
 
-	-- On-hit effects.
-	if modifier and modifier.Effect then
-		local effect = modifier.Effect
-
-		if effect.Kind == "Lifesteal" then
-			humanoid.Health = math.min(humanoid.Health + dealt * effect.Value, humanoid.MaxHealth)
-
-		elseif effect.Kind == "Slow" then
-			record.Humanoid.WalkSpeed = record.Definition.WalkSpeed * (1 - effect.Value)
-			task.delay(2, function()
-				if record.Humanoid.Parent then
-					record.Humanoid.WalkSpeed = record.Definition.WalkSpeed
-				end
-			end)
-
-		elseif effect.Kind == "Burn" then
-			-- Burn is scheduled server-side and re-checks the target each tick,
-			-- so it cannot damage something that has already died.
-			local perTick = dealt * effect.Value / 3
-			task.spawn(function()
-				for _ = 1, 3 do
-					task.wait(1)
-					if record.Humanoid.Health > 0 then
-						EnemyService.Damage(targetModel, perTick, player)
-					end
-				end
-			end)
-		end
-	end
+	--[[
+		On-hit effects (lifesteal, slow, burn) lived on rolled weapon modifiers
+		and went with them. Class abilities are the replacement — see
+		AbilityService when it lands. Do not reintroduce per-hit effects here
+		without a home for them in ClassConfig.
+	]]
 
 	local feedback = Remotes.Get("CombatEvent") :: RemoteEvent
 	feedback:FireAllClients({
@@ -257,7 +196,7 @@ local function onEnemyKilled(player: Player, definition: any)
 
 	if gained > 0 then
 		-- Level changes max health, so push the new stats onto the character.
-		EquipmentService.ApplyToCharacter(player)
+		ClassService.ApplyToCharacter(player)
 		ReplicationService.Notify(player, string.format("Level %d!", level), "Success")
 	end
 

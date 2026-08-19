@@ -11,7 +11,7 @@
 	matters: the former reads what is already loaded, the latter is a web call
 	that can fail or rate-limit on a full server.
 
-	Equipment models are placeholder geometry built from ItemConfig.Appearance.
+	The class weapon is placeholder geometry built by WeaponModels.
 	Swapping in real meshes means setting MeshId on the template — the welding,
 	attach points, and cleanup here do not change.
 ]]
@@ -24,17 +24,23 @@ local Modules = ReplicatedStorage:WaitForChild("Modules")
 local Config = ReplicatedStorage:WaitForChild("Config")
 
 local BodyConfig = require(Config.BodyConfig)
-local ItemConfig = require(Config.ItemConfig)
-local RarityConfig = require(Config.RarityConfig)
-local ItemInstance = require(Modules.ItemInstance)
+local ClassConfig = require(Config.ClassConfig)
 local WeaponModels = require(Modules.WeaponModels)
 local Logger = require(Modules.Logger)
+local Signal = require(Modules.Signal)
 
 local DataService = require(script.Parent.DataService)
 
 local log = Logger.new("CharacterService")
 
 local CharacterService = {}
+
+--[[
+	Fires (player) once a spawned character is fully built and its profile is
+	loaded. ClassService listens for this to apply stats and the class weapon,
+	which keeps CharacterService from having to know classes exist.
+]]
+CharacterService.CharacterReady = Signal.new()
 
 local EQUIPMENT_FOLDER = "EquippedVisuals"
 
@@ -130,46 +136,6 @@ end
 	WeldConstraint rather than Motor6D: these are decorative and never animated
 	independently, and a weld survives the part being unanchored by physics.
 ]]
-local function buildPiece(instance: ItemInstance.Instance_, attachTo: BasePart, offset: CFrame, parent: Folder)
-	local template = ItemConfig.Get(instance.TemplateId)
-	if not template then
-		return
-	end
-
-	local rarity = RarityConfig.Get(instance.Rarity)
-	local appearance = template.Appearance
-
-	local part = Instance.new("Part")
-	part.Name = template.Id
-	part.Size = appearance.Size
-	part.Color = appearance.Color
-	part.Material = appearance.Material
-	part.CanCollide = false
-	part.CanQuery = false
-	part.CanTouch = false
-	part.Massless = true
-	part.Anchored = false
-	part.TopSurface = Enum.SurfaceType.Smooth
-	part.BottomSurface = Enum.SurfaceType.Smooth
-
-	-- Rare and above get a subtle glow in their rarity colour. Cheap, and it
-	-- makes good gear read at a glance in a crowd.
-	if rarity and rarity.VFXTier >= 3 then
-		local light = Instance.new("PointLight")
-		light.Color = rarity.GlowColor
-		light.Range = 6
-		light.Brightness = 0.6 + 0.2 * rarity.VFXTier
-		light.Parent = part
-	end
-
-	part.CFrame = attachTo.CFrame * offset
-	part.Parent = parent
-
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = attachTo
-	weld.Part1 = part
-	weld.Parent = part
-end
 
 --[[
 	Builds the weapon model and joints it to the right hand with a Motor6D.
@@ -179,19 +145,23 @@ end
 	animation costs no extra network traffic and stays in sync with the damage
 	the server already applied.
 ]]
-local function buildWeapon(instance: ItemInstance.Instance_, character: Model, parent: Folder)
+local function buildWeapon(definition: ClassConfig.ClassDefinition, character: Model, parent: Folder)
 	local hand = character:FindFirstChild("RightHand") :: BasePart?
 	if not hand then
 		return
 	end
 
-	local model = WeaponModels.Build(instance)
+	local model = WeaponModels.Build(
+		definition.WeaponArchetype,
+		definition.WeaponColor,
+		definition.WeaponMaterial,
+		definition.Id .. "Weapon"
+	)
 	if not model then
 		return
 	end
 
-	local template = ItemConfig.Get(instance.TemplateId)
-	local archetype = template and template.Archetype
+	local archetype = definition.WeaponArchetype
 	local grip = WeaponModels.GetGripOffset(archetype)
 
 	local handle = model.PrimaryPart :: BasePart
@@ -206,7 +176,7 @@ local function buildWeapon(instance: ItemInstance.Instance_, character: Model, p
 	motor.Parent = hand
 
 	-- Recorded so the swing animation can find it without a search.
-	model:SetAttribute("Archetype", archetype or "Sword")
+	model:SetAttribute("Archetype", archetype)
 end
 
 --[[
@@ -243,13 +213,16 @@ function CharacterService.SwingWeapon(player: Player)
 end
 
 --[[
-	Rebuilds every equipped item's model on the character.
+	Rebuilds the class weapon on the character.
 
-	Destroys and rebuilds wholesale rather than diffing: equipment changes are
-	rare and a handful of parts is cheap, whereas diff bugs leave ghost armour
-	welded to players.
+	Destroys and rebuilds wholesale rather than diffing. There is only one item
+	now, changes are rare, and diff bugs leave ghost weapons welded to players.
+
+	Reads the class from the profile via ClassConfig rather than asking
+	ClassService, deliberately: ClassService already depends on this module, and
+	going the other way would close a require cycle.
 ]]
-function CharacterService.RefreshEquipmentVisuals(player: Player)
+function CharacterService.RefreshLoadout(player: Player)
 	local character = player.Character
 	if not character then
 		return
@@ -273,37 +246,9 @@ function CharacterService.RefreshEquipmentVisuals(player: Player)
 	folder.Name = EQUIPMENT_FOLDER
 	folder.Parent = character
 
-	for slot, instanceId in pairs(profile.Equipment) do
-		if instanceId ~= "" then
-			local instance = profile.Inventory.Items[instanceId]
-			local attach = BodyConfig.AttachPoints[slot]
-
-			if instance and slot == "Weapon" then
-				buildWeapon(instance, character, folder)
-
-			elseif instance and attach then
-				local mirrored = BodyConfig.MirroredSlots[slot]
-
-				if mirrored then
-					-- Boots and similar: one model per side, mirrored across X.
-					for index, partName in ipairs(mirrored) do
-						local bodyPart = character:FindFirstChild(partName) :: BasePart?
-						if bodyPart then
-							local offset = attach.Offset
-							if index == 2 then
-								offset = CFrame.new(-offset.X, offset.Y, offset.Z) * (offset - offset.Position)
-							end
-							buildPiece(instance, bodyPart, offset, folder)
-						end
-					end
-				else
-					local bodyPart = character:FindFirstChild(attach.Part) :: BasePart?
-					if bodyPart then
-						buildPiece(instance, bodyPart, attach.Offset, folder)
-					end
-				end
-			end
-		end
+	local definition = ClassConfig.Get(profile.Class) or ClassConfig.Get(ClassConfig.Default)
+	if definition then
+		buildWeapon(definition, character, folder)
 	end
 end
 
@@ -332,10 +277,11 @@ local function onCharacterAdded(player: Player, character: Model)
 
 	CharacterService.ApplyBody(player)
 
-	-- ApplyDescription rebuilds body parts, so visuals must come after it or
-	-- they weld to parts that are about to be replaced.
+	-- ApplyDescription rebuilds body parts, so anything welded must come after
+	-- it or it attaches to parts that are about to be replaced.
 	task.wait(0.2)
-	CharacterService.RefreshEquipmentVisuals(player)
+
+	CharacterService.CharacterReady:Fire(player)
 end
 
 local started = false

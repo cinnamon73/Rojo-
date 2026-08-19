@@ -19,11 +19,27 @@
 | Phase | Scope |
 |---|---|
 | 1 | Foundation — structure, config, remotes, data schema, saving, UI shell |
-| 2 | RNG — items, rarities, roll service, luck, pity, multiplier chains, reveal |
-| 3 | Inventory — unlimited stacking inventory, equip/unequip, sell, compare |
+| 2 | ~~RNG~~ — **removed**, see below |
+| 3 | ~~Inventory~~ — **removed**, see below |
 | 4 | Combat — weapons, attacks, damage, enemy AI, rewards |
 | 5 | World — village, castle, paths, lighting, dressing |
 | 5b | **Zone 1 rebuild** — the wilds beyond the gate, on voxel terrain |
+
+### Phases 2 and 3 were removed, not demoted
+
+Both collaborators decided to strip rolling rather than keep it as a
+between-wave reward. Deleted: `RNGService`, `MultiplierConfig`, `RarityConfig`,
+`ItemConfig`, `ItemInstance`, `ModifierConfig`, `EquipmentService`, and the
+roll, inventory and gear controllers. `profile.Inventory`, `profile.Equipment`,
+`profile.Luck` and `profile.Pity` are gone from the schema.
+
+**Classes replaced all of it.** `ClassConfig` plus `ClassService`: eight classes
+across three tiers plus a paid one, each with fixed stats, a weapon and one
+ability. See CLAUDE.md for the contract.
+
+Still to build for the class system: `AbilityService` (nothing implements the
+eight abilities yet), a class select screen, and `MinionService` for
+Necromancer and King.
 
 ### Phase 5b as built
 

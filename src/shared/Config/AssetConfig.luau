@@ -15,25 +15,12 @@
 
 local AssetConfig = {}
 
---[[ Sound ids by logical name. Tiered reveal sounds map to RarityConfig.SoundTier. ]]
+--[[ Sound ids by logical name. ]]
 AssetConfig.Sounds = {
 	ButtonClick = 0,
 	ButtonHover = 0,
 
-	RollStart = 0,
-	RollTick = 0,
 
-	-- Indexed by rarity SoundTier (1 = plainest, 6 = the big one).
-	Reveal1 = 0,
-	Reveal2 = 0,
-	Reveal3 = 0,
-	Reveal4 = 0,
-	Reveal5 = 0,
-	Reveal6 = 0,
-
-	Equip = 0,
-	Unequip = 0,
-	Sell = 0,
 	Error = 0,
 
 	AttackSwing = 0,
@@ -47,28 +34,19 @@ AssetConfig.Sounds = {
 	GlobalAnnounce = 0,
 }
 
---[[ Image ids. Item icons resolve through ItemConfig; these are chrome. ]]
+--[[
+	Image ids. Chrome only.
+
+	The gear panel artwork and per-slot icons were removed with the inventory
+	UI. The uploaded panel asset still exists in the CGS Student Development
+	group if it is ever wanted for a class select or shop screen — it is not
+	referenced by any code now.
+]]
 AssetConfig.Images = {
-	SlotWeapon = 0,
-	SlotHelmet = 0,
-	SlotChest = 0,
-	SlotLegs = 0,
-	SlotBoots = 0,
-	SlotAccessory = 0,
-	SlotGear = 0,
-
-	-- The gear tab artwork: the full 1920x1080 reference, used as-is. Every
-	-- hitbox in GearController is a fraction of THIS image, so swapping in a
-	-- differently-proportioned one misaligns all of them at once.
-	GearPanel = 137111751495212,
-
 	CoinIcon = 0,
 	GemIcon = 0,
 	LuckIcon = 0,
 	PowerIcon = 0,
-
-	-- Fallback shown whenever an item has no icon configured.
-	ItemPlaceholder = 0,
 }
 
 AssetConfig.Volume = {

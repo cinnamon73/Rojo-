@@ -6,9 +6,8 @@
 	a literal Color3 or UDim2 padding value; pull it from here so a visual pass
 	is one file instead of twenty.
 
-	Rarity colours deliberately are NOT duplicated here — they live in
-	RarityConfig, because they are game data (they affect drop presentation
-	tiers), not chrome.
+	Class colours are NOT duplicated here — they live in ClassConfig, because
+	they are game data (a class's weapon tint), not chrome.
 ]]
 
 local Theme = {}

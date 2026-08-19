@@ -6,20 +6,17 @@
 	gets jointed to the hand; everything else is welded to it, so the whole
 	weapon swings as one rigid piece and animation only ever touches one joint.
 
-	Colours come from the item template, so a Legendary sword is visibly the
-	same shape as a Common one but in its own material and tint — shape reads
-	archetype, colour reads rarity. That is the right split: a player should be
-	able to tell "sword vs bow" and "junk vs good" from different channels.
+	Colour and material come from the CLASS, not from a rolled item — shape
+	reads archetype, tint reads class. Callers pass them in, so this module
+	knows nothing about where a weapon came from.
 
-	Replacing these with real meshes means setting MeshId on the template;
-	the jointing and animation below do not care what shape they are moving.
+	Replacing these with real meshes means swapping the builder body; the
+	jointing and animation below do not care what shape they are moving.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = ReplicatedStorage:WaitForChild("Config")
-local ItemConfig = require(Config.ItemConfig)
-local RarityConfig = require(Config.RarityConfig)
 
 local WeaponModels = {}
 
@@ -145,34 +142,19 @@ end
 	Returns nil if the template is not a weapon, so callers can fall through to
 	the generic armour builder without special-casing.
 ]]
-function WeaponModels.Build(instance: any): Model?
-	local template = ItemConfig.Get(instance.TemplateId)
-	if not template or template.Slot ~= "Weapon" or not template.Archetype then
-		return nil
-	end
-
-	local builder = builders[template.Archetype]
+function WeaponModels.Build(archetype: string?, color: Color3, material: Enum.Material, name: string?): Model?
+	local builder = builders[archetype or ""]
 	if not builder then
 		return nil
 	end
 
 	local model = Instance.new("Model")
-	model.Name = template.Id
+	model.Name = name or (archetype :: string)
 
 	local handle = makePart("Handle", Vector3.new(0.32, 1.2, 0.32), GRIP, Enum.Material.Wood, model)
 	model.PrimaryPart = handle
 
-	builder(model, handle, template.Appearance.Color, template.Appearance.Material)
-
-	-- Rarity glow, matching the armour treatment.
-	local rarity = RarityConfig.Get(instance.Rarity)
-	if rarity and rarity.VFXTier >= 4 then
-		local light = Instance.new("PointLight")
-		light.Color = rarity.GlowColor
-		light.Range = 8 + rarity.VFXTier
-		light.Brightness = 0.8 + 0.25 * rarity.VFXTier
-		light.Parent = handle
-	end
+	builder(model, handle, color, material)
 
 	return model
 end

@@ -39,93 +39,9 @@ GameConfig.Data = {
 	LoadFailureMessage = "Could not load your save data. Please rejoin in a moment — your progress is safe.",
 }
 
-GameConfig.Roll = {
-	-- Rolling is free. The cooldown is the only gate, so boosts and gamepasses
-	-- reduce it rather than granting currency.
-	CooldownSeconds = 1.5,
-	MinCooldownSeconds = 0.25,
-
-	-- Reveal animation lengths, by player preference. "Skip" still runs the
-	-- server roll; it only shortens presentation.
-	RevealDuration = {
-		Normal = 1.6,
-		Fast = 0.7,
-		Skip = 0,
-	},
-
-	-- Auto-roll is driven server-side on this interval, never by a client loop.
-	AutoRollEnabled = true,
-	MaxAutoRollDuration = 3600,
-
-	--[[
-		Auto-roll paces itself on this INSTEAD of racing the shared cooldown,
-		so each spin has room to land before the next one starts. Manual rolls
-		are untouched — clicking ROLL still only waits CooldownSeconds.
-	]]
-	AutoRollIntervalSeconds = 2.4,
-
-	--[[
-		Extra wait per multiplier rung landed. A chain is several spins rather
-		than one, and at the normal interval the sequence would be cut off by
-		the next roll starting before you had seen it.
-	]]
-	AutoRollChainPauseSeconds = 1.2,
-}
-
-GameConfig.RNG = {
-	-- Luck is clamped before it touches the weights. Without a ceiling, stacked
-	-- boosts would make Celestial routine and collapse the whole rarity ladder.
-	MaxLuck = 10,
-
-	-- Luck only boosts tiers at this rank or above (3 = Rare). Boosting
-	-- Uncommon would be pointless and would eat the budget that should be
-	-- shifting players toward genuinely rare drops.
-	LuckMinRank = 3,
-
-	--[[
-		How much harder each tier above LuckMinRank scales with luck.
-
-		Without this, luck multiplies every boosted tier by the SAME factor, so
-		the ratios inside the boosted block never move — Rare:Epic:Legendary
-		stays 20:5:1 at any luck. The effect was that a 32x roll's most likely
-		outcome was a Rare, the lowest boosted tier, which reads as "my huge
-		multiplier did nothing".
-
-		Each rank above the threshold now raises luck to a slightly higher
-		power, so big multipliers push toward the TOP of the ladder rather than
-		just out of Common.
-
-		Zero restores the old flat behaviour. Crucially, at luck 1 this changes
-		nothing at all (1^x == 1), so base drop rates are untouched — it only
-		bites once a multiplier or a boost is actually in play.
-	]]
-	LuckRankScaling = 0.15,
-
-	-- Common can never be squeezed below this share of total weight, no matter
-	-- how much luck is stacked. Guarantees the distribution stays valid and
-	-- keeps a floor under the "you can still get junk" promise.
-	MinCommonWeightRatio = 0.04,
-
-	-- Pity ramps a tier's weight up to this multiple once the player is past
-	-- its threshold. Capped so pity nudges the odds, never guarantees a drop.
-	PityMaxMultiplier = 5,
-
-	-- Rolled stat variance, +/- this fraction of the template's base values.
-	StatVariance = 0.08,
-
-	-- Rarity at or above which a roll is announced server-wide is driven by
-	-- RarityConfig.AnnounceGlobal, not a number here.
-}
-
 GameConfig.Economy = {
 	StartingCoins = 100,
 
-	-- Fraction of an item's sell value refunded. Below 1 so selling is a
-	-- cleanup tool, not an exploit loop.
-	SellRefundRatio = 1.0,
-
-	-- Selling anything at or above this rarity requires a confirmation step.
-	SellConfirmRarity = "Epic",
 }
 
 GameConfig.Progression = {
@@ -138,7 +54,9 @@ GameConfig.Progression = {
 }
 
 GameConfig.Combat = {
-	-- Player baselines before equipment. Gear adds on top of these.
+	-- Fallbacks only. A player's real numbers come from ClassConfig; these
+	-- cover the window before a profile loads and anything that asks for a
+	-- baseline without a class.
 	BaseHealth = 100,
 	BaseWalkSpeed = 16,
 	BaseDamage = 5,
@@ -146,8 +64,8 @@ GameConfig.Combat = {
 	BaseCritChance = 2,
 	BaseCritDamage = 50,
 
-	-- Health gained per character level, independent of gear, so levelling
-	-- always feels like it did something even on a dry run of drops.
+	-- Health gained per character level, on top of the class's base, so
+	-- levelling always feels like it did something.
 	HealthPerLevel = 8,
 
 	-- Ceilings on stats that break the game if unbounded.
