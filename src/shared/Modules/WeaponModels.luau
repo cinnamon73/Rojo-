@@ -132,6 +132,134 @@ builders.Staff = function(model, handle, color, material)
 	end
 end
 
+
+--[[ Berserker: a brutal double-headed axe. Reads as weight, not finesse. ]]
+builders.Greataxe = function(model, handle, color, material)
+	local haft = makePart("Haft", Vector3.new(0.26, 4.6, 0.26), GRIP, Enum.Material.Wood, model)
+	attach(handle, haft, CFrame.new(0, 2.0, 0))
+
+	for _, sign in ipairs({ 1, -1 }) do
+		local head = makePart("Head" .. tostring(sign), Vector3.new(0.28, 1.7, 1.1), color, material, model)
+		attach(handle, head, CFrame.new(0, 3.6, sign * 0.75))
+
+		local edge = makePart("Edge" .. tostring(sign), Vector3.new(0.24, 1.9, 0.5), color, material, model)
+		attach(handle, edge, CFrame.new(0, 3.6, sign * 1.35) * CFrame.Angles(math.rad(sign * -14), 0, 0))
+	end
+
+	local spike = makePart("Spike", Vector3.new(0.2, 0.9, 0.2), GUARD, Enum.Material.Metal, model)
+	attach(handle, spike, CFrame.new(0, 4.7, 0) * CFrame.Angles(math.rad(45), 0, math.rad(45)))
+end
+
+--[[ Musketeer: long barrel, wooden stock, brass fittings. ]]
+builders.Musket = function(model, handle, color, material)
+	local stock = makePart("Stock", Vector3.new(0.34, 1.6, 0.6), GRIP, Enum.Material.Wood, model)
+	attach(handle, stock, CFrame.new(0, 0.2, 0.12) * CFrame.Angles(math.rad(12), 0, 0))
+
+	local barrel = makePart("Barrel", Vector3.new(0.22, 3.9, 0.22), color, material, model)
+	attach(handle, barrel, CFrame.new(0, 2.6, -0.08))
+
+	local band = makePart("Band", Vector3.new(0.3, 0.2, 0.3), GUARD, Enum.Material.Metal, model)
+	attach(handle, band, CFrame.new(0, 1.6, -0.08))
+
+	local muzzle = makePart("Muzzle", Vector3.new(0.3, 0.35, 0.3), GUARD, Enum.Material.Metal, model)
+	attach(handle, muzzle, CFrame.new(0, 4.5, -0.08))
+end
+
+--[[ Necromancer: crooked dark staff crowned with a horned soul-orb. ]]
+builders.NecroStaff = function(model, handle, color, material)
+	local shaft = makePart("Shaft", Vector3.new(0.22, 4.6, 0.22), Color3.fromRGB(46, 38, 52), Enum.Material.Wood, model)
+	attach(handle, shaft, CFrame.new(0, 2.0, 0))
+
+	local crook = makePart("Crook", Vector3.new(0.2, 1.1, 0.2), Color3.fromRGB(46, 38, 52), Enum.Material.Wood, model)
+	attach(handle, crook, CFrame.new(0, 4.5, -0.28) * CFrame.Angles(math.rad(-28), 0, 0))
+
+	local orb = makePart("Orb", Vector3.new(0.85, 0.85, 0.85), color, Enum.Material.Neon, model)
+	orb.Shape = Enum.PartType.Ball
+	attach(handle, orb, CFrame.new(0, 5.1, 0))
+
+	for _, sign in ipairs({ 1, -1 }) do
+		local horn = makePart("Horn" .. tostring(sign), Vector3.new(0.16, 0.8, 0.16), Color3.fromRGB(226, 222, 210), Enum.Material.Slate, model)
+		attach(handle, horn, CFrame.new(sign * 0.42, 5.35, 0) * CFrame.Angles(0, 0, math.rad(sign * -30)))
+	end
+
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Range = 12
+	light.Brightness = 2
+	light.Parent = orb
+end
+
+--[[ Paladin: a broad consecrated blade with a radiant winged guard. ]]
+builders.PaladinBlade = function(model, handle, color, material)
+	local blade = makePart("Blade", Vector3.new(0.24, 3.7, 0.85), color, material, model)
+	attach(handle, blade, CFrame.new(0, 2.25, 0))
+
+	local fuller = makePart("Fuller", Vector3.new(0.26, 3.0, 0.2), Color3.fromRGB(250, 240, 210), Enum.Material.Neon, model)
+	attach(handle, fuller, CFrame.new(0, 2.1, 0))
+
+	local tip = makePart("Tip", Vector3.new(0.24, 0.65, 0.85), color, material, model)
+	attach(handle, tip, CFrame.new(0, 4.35, 0) * CFrame.Angles(math.rad(45), 0, 0))
+
+	for _, sign in ipairs({ 1, -1 }) do
+		local wing = makePart("Wing" .. tostring(sign), Vector3.new(0.28, 0.7, 0.8), GUARD, Enum.Material.Metal, model)
+		attach(handle, wing, CFrame.new(0, 0.62, sign * 0.75) * CFrame.Angles(math.rad(sign * 24), 0, 0))
+	end
+
+	local pommel = makePart("Pommel", Vector3.new(0.42, 0.42, 0.42), GUARD, Enum.Material.Metal, model)
+	pommel.Shape = Enum.PartType.Ball
+	attach(handle, pommel, CFrame.new(0, -0.7, 0))
+end
+
+--[[ King: a gilded longsword with a crowned crossguard and a gem pommel. ]]
+builders.RoyalBlade = function(model, handle, color, material)
+	local blade = makePart("Blade", Vector3.new(0.24, 3.9, 0.8), Color3.fromRGB(226, 228, 236), Enum.Material.Metal, model)
+	attach(handle, blade, CFrame.new(0, 2.35, 0))
+
+	local tip = makePart("Tip", Vector3.new(0.24, 0.7, 0.8), Color3.fromRGB(226, 228, 236), Enum.Material.Metal, model)
+	attach(handle, tip, CFrame.new(0, 4.6, 0) * CFrame.Angles(math.rad(45), 0, 0))
+
+	local guard = makePart("Guard", Vector3.new(0.34, 0.26, 1.9), color, material, model)
+	attach(handle, guard, CFrame.new(0, 0.52, 0))
+
+	-- Three points of a crown rising off the guard.
+	for index = -1, 1 do
+		local point = makePart("Crown" .. tostring(index + 2), Vector3.new(0.2, 0.5, 0.24), color, material, model)
+		attach(handle, point, CFrame.new(0, 0.85, index * 0.6) * CFrame.Angles(math.rad(index * -12), 0, 0))
+	end
+
+	local gem = makePart("Gem", Vector3.new(0.38, 0.38, 0.38), Color3.fromRGB(196, 64, 88), Enum.Material.Neon, model)
+	gem.Shape = Enum.PartType.Ball
+	attach(handle, gem, CFrame.new(0, -0.72, 0))
+
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 224, 140)
+	light.Range = 8
+	light.Brightness = 1.2
+	light.Parent = gem
+end
+
+--========================================================================
+-- Offhands
+--========================================================================
+
+--[[
+	Offhand builders keyed by ClassConfig.Offhand. Static: welded to the left
+	arm, never animated, so there is no motor and no swing entry for them.
+]]
+local offhandBuilders: { [string]: (Model, BasePart, Color3, Enum.Material) -> () } = {}
+
+offhandBuilders.Dagger = builders.Dagger
+
+offhandBuilders.Shield = function(model, handle, color, material)
+	local face = makePart("Face", Vector3.new(0.3, 2.2, 2.2), color, material, model)
+	face.Shape = Enum.PartType.Cylinder
+	attach(handle, face, CFrame.new(0, 0, 0))
+
+	local boss = makePart("Boss", Vector3.new(0.5, 0.7, 0.7), GUARD, Enum.Material.Metal, model)
+	boss.Shape = Enum.PartType.Cylinder
+	attach(handle, boss, CFrame.new(-0.2, 0, 0))
+end
+
 --========================================================================
 -- Public
 --========================================================================
@@ -160,6 +288,27 @@ function WeaponModels.Build(archetype: string?, color: Color3, material: Enum.Ma
 end
 
 --[[
+	Builds an offhand model, or nil for a kind with no builder. The offhand is
+	decorative: welded flat to the left arm by CharacterService, no joint.
+]]
+function WeaponModels.BuildOffhand(kind: string?, color: Color3, material: Enum.Material, name: string?): Model?
+	local builder = offhandBuilders[kind or ""]
+	if not builder then
+		return nil
+	end
+
+	local model = Instance.new("Model")
+	model.Name = name or (kind :: string)
+
+	local handle = makePart("Handle", Vector3.new(0.3, 0.9, 0.3), GRIP, Enum.Material.Wood, model)
+	model.PrimaryPart = handle
+
+	builder(model, handle, color, material)
+
+	return model
+end
+
+--[[
 	Where the handle sits relative to the hand, per archetype.
 
 	Bows are held across the body rather than pointed forward, and staves sit
@@ -170,8 +319,13 @@ function WeaponModels.GetGripOffset(archetype: string?): CFrame
 		return CFrame.new(0, -0.6, 0) * CFrame.Angles(math.rad(90), math.rad(90), 0)
 	elseif archetype == "Staff" then
 		return CFrame.new(0, -0.7, 0)
-	elseif archetype == "Greatsword" then
+	elseif archetype == "Greatsword" or archetype == "Greataxe" then
 		return CFrame.new(0, -0.9, 0) * CFrame.Angles(math.rad(-8), 0, 0)
+	elseif archetype == "Musket" then
+		-- Held low and angled forward, stock into the shoulder side.
+		return CFrame.new(0, -0.5, 0.15) * CFrame.Angles(math.rad(-64), 0, 0)
+	elseif archetype == "NecroStaff" then
+		return CFrame.new(0, -0.7, 0)
 	end
 
 	return CFrame.new(0, -0.7, 0)
@@ -184,9 +338,15 @@ end
 function WeaponModels.GetSwing(archetype: string?): (CFrame, CFrame)
 	local rest = WeaponModels.GetGripOffset(archetype)
 
-	if archetype == "Greatsword" then
+	if archetype == "Greatsword" or archetype == "Greataxe" then
 		-- Heavy overhead chop.
 		return rest, rest * CFrame.Angles(math.rad(-110), 0, math.rad(20))
+	elseif archetype == "Musket" then
+		-- Recoil kick, not a swing.
+		return rest, rest * CFrame.new(0, -0.35, 0.3) * CFrame.Angles(math.rad(14), 0, 0)
+	elseif archetype == "NecroStaff" then
+		-- Thrust the orb forward, same read as the plain staff.
+		return rest, rest * CFrame.new(0, 0.3, -0.5) * CFrame.Angles(math.rad(-28), 0, 0)
 	elseif archetype == "Dagger" then
 		-- Quick forward stab.
 		return rest, rest * CFrame.new(0, 0.5, -0.8) * CFrame.Angles(math.rad(-35), 0, 0)

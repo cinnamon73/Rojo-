@@ -48,6 +48,9 @@ local button: TextButton? = nil
 local label: TextLabel? = nil
 local sweep: Frame? = nil
 
+local ring: UIStroke? = nil
+local chip: TextLabel? = nil
+
 local readyAt = 0
 local currentCooldown = 0
 
@@ -55,10 +58,42 @@ local currentCooldown = 0
 -- Class lookup
 --========================================================================
 
-local function currentAbility(): ClassConfig.Ability?
+local function currentClass(): ClassConfig.ClassDefinition?
 	local profile = client and client.Profile
-	local definition = ClassConfig.Get(profile and profile.Class) or ClassConfig.Get(ClassConfig.Default)
+	return ClassConfig.Get(profile and profile.Class) or ClassConfig.Get(ClassConfig.Default)
+end
+
+local function currentAbility(): ClassConfig.Ability?
+	local definition = currentClass()
 	return if definition then definition.Ability else nil
+end
+
+--[[
+	Repaints the button in the class's colours.
+
+	This is the whole "thematic UI" mechanism: every class carries a ThemeColor
+	and the chrome reads it — a Necromancer's button glows purple under a
+	purple NECROMANCER chip, a Paladin's gold, with no per-class UI code.
+]]
+local function applyTheme()
+	local definition = currentClass()
+	if not definition then
+		return
+	end
+
+	if ring then
+		ring.Color = definition.ThemeColor
+	end
+
+	if sweep then
+		(sweep :: Frame).BackgroundColor3 = definition.ThemeColor
+	end
+
+	if chip then
+		local label = chip :: TextLabel
+		label.Text = string.upper(definition.Name)
+		label.BackgroundColor3 = definition.ThemeColor
+	end
 end
 
 --========================================================================
@@ -120,13 +155,32 @@ local function build(): ScreenGui
 		Parent = gui,
 	}, {
 		Create.new("UICorner", { CornerRadius = Theme.Radius.Large }),
-		Create.new("UIStroke", {
-			Name = "Ring",
-			Color = Theme.Color.Accent,
-			Thickness = Theme.Stroke.Medium,
-			Transparency = 0.2,
-		}),
 	}) :: TextButton
+
+	ring = Create.new("UIStroke", {
+		Name = "Ring",
+		Color = Theme.Color.Accent,
+		Thickness = Theme.Stroke.Medium,
+		Transparency = 0.2,
+		Parent = frame,
+	}) :: UIStroke
+
+	-- The class chip: a small banner above the button naming the class in its
+	-- colour. The same identity language as the select screen's banners.
+	chip = Create.new("TextLabel", {
+		Name = "ClassChip",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 0, -6),
+		Size = UDim2.fromOffset(BUTTON_SIZE + 34, 20),
+		BackgroundColor3 = Theme.Color.PanelRaised,
+		Font = Theme.Font.Bold,
+		TextSize = Theme.TextSize.Tiny,
+		TextColor3 = Color3.fromRGB(255, 255, 255),
+		Text = "",
+		Parent = frame,
+	}, {
+		Create.new("UICorner", { CornerRadius = Theme.Radius.Pill }),
+	}) :: TextLabel
 
 	-- Cooldown sweep: a bar that drains from full to empty across the wait.
 	-- Clipped by the parent's corner so it reads as part of the button.
@@ -215,11 +269,15 @@ function AbilityController.Start(clientState: any)
 	end, false, Enum.KeyCode.Q, Enum.KeyCode.ButtonY)
 
 	RunService.RenderStepped:Connect(render)
+	applyTheme()
 
-	-- Switching class changes the ability, so the label has to follow. The
-	-- cooldown is deliberately NOT reset: a class swap applies on the next
-	-- spawn, so the old ability's timer is still the honest one until then.
-	client.ProfileChanged:Connect(render)
+	-- Switching class changes the ability AND the colours, so both follow the
+	-- profile. The cooldown is deliberately NOT reset: a class swap applies on
+	-- the next spawn, so the old ability's timer is still the honest one.
+	client.ProfileChanged:Connect(function()
+		applyTheme()
+		render()
+	end)
 
 	log:Info("ready")
 end

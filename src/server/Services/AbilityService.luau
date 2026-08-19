@@ -39,6 +39,7 @@ local Modules = ReplicatedStorage:WaitForChild("Modules")
 local Config = ReplicatedStorage:WaitForChild("Config")
 
 local ClassConfig = require(Config.ClassConfig)
+local VFX = require(Modules.VFX)
 local Logger = require(Modules.Logger)
 local Remotes = require(Modules.Remotes)
 local Signal = require(Modules.Signal)
@@ -76,6 +77,8 @@ local GRENADE_DAMAGE_MULTIPLIER = 2.6
 -- How far from the player a thrown grenade may land. The client picks the
 -- point, so this is the check that stops it being thrown across the map.
 local GRENADE_MAX_RANGE = 90
+-- Throw flight time. Damage lands when the bomb does.
+local GRENADE_FLIGHT_SECONDS = 0.5
 
 local SPIN_TICKS = 6
 local SPIN_RADIUS = 16
@@ -136,6 +139,11 @@ local function enemiesWithin(position: Vector3, radius: number): { Model }
 	return found
 end
 
+--[[ The caster's class colour, so every effect reads as theirs. ]]
+local function themeOf(player: Player): Color3
+	return ClassService.GetClass(DataService.Get(player)).ThemeColor
+end
+
 local function setActive(player: Player, abilityId: string, duration: number)
 	if duration > 0 then
 		active[player] = { AbilityId = abilityId, ExpiresAt = os.clock() + duration }
@@ -151,6 +159,11 @@ local handlers: { [string]: (Player, any, any) -> boolean } = {}
 --[[ Archer: no draw time. CombatService reads the multiplier. ]]
 handlers.Rapidfire = function(player, definition, _payload)
 	setActive(player, "Rapidfire", definition.Ability.Duration)
+
+	if player.Character then
+		VFX.Aura(player.Character, themeOf(player), definition.Ability.Duration)
+	end
+
 	return true
 end
 
@@ -176,6 +189,8 @@ handlers.SpinningSlash = function(player, definition, _payload)
 				return
 			end
 
+			VFX.GroundRing(root.Position, themeOf(player), SPIN_RADIUS, 0.4)
+
 			for _, model in ipairs(enemiesWithin(root.Position, SPIN_RADIUS)) do
 				EnemyService.Damage(model, damage, player)
 			end
@@ -188,10 +203,28 @@ end
 --[[ Berserker: health is clamped in the HealthChanged hook while this runs. ]]
 handlers.Undying = function(player, definition, _payload)
 	setActive(player, "Undying", definition.Ability.Duration)
+
+	-- Deliberately blood-red rather than the class colour: enemies and allies
+	-- alike need to read "cannot die right now" at a glance.
+	if player.Character then
+		VFX.Aura(player.Character, Color3.fromRGB(255, 60, 48), definition.Ability.Duration)
+	end
+
 	return true
 end
 
---[[ Musketeer: instant burst at a client-chosen point, range-checked here. ]]
+--[[
+	Musketeer: a thrown bomb that ARCS to the aim point, then explodes.
+
+	The projectile is real: damage happens at landing, about half a second
+	after the press, and anything that walked out of the blast radius in that
+	time is missed. That is the cost of a visible throw, and it is the right
+	trade — an instant invisible explosion reads as a bug, not an ability.
+
+	The aim point is hostile input: anything malformed or beyond throw range
+	is clamped to the thrower's feet, so a bad payload wastes the cooldown
+	rather than being an error path worth probing.
+]]
 handlers.Grenade = function(player, definition, payload)
 	local profile = DataService.Get(player)
 	local character = player.Character
@@ -201,40 +234,51 @@ handlers.Grenade = function(player, definition, payload)
 		return false
 	end
 
-	-- The client picks where it lands. Treat that as hostile input: anything
-	-- not a Vector3, or further than the throw allows, is clamped to the
-	-- player's own position rather than refused, so a bad payload wastes the
-	-- cooldown instead of being an error path worth probing.
+	local origin = root.Position
 	local target = if typeof(payload) == "table" and typeof(payload.Position) == "Vector3"
 		then payload.Position
-		else root.Position
+		else origin
 
-	if (target - root.Position).Magnitude > GRENADE_MAX_RANGE then
-		target = root.Position
+	if (target - origin).Magnitude > GRENADE_MAX_RANGE then
+		target = origin
 	end
 
 	local damage = math.floor(ClassService.GetStats(profile).Damage * GRENADE_DAMAGE_MULTIPLIER)
+	local theme = themeOf(player)
 
-	for _, model in ipairs(enemiesWithin(target, GRENADE_RADIUS)) do
-		EnemyService.Damage(model, damage, player)
-	end
+	task.spawn(function()
+		local bomb = Instance.new("Part")
+		bomb.Shape = Enum.PartType.Ball
+		bomb.Size = Vector3.new(0.7, 0.7, 0.7)
+		bomb.Color = Color3.fromRGB(40, 40, 44)
+		bomb.Material = Enum.Material.Metal
+		bomb.Anchored = true
+		bomb.CanCollide = false
+		bomb.CanQuery = false
+		bomb.CanTouch = false
+		bomb.Parent = Workspace
 
-	local blast = Instance.new("Part")
-	blast.Name = "GrenadeBlast"
-	blast.Shape = Enum.PartType.Ball
-	blast.Size = Vector3.new(GRENADE_RADIUS * 2, GRENADE_RADIUS * 2, GRENADE_RADIUS * 2)
-	blast.Position = target
-	blast.Anchored = true
-	blast.CanCollide = false
-	blast.CanQuery = false
-	blast.CanTouch = false
-	blast.Material = Enum.Material.Neon
-	blast.Color = Color3.fromRGB(255, 172, 88)
-	blast.Transparency = 0.55
-	blast.Parent = Workspace
+		-- Quadratic arc: lerp the ground path, add a parabola for height.
+		local flight = GRENADE_FLIGHT_SECONDS
+		local steps = 14
+		local apex = math.clamp((target - origin).Magnitude * 0.35, 4, 14)
 
-	task.delay(0.25, function()
-		blast:Destroy()
+		for step = 1, steps do
+			local alpha = step / steps
+			local along = origin:Lerp(target, alpha)
+			local height = apex * 4 * alpha * (1 - alpha)
+			bomb.Position = along + Vector3.new(0, height, 0)
+			task.wait(flight / steps)
+		end
+
+		bomb:Destroy()
+
+		VFX.Burst(target, Color3.fromRGB(255, 172, 88), 2.4)
+		VFX.GroundRing(target, theme, GRENADE_RADIUS, 0.5)
+
+		for _, model in ipairs(enemiesWithin(target, GRENADE_RADIUS)) do
+			EnemyService.Damage(model, damage, player)
+		end
 	end)
 
 	return true
@@ -247,6 +291,18 @@ handlers.Vanish = function(player, definition, _payload)
 	local character = player.Character
 	if not character then
 		return true
+	end
+
+	local smoke = Color3.fromRGB(120, 120, 128)
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if root then
+		VFX.Burst(root.Position, smoke, 1.6)
+		task.delay(definition.Ability.Duration, function()
+			local nowRoot = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if nowRoot then
+				VFX.Burst(nowRoot.Position, smoke, 1.2)
+			end
+		end)
 	end
 
 	local restore: { [BasePart]: number } = {}
@@ -297,6 +353,8 @@ handlers.Aegis = function(player, definition, _payload)
 	bubble.Transparency = 0.6
 	bubble.Parent = Workspace
 
+	VFX.GroundRing(root.Position, Color3.fromRGB(255, 226, 140), AEGIS_RADIUS, 0.7)
+
 	task.spawn(function()
 		local health = AEGIS_HEALTH
 		local expiresAt = os.clock() + definition.Ability.Duration
@@ -320,12 +378,12 @@ end
 
 handlers.RaiseSkeletons = function(player, definition, _payload)
 	setActive(player, "RaiseSkeletons", definition.Ability.Duration)
-	return MinionService.SummonSquad(player, "RaiseSkeletons", definition.Ability.Duration) > 0
+	return MinionService.SummonSquad(player, "RaiseSkeletons", definition.Ability.Duration, themeOf(player)) > 0
 end
 
 handlers.RoyalGuard = function(player, definition, _payload)
 	setActive(player, "RoyalGuard", definition.Ability.Duration)
-	return MinionService.SummonSquad(player, "RoyalGuard", definition.Ability.Duration) > 0
+	return MinionService.SummonSquad(player, "RoyalGuard", definition.Ability.Duration, themeOf(player)) > 0
 end
 
 --========================================================================

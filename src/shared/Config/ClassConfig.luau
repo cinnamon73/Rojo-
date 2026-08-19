@@ -60,6 +60,8 @@ export type ClassDefinition = {
 	WeaponArchetype: string,
 	WeaponColor: Color3,
 	WeaponMaterial: Enum.Material,
+	-- Optional second item welded to the left arm: "Dagger" or "Shield".
+	Offhand: string?,
 
 	Ability: Ability,
 
@@ -143,7 +145,7 @@ local definitions: { [string]: ClassDefinition } = {
 		CritDamage = 70,
 		MoveSpeed = 17,
 		AttackRange = 13,
-		WeaponArchetype = "Greatsword",
+		WeaponArchetype = "Greataxe",
 		WeaponColor = Color3.fromRGB(148, 84, 68),
 		WeaponMaterial = Enum.Material.Metal,
 		Ability = {
@@ -170,7 +172,7 @@ local definitions: { [string]: ClassDefinition } = {
 		CritDamage = 65,
 		MoveSpeed = 16,
 		AttackRange = 85,
-		WeaponArchetype = "Staff",
+		WeaponArchetype = "Musket",
 		WeaponColor = Color3.fromRGB(92, 82, 74),
 		WeaponMaterial = Enum.Material.Wood,
 		Ability = {
@@ -199,6 +201,7 @@ local definitions: { [string]: ClassDefinition } = {
 		WeaponArchetype = "Dagger",
 		WeaponColor = Color3.fromRGB(64, 68, 82),
 		WeaponMaterial = Enum.Material.Metal,
+		Offhand = "Dagger",
 		Ability = {
 			Id = "Vanish",
 			Name = "Vanish",
@@ -223,9 +226,10 @@ local definitions: { [string]: ClassDefinition } = {
 		CritDamage = 55,
 		MoveSpeed = 15,
 		AttackRange = 13,
-		WeaponArchetype = "Sword",
+		WeaponArchetype = "PaladinBlade",
 		WeaponColor = Color3.fromRGB(226, 200, 128),
 		WeaponMaterial = Enum.Material.Metal,
+		Offhand = "Shield",
 		Ability = {
 			Id = "Aegis",
 			Name = "Aegis",
@@ -249,7 +253,7 @@ local definitions: { [string]: ClassDefinition } = {
 		CritDamage = 60,
 		MoveSpeed = 15,
 		AttackRange = 70,
-		WeaponArchetype = "Staff",
+		WeaponArchetype = "NecroStaff",
 		WeaponColor = Color3.fromRGB(108, 76, 148),
 		WeaponMaterial = Enum.Material.Neon,
 		Ability = {
@@ -276,7 +280,7 @@ local definitions: { [string]: ClassDefinition } = {
 		CritDamage = 70,
 		MoveSpeed = 16,
 		AttackRange = 13,
-		WeaponArchetype = "Sword",
+		WeaponArchetype = "RoyalBlade",
 		WeaponColor = Color3.fromRGB(244, 214, 96),
 		WeaponMaterial = Enum.Material.Metal,
 		Ability = {

@@ -213,6 +213,44 @@ function CharacterService.SwingWeapon(player: Player)
 end
 
 --[[
+	Welds the class offhand (shield, parrying dagger) to the left forearm.
+
+	A WeldConstraint, not a Motor6D: offhands are never animated, and a weld
+	survives the arm being moved by animations without fighting them.
+]]
+local function buildOffhand(definition: ClassConfig.ClassDefinition, character: Model, parent: Folder)
+	if not definition.Offhand then
+		return
+	end
+
+	local arm = character:FindFirstChild("LeftLowerArm") :: BasePart?
+	if not arm then
+		return
+	end
+
+	local model = WeaponModels.BuildOffhand(
+		definition.Offhand,
+		definition.WeaponColor,
+		definition.WeaponMaterial,
+		definition.Id .. "Offhand"
+	)
+	if not model then
+		return
+	end
+
+	local handle = model.PrimaryPart :: BasePart
+	model.Parent = parent
+
+	-- Flat against the outside of the forearm, face outward.
+	handle.CFrame = arm.CFrame * CFrame.new(-0.55, 0, 0) * CFrame.Angles(0, 0, math.rad(90))
+
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = arm
+	weld.Part1 = handle
+	weld.Parent = handle
+end
+
+--[[
 	Rebuilds the class weapon on the character.
 
 	Destroys and rebuilds wholesale rather than diffing. There is only one item
@@ -249,6 +287,7 @@ function CharacterService.RefreshLoadout(player: Player)
 	local definition = ClassConfig.Get(profile.Class) or ClassConfig.Get(ClassConfig.Default)
 	if definition then
 		buildWeapon(definition, character, folder)
+		buildOffhand(definition, character, folder)
 	end
 end
 

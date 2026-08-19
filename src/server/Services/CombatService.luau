@@ -34,6 +34,7 @@ local CharacterService = require(script.Parent.CharacterService)
 local DataService = require(script.Parent.DataService)
 local EnemyService = require(script.Parent.EnemyService)
 local ClassService = require(script.Parent.ClassService)
+local VFX = require(Modules.VFX)
 local AbilityService = require(script.Parent.AbilityService)
 local NetGuard = require(script.Parent.NetGuard)
 local ReplicationService = require(script.Parent.ReplicationService)
@@ -155,6 +156,23 @@ function CombatService.Attack(player: Player, targetModel: any)
 	if dealt <= 0 then
 		return
 	end
+
+	--[[
+		Hit feedback in the class colour: a tracer for ranged classes so shots
+		visibly travel their path, and an impact burst for everyone. Damage is
+		already applied above — this is presentation, and it is server-side so
+		every player sees the same fight.
+	]]
+	local theme = ClassService.GetClass(profile).ThemeColor
+	local isRanged = attackRange(profile) >= 30
+
+	if isRanged then
+		local hand = character and character:FindFirstChild("RightHand") :: BasePart?
+		local from = if hand then hand.Position else (root :: BasePart).Position + Vector3.new(0, 1.5, 0)
+		VFX.Tracer(from, record.Root.Position, theme)
+	end
+
+	VFX.Burst(record.Root.Position, theme, if isCrit then 1.4 else 0.8)
 
 	--[[
 		On-hit effects (lifesteal, slow, burn) lived on rolled weapon modifiers

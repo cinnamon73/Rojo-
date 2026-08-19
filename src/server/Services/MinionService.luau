@@ -30,6 +30,7 @@ local Config = ReplicatedStorage:WaitForChild("Config")
 
 local MinionConfig = require(Config.MinionConfig)
 local Logger = require(Modules.Logger)
+local VFX = require(Modules.VFX)
 
 local EnemyService = require(script.Parent.EnemyService)
 
@@ -169,7 +170,7 @@ end
 	unit royal guard reads as a formation instead of a crowd landing on top of
 	each other.
 ]]
-function MinionService.SummonSquad(player: Player, abilityId: string, duration: number): number
+function MinionService.SummonSquad(player: Player, abilityId: string, duration: number, effectColor: Color3?): number
 	local squad = MinionConfig.GetSquad(abilityId)
 	if not squad then
 		return 0
@@ -214,6 +215,12 @@ function MinionService.SummonSquad(player: Player, abilityId: string, duration: 
 
 		model:PivotTo(CFrame.new(origin + offset))
 		model.Parent = container
+
+		-- Each unit rises out of a ring in the summoner's colour: purple
+		-- skeletons, gold royal guard, without this module knowing which.
+		if effectColor then
+			VFX.Rise(origin + offset, effectColor)
+		end
 
 		local record: MinionRecord = {
 			Model = model,
