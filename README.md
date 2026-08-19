@@ -35,20 +35,24 @@ and coins, level up, roll better. The systems are unpolished; the world is not.
 Everything sits under `Workspace.World`.
 
 ```
-Village/
-  Fortifications/   curtain wall (62 bays), 9 drum watch towers, gatehouse,
-                    gate hoardings, 62 wall torches, gate lighting
-  Castle/           bailey, gatehouse, keep with corner turrets, inner ward
-  Town/             tavern, general store, bakery, blacksmith, 7 houses
-  Outbuildings/     stable, barn, woodshed, granary along the gate road
-  Market/           six stalls ringing the well
-  (roads are painted into the terrain now, not parts - see below)
-  Yards/            fenced plots, vegetable beds and clutter per building
-  Foliage/          141 trees, 233 shrubs, ground cover
-  Lamps/            13 lantern posts
-StarterZone/        voxel-terrain landforms: cliffs, ravine, slime hollow,
-                    battlefield, goblin plateau, boss arena bowl
+Village/                        8,459 parts
+  Fortifications/  1,918  curtain wall (62 bays), 9 drum watch towers,
+                          gatehouse, gate hoardings, 62 wall torches
+  Town/            1,699  tavern, general store, bakery, blacksmith, 7 houses
+  Yards/             920  fenced plots, vegetable beds and clutter
+  Castle/            538  bailey, gatehouse, keep with corner turrets
+  Lamps/             304  16 lantern posts along the paved ways
+  Market/            266  six stalls ringing the well
+  Outbuildings/      213  stable, barn, woodshed, granary
+  WallSkirt/         196
+  Plaza/             132  the well, with a lantern on its roof ridge
+  Foliage/         2,272  141 trees, 699 shrubs, 563 ground cover
+  _PathRoutes  _PathMask   the ONLY record of the road network - see below
+  VillageSpawn            hidden spawn behind the well
+StarterZone/            0  no parts yet: landforms are voxel Terrain
 ```
+
+Terrain is ~498,000 voxel cells and there are 194 light sources.
 
 **Zone 1's landforms are built.** `StarterZone` was sculpted from scratch on
 voxel Terrain — perimeter cliffs, a ravine, a slime hollow, a scarred
@@ -63,17 +67,31 @@ terrain as `Cobblestone`, dirt lanes as `Sandstone`/`Ground`. That makes
 z-fighting structurally impossible — there is no second surface to fight with.
 
 Terrain is held dead flat at `y = 0.10` under every part that meets the ground,
-using a mask built from their real footprints; hills appear only in the open
-ring between the town and the curtain wall. Only `Grass` and `LeafyGrass` grow
-blades, so everywhere people walk is painted bare on purpose.
+using a mask built from their real footprints; hills (about 5 studs of relief)
+appear only in the open ring between the town and the curtain wall. **Only
+`Grass` and `LeafyGrass` grow blades**, so everywhere people walk is painted
+bare on purpose — the market square is paved right through, under the stalls
+and around the well. Roughly 70% of the village floor is green, 27% trodden
+earth, 3% paved.
 
 `_PathRoutes` and `_PathMask` on the Village folder are the only surviving
-record of the road network. Do not delete them.
+record of the road network. **Do not delete them.** `_PathRoutes` is
+`kind|width|name|x,z;x,z;…` where `C` is a cobbled way and `D` a dirt lane —
+and the `Market` entry is stored with **width 0**, which silently paints
+nothing unless you substitute a real width.
 
 **Lighting is fixed at dusk** (`ClockTime 18.1`) with atmosphere, bloom and a
-warm shift. There are ~190 light sources: window glow, lanterns, wall torches,
-tower beacons and gate braziers. Arrow loops glow but deliberately cast no
-light — there are 169 of them and lighting them all would wreck performance.
+warm shift. There are 194 light sources: window glow, 16 lantern posts, the
+well lantern, wall torches, tower beacons and gate braziers. Arrow loops glow
+but deliberately cast no light — there are 169 of them and lighting them all
+would wreck performance.
+
+Fog and air are **not** static: `AtmosphereController` blends them by player
+position, so the wilds beyond the gate read thicker than the village. Tune
+`AtmosphereConfig`, never `Lighting` directly. Two traps are documented there:
+an `Atmosphere` object overrides legacy `FogStart`/`FogEnd` entirely, and the
+controller adopts an existing `Atmosphere` rather than adding a second, because
+two of them fight.
 
 ---
 

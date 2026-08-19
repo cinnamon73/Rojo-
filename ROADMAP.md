@@ -310,3 +310,23 @@ roads repainted directly into the terrain.
 that had put every surface exactly 2 studs above its designed height. Its
 landform heights are now what the spec says, and it meets the village floor
 with a 0.11-stud step at the gate.
+
+### Follow-up pass: market, lamps, foliage
+
+Converting the floor to terrain broke three things that were keyed to the old
+path *parts*. All are fixed.
+
+- **Market square** is paved right through. Every stall part (106/106) and the
+  whole well (81/81) stands on `Cobblestone` rather than on whatever material
+  its own footprint happened to produce.
+- **Lamps re-derived from the route polylines.** Three had been left more than
+  40 studs from any road and one was standing inside the gate brazier. They are
+  now spaced along the paved ways, 11–14 studs off each centreline, all seated
+  within 0.1 studs and none intersecting anything.
+- **Foliage cleared off the paving** — 32 parts moved rather than deleted, so
+  the count holds at 2,272. Trees move as clusters; canopies are still allowed
+  to overhang a square, which is what a real tree does.
+- **A lantern was added to the well roof**, built as a chain off the ridge cap
+  and matching the village's existing lantern geometry exactly.
+
+Village is 8,459 parts. Terrain is ~498,000 cells. 194 light sources.

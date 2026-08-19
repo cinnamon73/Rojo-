@@ -111,6 +111,20 @@ things follow that will bite you if you do not know them.
   buildings by AABB inflated every rotated one into a bare rectangle and
   dissolved the dirt lanes into a patchwork. Test the cell centre against the
   part's oriented rect in its own local frame instead.
+- **Props keyed to a system that gets regenerated must be re-derived with it.**
+  The 13 lantern posts were placed against the old path *tiles*. When the roads
+  were repainted from `_PathRoutes`, three lamps ended up **more than 40 studs
+  from any road**, lighting empty grass, and one was standing inside the gate
+  brazier. Re-derive lamp positions from the route polylines — sample along the
+  arc, offset perpendicular by `width/2 + 4` — rather than leaving them where
+  they were.
+- **A floating-parts test must measure the piece that touches the ground.**
+  Testing every foliage part reported 869 of 1,010 tree parts as "floating",
+  because canopy and needle blocks are *meant* to be in the air. Testing only
+  `Trunk` gave the truth: 0 floating, 0 sunk. Equally, the test must accept
+  ground support — raycast down before flagging, or every prop standing on the
+  paving reads as broken. This is the third time an over-eager test has
+  produced a phantom bug report.
 - **Build assemblies as chains, not from a common origin.** Place each piece
   from the endpoint of the one it attaches to: a bar of length `L` pointing
   along `d` with its base at `B` has centre `B + d*(L/2)` and ends at
@@ -126,8 +140,6 @@ things follow that will bite you if you do not know them.
   has now spun a building backwards twice.
 - **The curtain wall is a curve, not a rectangle.** Anything joining it must
   read the bay's actual bearing. Axis-aligned gate wings left a 12-stud gap.
-- **A "floating parts" test must accept ground support**, or every prop
-  standing on the paving reads as broken. Raycast down before flagging.
 - **Coplanar-overlap tests over-report.** They count masses that meet flush
   inside a wall, and they treat a rolled cylinder as a box. Only pairs with
   *both* faces exposed on a shared plane actually flicker. Check a screenshot
