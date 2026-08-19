@@ -68,50 +68,53 @@ export type Profile = {
 
 AtmosphereConfig.Profiles = {
 	--[[
-		Inside the walls. Still clearly foggy — the brief is heavy everywhere,
-		not just outside — but held back enough that the castle and the far
-		side of the market stay readable.
+		Inside the walls, on a dark overcast afternoon. Heavy grey air — the far
+		side of the village goes soft and the hills read as silhouettes — but
+		the near field stays clear enough to fight in.
 	]]
 	Village = {
 		Name = "Village",
-		FogColor = Color3.fromRGB(150, 168, 186),
-		FogStart = 40,
-		FogEnd = 600,
-		Density = 0.48,
-		Offset = 0.20,
-		Color = Color3.fromRGB(184, 196, 210),
-		Decay = Color3.fromRGB(96, 110, 132),
-		Glare = 0.35,
-		Haze = 2.2,
-		OutdoorAmbient = Color3.fromRGB(104, 112, 128),
+		FogColor = Color3.fromRGB(138, 143, 150),
+		FogStart = 45,
+		FogEnd = 700,
+		Density = 0.46,
+		Offset = 0.02,
+		Color = Color3.fromRGB(146, 150, 156),
+		Decay = Color3.fromRGB(86, 90, 97),
+		Glare = 0.03,
+		Haze = 2.30,
+		OutdoorAmbient = Color3.fromRGB(120, 123, 128),
 	} :: Profile,
 
 	--[[
-		Beyond the gate. Heavier air than the village, with the treeline
-		dissolving rather than ending.
+		Beyond the gate. Heavier again than the village so the treeline
+		dissolves rather than ends. Still daylight, just a thoroughly grim
+		afternoon.
 
-		These numbers were MEASURED, not guessed. The original 0.72 / offset
-		0.40 was tested against reference blocks placed at 30/60/90/95 studs
-		down the route: at 0.72 everything past about 40 studs vanished, so an
-		enemy at bow range (90) or CombatController's reach (95) was invisible.
-		Lowering Offset is what buys back the near field — it is the dial that
-		pulls fog toward the camera — so density can stay high for distance
-		while the first hundred studs read clearly.
+		Whatever you retune this to, FOG MUST NOT HIDE ENEMIES AT ENGAGEMENT
+		RANGE. CombatController targets to 95 studs and bows reach 90. An
+		earlier dusk profile at Density 0.72 / Offset 0.40 hid everything past
+		about 40 studs, which made enemies invisible at both. Offset is the
+		dial that pulls fog toward the camera — raising it eats the near field
+		fastest, which is why it stays at 0.02 even though Density is high.
 
-		If you retune, re-run that test rather than eyeballing it.
+		Density 0.54 here was TESTED, not guessed: reference blocks at
+		30/60/90/95 studs down the route from the gate, with this profile
+		applied to Lighting, all four still clearly readable. Re-run that test
+		if you retune. Do not eyeball it.
 	]]
 	Wilds = {
 		Name = "Wilds",
-		FogColor = Color3.fromRGB(126, 142, 152),
-		FogStart = 30,
-		FogEnd = 330,
-		Density = 0.62,
-		Offset = 0.10,
-		Color = Color3.fromRGB(172, 186, 194),
-		Decay = Color3.fromRGB(70, 84, 96),
-		Glare = 0.55,
-		Haze = 3.0,
-		OutdoorAmbient = Color3.fromRGB(92, 102, 114),
+		FogColor = Color3.fromRGB(122, 128, 137),
+		FogStart = 38,
+		FogEnd = 520,
+		Density = 0.54,
+		Offset = 0.02,
+		Color = Color3.fromRGB(134, 139, 147),
+		Decay = Color3.fromRGB(70, 75, 84),
+		Glare = 0.05,
+		Haze = 2.80,
+		OutdoorAmbient = Color3.fromRGB(104, 108, 115),
 	} :: Profile,
 }
 

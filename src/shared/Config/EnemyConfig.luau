@@ -144,6 +144,39 @@ define({
 	IsBoss = false,
 })
 
+--[[
+	Skeleton — the barrow camp in the south-west of Zone 1.
+
+	Slots between Wolf (5) and GoblinWarrior (8). Slower than a wolf and it
+	hits harder, but it has almost no defense: the trade is that you can kite
+	it, and it punishes you for standing still in a camp full of them.
+]]
+define({
+	Id = "Skeleton",
+	Name = "Skeleton",
+	Level = 6,
+	Health = 150,
+	Damage = 18,
+	Defense = 1,
+	WalkSpeed = 11,
+	AggroRange = 36,
+	LeashRange = 95,
+	AttackRange = 7,
+	AttackCooldown = 1.5,
+	XPReward = 58,
+	CoinReward = 40,
+	LootChance = 0.16,
+	RespawnSeconds = 18,
+	Appearance = {
+		Build = "Biped",
+		BodyColor = Color3.fromRGB(226, 222, 206),
+		AccentColor = Color3.fromRGB(84, 80, 74),
+		Material = Enum.Material.SmoothPlastic,
+		Scale = 0.95,
+	},
+	IsBoss = false,
+})
+
 define({
 	Id = "GoblinWarrior",
 	Name = "Goblin Warrior",

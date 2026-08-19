@@ -79,8 +79,11 @@ to *when* it spawns, not *how*. Reuse it.
 
 ### Phase 7 — defenses and the village as a fort
 
-- Somewhere for players to actually hold. The wall-walk exists but nothing is
-  placed for it.
+- ~~Somewhere for players to actually hold.~~ **Done** — the fortifications
+  were rebuilt for player use: 7 stair flights up from inside the village, a
+  continuous runnable circuit round the whole 1,907-stud perimeter, and every
+  drum tower open through at walk level. What is still missing is a *reason* to
+  be up there — nothing about combat rewards holding the wall yet.
 - Buildable or repairable defenses, if that fits
 - Making the gate a real choke point rather than an open arch
 - Enforcing `RequiresPower = 1200` on the gates, which currently nothing reads
@@ -161,7 +164,7 @@ Shop and Settings which do not exist. Mobile designed for but never tested.
   `NotImplemented` rather than hanging.
 - **Gear stat aggregation is only partly proven.** Baselines verified; Health
   and MoveSpeed from armour never explicitly tested.
-- **Mobile is untested on hardware**, and the world is now 13,438 parts with 258
+- **Mobile is untested on hardware**, and the world is now 14,174 parts with 223
   light sources.
 - **No sound anywhere.**
 
@@ -169,7 +172,7 @@ Shop and Settings which do not exist. Mobile designed for but never tested.
 
 ## Manual steps (cannot be automated)
 
-- Set `Lighting.Technology` to `Future` — scripts are not permitted to. All 258
+- Set `Lighting.Technology` to `Future` — scripts are not permitted to. All 223
   light sources currently glow without lighting anything.
 - Enable Studio Access to API Services on any new place
 - Create gamepasses and developer products, paste ids into `MonetizationConfig`
