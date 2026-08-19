@@ -26,28 +26,40 @@ The **world is finished to a good standard** and reads as a defense map
 already: one gate, a curtain wall you can stand on, and a hostile zone with a
 road running out of it.
 
-The **systems are the rough half**, and several were built for the original RNG
-loop. They still work; how much of each survives the new direction is open.
+The **systems are the rough half**. The original RNG equipment loop has been
+removed outright, not demoted, and classes took its place.
 
 | System | State |
 |---|---|
-| World | Walled village and a rebuilt hostile zone, both on voxel terrain. 14,174 parts, 223 light sources |
-| Combat | 6 enemy types, aggro/chase/attack/leash AI, crits, modifier effects |
+| World | Walled village and a rebuilt hostile zone, both on voxel terrain. 14,341 parts, 227 light sources |
+| Combat | 7 enemy types, aggro/chase/attack/leash AI, crits, melee combos, ranged aim-zoom |
+| Classes | 8 classes across 3 tiers plus a paid one. A class **is** the loadout — stats, weapon and one ability |
+| Abilities | One per class, implemented in `AbilityService` |
+| Minions | Necromancer and King summon squads via `MinionService` |
 | Enemy spawning | Attribute-driven — any part with an `EnemyId` becomes a spawner |
 | Data & saving | DataStore with session locking, retry/backoff, autosave, shutdown flush |
-| RNG rolling | 39 items, 8 rarities, 10 modifiers, luck, pity, multiplier chains — all server-side |
-| Inventory | Unlimited, stacking, 8 filters, search, equip/unequip, sell, lock, compare |
-| Equipment | 7 slots, aggregate stats, Power, visible weapon models, auto-equip on upgrade |
 | Atmosphere | Fog and ambient blended by player position, village vs wilds |
 | Anti-exploit | Server decides every outcome; token-bucket limits on all remotes |
 
 **Not built yet:** waves themselves, the boss fight, objectives, defenses,
-progression, audio, monetization.
+audio, monetization.
 
-**Open questions the new direction raises**, none of them decided: rolling
-probably works better as a between-wave reward than as the main activity; zone
-travel and zone gates may not survive at all; the village needs somewhere for
-players to actually stand and hold.
+**Rolling is gone.** `RNGService`, `EquipmentService`, `ItemConfig`,
+`ItemInstance`, `RarityConfig`, `ModifierConfig`, `MultiplierConfig` and the
+roll, inventory and gear controllers are deleted, and `Inventory`, `Equipment`,
+`Luck` and `Pity` are out of the data schema. Do not reintroduce them — if the
+game wants a reward economy, design one around waves.
+
+**There is no levelling.** Kills pay coins only. Tiers are labels describing
+how complex a class is to play, not an unlock ladder; every class is free
+except the King.
+
+**Joining is a menu.** `ClassService` sets `CharacterAutoLoads = false`, so a
+player gets no character until they pick a class. Nothing else spawns them —
+a test that waits on `player.Character` after join will wait forever.
+
+**Still open:** whether zone travel and zone gates survive at all, and what
+actually rewards holding the wall.
 
 ---
 
@@ -57,8 +69,8 @@ Everything sits under `Workspace.World`. Ground is voxel Terrain throughout;
 structures, props and vegetation are Parts.
 
 ```
-Village/                        9,910 parts   <- the thing you defend
-  Fortifications/  2,941  the defensive line - see below
+Village/                        9,758 parts   <- the thing you defend
+  Fortifications/  2,789  the defensive line - see below
   Foliage/         2,896  trees, shrubs, ground cover, outer treeline
   Town/            1,699  tavern, general store, bakery, blacksmith, 7 houses
   Yards/             920  fenced plots, vegetable beds, clutter
@@ -71,17 +83,17 @@ Village/                        9,910 parts   <- the thing you defend
   _WallLine  _WallTowers  _WallGate    the wall geometry - do not delete
   _PathRoutes  _PathMask  the ONLY record of the road network - do not delete
 
-StarterZone/                    4,264 parts   <- where they come from
-  Vegetation/      2,204  forest by chapter, dead trees on the battlefield
-  Structures/      1,215  goblin camp and outpost, 3 watchtowers, battlefield
+StarterZone/                    4,583 parts   <- where they come from
+  Vegetation/      2,259  forest by chapter, dead trees on the battlefield
+  Structures/      1,447  goblin camp and outpost, 3 watchtowers, battlefield
                           trench works and ruins, slime pond, boss arena,
                           the gate to Zone 2
-  Props/             739  boulders, fallen logs, stumps
+  Props/             698  boulders, fallen logs, stumps
   Lights/            165  21 torch posts, 4 junction cairns, glowing fungus
   EnemySpawns/        14  attribute-driven markers
 ```
 
-14,174 parts in the world, 223 light sources, roughly 489,000 voxel cells.
+14,341 parts in the world, 227 light sources, roughly 489,000 voxel cells.
 
 ---
 
@@ -91,18 +103,22 @@ Rebuilt from scratch for players to fight from — the previous walls were
 scenery you could only look at.
 
 ```
-Fortifications/     2,941 parts
-  Towers/           1,100   9 drum towers, each open through at walk level
-  Curtain/            783   62 bays, walk at y = 28.8, merlons to 34.4
+Fortifications/     2,789 parts
+  Towers/           1,001   9 drum towers, each open through at walk level
+  Curtain/            780   62 bays, walk at y = 28.8, merlons to 34.4
   WallStairs/         483   7 flights up from inside the village
-  Gatehouse/          311   twin-tower gate, barrel-vaulted passage
+  Gatehouse/          261   twin-tower gate, barrel-vaulted passage
   WallLighting/       199   62 wall torches and tower beacons
   Guardhouse/          65   kept from the earlier build
 ```
 
 The circuit is continuous: every tower carries a `Tower_WalkFloor` through it
 at walk height, so a player can run the full 1,907-stud perimeter without
-dropping off. Each tower also has an internal stair up to its deck.
+dropping off. Every tower opening is cut on the wall's own bearing and the two
+openings in each tower sit exactly 180° apart, so you can see straight through.
+
+**The tower decks and turret tops are not reachable.** The internal step flights
+were removed on request; nothing replaced them.
 
 **The wall line is stored, not derived.** `_WallLine` holds 62 ordered joint
 points, `_WallTowers` the 9 tower centres, `_WallGate` the gate. Anything that
@@ -128,10 +144,12 @@ Rebuilt from scratch on voxel Terrain. It runs south from the gate to
 | Goblin territory | Palisaded camp and a smaller outpost on a raised plateau, with watchtowers |
 | Battlefield | Scarred ground, 14 craters, 4 trenches with boarded revetments and firing steps, ruins, an abandoned siege engine |
 | Slime hollow | A single slime pond filling the sunken ground, shoreline cut by the terrain contour |
+| Skeleton camp | A barrow in the south-west: a ring of standing stones, a dolmen with a fallen slab, skulls on stakes, cold fire pits and soul braziers |
+| Wolf den | A mouth cut into the rock bowl east of the pond, with a picked-over carcass and gnawed bones on a scrubbed apron |
 | Boss arena | A bowl with a 12-pillar ring, braziers and the Goblin King's dais |
 | Zone 2 gate | Ruined coursed masonry set into the south ridge, carrying `RequiresPower = 1200` |
 
-Spawn markers: **Slime x4, Goblin x3, Wolf x3, GoblinWarrior x2,
+Spawn markers: **Slime x4, Wolf x5, Goblin x3, GoblinWarrior x2, Skeleton x2,
 EliteGoblin x1**, plus a `BossSpawn` carrying `BossId = "GoblinKing"`.
 
 Verified on completion: zero holes over 5,625 samples, zero floating parts,
@@ -165,24 +183,39 @@ nothing unless you substitute a real width.
 
 ## Lighting and air
 
-**Lighting is fixed at dusk** (`ClockTime 18.1`). There are 223 light sources:
-window glow, 16 village lantern posts, the well lantern, 62 wall torches, tower
-beacons, gate braziers, and in the zone 21 torch posts, 4 junction cairns, camp
-fires, arena braziers and glowing fungus.
+**It is a dark overcast afternoon** — `ClockTime 13.8`, `Brightness 1.50`, soft
+shadows and a desaturated grade. The sun stays high enough that it cannot read
+as evening; the gloom comes from ambient, atmosphere and colour grading.
+
+There are 227 light sources: window glow, 16 village lantern posts, the well
+lantern, 62 wall torches, tower beacons, gate braziers, and in the zone 21
+torch posts, 4 junction cairns, camp fires, arena braziers, glowing fungus and
+the skeleton camp's soul braziers. **36 cast shadows** — the braziers, lanterns
+and gate flames. The 57 wall torches deliberately do not, because that many
+shadow-casting point lights is a heavy bill for light the sun already provides.
+
+**The sky is the one thing that does not match.** `Sky` is a clear-blue asset,
+so the zenith stays blue however grey the rest is. Fixing it properly needs a
+cloudy skybox uploaded (six images) and its ids put into the `Sky` object.
 
 **Fog is not static.** `AtmosphereController` blends fog and ambient by player
 position across `BoundaryZ = -10`, so the wilds read heavier than the village.
-Tune `AtmosphereConfig`, never `Lighting` directly.
+Tune `AtmosphereConfig`, never `Lighting` directly — and note the controller
+overwrites `FogColor`, `FogStart`, `FogEnd` and `OutdoorAmbient` on join, so
+the config and the Edit datamodel have to agree or the world changes the moment
+you press play.
 
 Two traps documented in that config: an `Atmosphere` object **overrides legacy
 `FogStart`/`FogEnd` entirely**, and the controller adopts an existing
 `Atmosphere` rather than adding a second, because two of them fight.
 
-The Wilds profile was retuned after measurement. The authored
-`Density 0.72 / Offset 0.40` hid everything past about 40 studs, which would
-have made enemies invisible at `CombatController`'s 95-stud reach. It is now
-`0.62 / 0.10` — `Offset` is the dial that pulls fog toward the camera, so
-lowering it buys back the near field while keeping distance thick.
+**Fog density is tested, not guessed.** An early profile at
+`Density 0.72 / Offset 0.40` hid everything past about 40 studs, which made
+enemies invisible at `CombatController`'s 95-stud reach. Village now runs
+`0.46 / 0.02` and Wilds `0.54 / 0.02`. `Offset` is the dial that pulls fog
+toward the camera, so it stays near zero and density can carry the distance.
+The test: reference blocks at 30/60/90/95 studs down the road from the gate,
+with the Wilds profile applied, all four still clearly readable.
 
 ---
 
@@ -212,15 +245,15 @@ it only adds missing floors and never wipes.
 
 ## Architecture in short
 
-The server decides everything that matters — RNG, currency, inventory, damage,
-rewards. The client requests and displays; it never determines an outcome.
-Anything a designer might reasonably want to tune lives in
+The server decides everything that matters — class selection, currency, damage,
+abilities, rewards. The client requests and displays; it never determines an
+outcome. Anything a designer might reasonably want to tune lives in
 `src/shared/Config/`, not in gameplay code. Full detail in [CLAUDE.md](CLAUDE.md).
 
 ```
-src/shared/   -> ReplicatedStorage      10 configs, shared modules, remote manifest
-src/server/   -> ServerScriptService    8 services
-src/client/   -> StarterPlayerScripts   7 controllers
+src/shared/   -> ReplicatedStorage      configs, shared modules, remote manifest
+src/server/   -> ServerScriptService    services (Class, Ability, Minion, Combat, Enemy, Data, …)
+src/client/   -> StarterPlayerScripts   controllers (ClassSelect, Ability, Combat, FX, UI, Atmosphere)
 tools/        -> not synced             one-off world scripts
 RNGArmory.rbxl                          backup snapshot of the world
 ```

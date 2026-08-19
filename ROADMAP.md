@@ -37,9 +37,9 @@ roll, inventory and gear controllers. `profile.Inventory`, `profile.Equipment`,
 across three tiers plus a paid one, each with fixed stats, a weapon and one
 ability. See CLAUDE.md for the contract.
 
-Still to build for the class system: `AbilityService` (nothing implements the
-eight abilities yet), a class select screen, and `MinionService` for
-Necromancer and King.
+All three follow-ups are now built: `AbilityService` implements the eight
+abilities, `ClassSelectController` is the join menu, and `MinionService` handles
+the Necromancer and King squads.
 
 ### Phase 5b as built
 
@@ -98,10 +98,11 @@ The arena is built and `BossSpawn` carries `BossId`; nothing spawns from it.
 - Rare loot table, server-wide announcement on an exceptional drop
 - How the boss relates to waves — a wave milestone, or a trip out?
 
-### Phase 9 — progression
+### Phase 9 — rewards between waves
 
-Open, given the pivot. Rolling probably becomes a between-wave reward rather
-than the main activity. Quests, dailies and zone travel may not survive at all.
+Wide open. Rolling is **gone and is not coming back** — anything here has to be
+designed for waves from scratch. There is no levelling either; kills pay coins
+and nothing spends them yet. Quests, dailies and zone travel may not survive.
 
 ### Phase 10 — polish
 
@@ -133,11 +134,11 @@ Everything here **works**. It is placeholder quality. None of it is blocking.
 
 ### Models
 
-- **Armour** is coloured boxes welded at attach points. Weapons have real
-  geometry; armour does not. `ItemConfig.Appearance.MeshId` is the hook.
-- **Enemies** are primitive rigs (`Blob`, `Biped`, `Quadruped`) assembled at
-  spawn. They do not animate. A Goblin and a Goblin Warrior differ only in
-  colour and scale.
+- **There is no armour any more** — a class carries its stats directly, and
+  what you see is the class weapon and tint from `ClassConfig`.
+- **Enemies and minions** are primitive rigs (`Blob`, `Biped`, `Quadruped`)
+  assembled at spawn. They do not animate. A Goblin and a Goblin Warrior differ
+  only in colour and scale.
 
 ### Animation
 
@@ -147,9 +148,9 @@ ability animations.
 
 ### GUI
 
-Consistent spacing pass, item icons (cards are text-only), better inventory
-density at small viewports, a more dramatic rare reveal, and panels for Quests,
-Shop and Settings which do not exist. Mobile designed for but never tested.
+Consistent spacing pass, class mannequins on the join menu at small viewports,
+and panels for Quests, Shop and Settings which do not exist. Mobile designed
+for but never tested on hardware.
 
 ---
 
@@ -158,13 +159,12 @@ Shop and Settings which do not exist. Mobile designed for but never tested.
 - **Waves do not exist.** Enemies spawn from static markers.
 - **The boss does not spawn.**
 - **Both zone gates are decorative** — the attribute exists, nothing reads it.
-- **Abilities are config-only.**
-- **Four remotes are declared but sealed** — `DailyClaimRequest`,
-  `QuestRequest`, `ShopRequest`, `ZoneTravelRequest`. They return
-  `NotImplemented` rather than hanging.
-- **Gear stat aggregation is only partly proven.** Baselines verified; Health
-  and MoveSpeed from armour never explicitly tested.
-- **Mobile is untested on hardware**, and the world is now 14,174 parts with 223
+- **Nothing spends coins.** Kills pay them, there is no sink.
+- **`Skeleton` is used as an id twice** — a hostile in `EnemyConfig` (the barrow
+  camp) and the Necromancer's summon in `MinionConfig`. The registries are
+  separate so nothing breaks, but players and logs see two different things
+  called the same name. Rename one.
+- **Mobile is untested on hardware**, and the world is now 14,341 parts with 227
   light sources.
 - **No sound anywhere.**
 
@@ -172,12 +172,12 @@ Shop and Settings which do not exist. Mobile designed for but never tested.
 
 ## Manual steps (cannot be automated)
 
-- Set `Lighting.Technology` to `Future` — scripts are not permitted to. All 223
+- Set `Lighting.Technology` to `Future` — scripts are not permitted to. All 227
   light sources currently glow without lighting anything.
 - Enable Studio Access to API Services on any new place
 - Create gamepasses and developer products, paste ids into `MonetizationConfig`
 - Upload audio and icons, paste ids into `AssetConfig`
-- Source or commission real meshes for armour and enemies
+- Source or commission real meshes for enemies and minions
 - **Refresh the place backup** at milestones and before anything destructive —
   File → Download a Copy, overwriting `RNGArmory.rbxl`. Not needed after every
   world change: the place is Team Create and Roblox holds the version history.

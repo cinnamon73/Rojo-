@@ -75,11 +75,11 @@ missing floors and never wipes.
 
 ## The world as it stands
 
-`Workspace.World` holds `Village` (9,910 parts) and `StarterZone` (4,264).
-14,174 parts and 223 light sources in total; terrain is ~489,000 voxel cells.
+`Workspace.World` holds `Village` (9,758 parts) and `StarterZone` (4,583).
+14,341 parts and 227 light sources in total; terrain is ~489,000 voxel cells.
 
 **The fortifications were rebuilt from scratch for players to fight from**
-(2,941 parts): 62 curtain bays with the walk at `y = 28.8` and merlons to
+(2,789 parts): 62 curtain bays with the walk at `y = 28.8` and merlons to
 `34.4`, 9 drum towers open through at walk level, a twin-tower gatehouse, and
 **7 stair flights** up from inside the village. The circuit is continuous — a
 `Tower_WalkFloor` carries the walk through every tower, so the full 1,907-stud
@@ -398,13 +398,13 @@ Rojo suffix conventions: `.server.luau` → `Script`, `.client.luau` →
   `BossId = "GoblinKing"`; nothing reads it.
 - **Both zone gates are decorative.** The village gate and the Zone 2 gate carry
   `RequiresPower = 1200`; nothing reads it, so players walk through.
-- **Abilities are config-only.** Defined in `ItemConfig`, granted on Rare+
-  weapons, never implemented.
-- **Four remotes are declared but sealed** — `DailyClaimRequest`, `QuestRequest`,
-  `ShopRequest`, `ZoneTravelRequest`. They answer `NotImplemented` rather than
-  hanging.
-- **Armour and enemies are primitive rigs.** Weapons have real shaped geometry;
-  armour is coloured boxes and enemies are assembled from blocks.
+- **Nothing spends coins.** Kills pay them; there is no sink.
+- **`Skeleton` is an id in two registries** — a hostile in `EnemyConfig` (the
+  barrow camp) and the Necromancer's summon in `MinionConfig`. They never look
+  each other up, so nothing breaks, but a player fighting one while another
+  fights beside them sees the same name twice. Worth renaming one.
+- **Enemies and minions are primitive rigs.** Weapons have real shaped geometry;
+  enemies and minions are assembled from blocks and do not animate.
 - **No audio anywhere.** Every id in `AssetConfig` is `0`.
 - **Buildings are shells** with no interiors, and the village has no NPCs.
 - **Mobile is untested on hardware.**
@@ -413,7 +413,7 @@ Rojo suffix conventions: `.server.luau` → `Script`, `.client.luau` →
 
 These cannot be done from code. Ask the user; do not work around them.
 
-- [ ] **Set `Lighting.Technology` to `Future`.** Until then all 223 light
+- [ ] **Set `Lighting.Technology` to `Future`.** Until then all 227 light
       sources glow but do not light the surfaces around them.
 - [ ] **Enable Studio Access to API Services** — File → Game Settings →
       Security. Until this is on, every DataStore call fails.
