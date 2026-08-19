@@ -39,6 +39,9 @@ local Logger = require(Modules.Logger)
 local Remotes = require(Modules.Remotes)
 local VFX = require(Modules.VFX)
 
+local Config = ReplicatedStorage:WaitForChild("Config")
+local AnimationConfig = require(Config.AnimationConfig)
+
 local log = Logger.new("FXController")
 local localPlayer = Players.LocalPlayer
 
@@ -250,6 +253,66 @@ end
 -- The swing
 --========================================================================
 
+--[[
+	Uploaded keyframed swings.
+
+	Animation INSTANCES are cached per id (they are just pointers), and loaded
+	TRACKS per character+id, because LoadAnimation is not free and swings are
+	the hottest path in the game. The previous track is stopped before the
+	next plays — same-priority tracks blend otherwise and fast combos smear.
+]]
+local animationInstances: { [number]: Animation } = {}
+local characterTracks: { [Model]: { [number]: AnimationTrack } } = {}
+local currentTrack: { [Model]: AnimationTrack } = {}
+
+local function getAnimation(id: number): Animation
+	local cached = animationInstances[id]
+	if cached then
+		return cached
+	end
+
+	local animation = Instance.new("Animation")
+	animation.AnimationId = "rbxassetid://" .. tostring(id)
+	animationInstances[id] = animation
+	return animation
+end
+
+local function playUploaded(character: Model, id: number, speed: number): boolean
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		return false
+	end
+
+	local tracks = characterTracks[character]
+	if not tracks then
+		tracks = {}
+		characterTracks[character] = tracks
+	end
+
+	local track = tracks[id]
+	if not track then
+		local ok, loaded = pcall(function()
+			return animator:LoadAnimation(getAnimation(id))
+		end)
+		if not ok or not loaded then
+			return false
+		end
+		loaded.Priority = Enum.AnimationPriority.Action
+		tracks[id] = loaded
+		track = loaded
+	end
+
+	local previous = currentTrack[character]
+	if previous and previous.IsPlaying then
+		previous:Stop(0.05)
+	end
+
+	track:Play(0.05, 1, speed)
+	currentTrack[character] = track
+	return true
+end
+
 local function setTrail(character: Model, enabled: boolean)
 	local tool = character:FindFirstChildOfClass("Tool")
 	local trail = tool and tool:FindFirstChild("SwingTrail", true)
@@ -259,6 +322,25 @@ local function setTrail(character: Model, enabled: boolean)
 end
 
 local function animateSwing(character: Model, archetype: string, step: number)
+	--[[
+		Uploaded animation first: real keyframes always beat procedural poses.
+		The id slot (AnimationConfig) is where GIF-quality swings get plugged
+		in; the pose system below is the permanent fallback so a missing or
+		moderation-eaten id degrades to motion, never to stillness.
+	]]
+	local uploadedId = AnimationConfig.GetSwingId(archetype, step)
+	if uploadedId > 0 then
+		local speed = AnimationConfig.GetSpeed(archetype)
+		if playUploaded(character, uploadedId, speed) then
+			log:Info("swing %s step %d anim=uploaded(%d) speed=%.2f", archetype, step, uploadedId, speed)
+			setTrail(character, true)
+			task.delay(AnimationConfig.TrailSeconds / speed, function()
+				setTrail(character, false)
+			end)
+			return
+		end
+	end
+
 	local rig = getRig(character)
 	if not rig then
 		return
@@ -274,7 +356,7 @@ local function animateSwing(character: Model, archetype: string, step: number)
 	-- TEMP diagnostic: one line per swing saying whether the body joints were
 	-- found. shoulder=false is the difference between swordplay and a wrist
 	-- flick, and it fails silently otherwise. Remove once poses are approved.
-	log:Info("swing %s step %d shoulder=%s waist=%s",
+	log:Info("swing %s step %d anim=procedural shoulder=%s waist=%s",
 		archetype, step, tostring(rig.Shoulder ~= nil), tostring(rig.Waist ~= nil))
 
 	-- Act 1: anticipation. Ease out so the weapon decelerates into the wound
@@ -386,8 +468,11 @@ function FXController.Start(_client: any)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
-		if player.Character then
-			rigs[player.Character] = nil
+		local character = player.Character
+		if character then
+			rigs[character] = nil
+			characterTracks[character] = nil
+			currentTrack[character] = nil
 		end
 	end)
 
