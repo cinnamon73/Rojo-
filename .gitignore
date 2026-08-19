@@ -36,3 +36,12 @@ Thumbs.db
 inventory_ui_transparent*.png
 armory-gear-panel*.png
 gear.zip
+
+# Local test copies of the Team Create world.
+#
+# The committed RNGArmory.rbxl is a milestone backup owned by whoever last
+# refreshed it. A copy pulled down to test branch code against the CURRENT
+# world is scratch and must not be committed over it — connecting Rojo to one
+# overwrites its script services with whatever branch is checked out.
+*-test.rbxl
+_local*.rbxl
