@@ -270,6 +270,19 @@ end
 	Returns nil if the template is not a weapon, so callers can fall through to
 	the generic armour builder without special-casing.
 ]]
+--[[
+	Blade length per archetype, for the trail's tip attachment. Ranged weapons
+	are absent on purpose: a musket does not leave an arc.
+]]
+local TRAIL_TIP_Y: { [string]: number } = {
+	Sword = 4.4,
+	Dagger = 2.1,
+	Greatsword = 6.8,
+	Greataxe = 4.9,
+	PaladinBlade = 4.6,
+	RoyalBlade = 4.9,
+}
+
 function WeaponModels.Build(archetype: string?, color: Color3, material: Enum.Material, name: string?): Model?
 	local builder = builders[archetype or ""]
 	if not builder then
@@ -283,6 +296,40 @@ function WeaponModels.Build(archetype: string?, color: Color3, material: Enum.Ma
 	model.PrimaryPart = handle
 
 	builder(model, handle, color, material)
+
+	--[[
+		The swing trail. Built disabled into every melee weapon; the client FX
+		layer enables it only during strike frames. The ribbon between these
+		two attachments IS what makes a 0.07s strike readable — the arc paints
+		itself even when the weapon moves too fast to track.
+	]]
+	local tipY = TRAIL_TIP_Y[archetype or ""]
+	if tipY then
+		local base = Instance.new("Attachment")
+		base.Name = "TrailBase"
+		base.Position = Vector3.new(0, 0.8, 0)
+		base.Parent = handle
+
+		local tip = Instance.new("Attachment")
+		tip.Name = "TrailTip"
+		tip.Position = Vector3.new(0, tipY, 0)
+		tip.Parent = handle
+
+		local trail = Instance.new("Trail")
+		trail.Name = "SwingTrail"
+		trail.Attachment0 = base
+		trail.Attachment1 = tip
+		trail.Color = ColorSequence.new(color)
+		trail.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.1),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		trail.Lifetime = 0.22
+		trail.LightEmission = 0.9
+		trail.FaceCamera = true
+		trail.Enabled = false
+		trail.Parent = handle
+	end
 
 	return model
 end

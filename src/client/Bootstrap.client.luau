@@ -63,6 +63,7 @@ local function main()
 	require(Controllers.UIController).Start(Client)
 	require(Controllers.CombatController).Start(Client)
 	require(Controllers.AtmosphereController).Start(Client)
+	require(Controllers.FXController).Start(Client)
 	require(Controllers.AbilityController).Start(Client)
 	require(Controllers.ClassSelectController).Start(Client)
 

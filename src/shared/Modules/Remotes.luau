@@ -56,6 +56,12 @@ Remotes.Definitions = {
 		Description = "Server-wide banner for exceptionally rare drops and boss kills.",
 	},
 
+	FXEvent = {
+		Kind = "Event" :: RemoteKind,
+		Direction = "S->C",
+		Description = "Presentation bus: swings, impacts, casts. Tiny payloads; every client renders the effect locally so strike frames are smooth instead of replicated at network rate.",
+	},
+
 	CombatEvent = {
 		Kind = "Event" :: RemoteKind,
 		Direction = "S->C",

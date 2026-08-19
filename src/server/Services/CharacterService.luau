@@ -26,6 +26,7 @@ local Config = ReplicatedStorage:WaitForChild("Config")
 local BodyConfig = require(Config.BodyConfig)
 local ClassConfig = require(Config.ClassConfig)
 local WeaponModels = require(Modules.WeaponModels)
+local Remotes = require(Modules.Remotes)
 local Logger = require(Modules.Logger)
 local Signal = require(Modules.Signal)
 
@@ -192,13 +193,15 @@ end
 	rather than erroring.
 ]]
 --[[
-	Per-player combo bookkeeping. Melee cycles slash -> backhand -> overhead
-	and repeats; pausing longer than COMBO_RESET drops back to the opener, so
-	walking between packs restarts the chain rather than resuming mid-combo.
-]]
-local comboState: { [Player]: { Step: number, LastAt: number } } = {}
-local COMBO_RESET = 1.6
+	Announces a swing on the FX bus. The animation itself runs CLIENT-side in
+	FXController on every machine — a 0.07s strike tweened on the server
+	arrives as one or two network snapshots and looks like teleporting, which
+	is exactly the mistake the old weld tween made.
 
+	The server still owns the combo COUNT (slash -> backhand -> overhead,
+	resetting after COMBO_RESET seconds idle) so all clients draw the same
+	step and a future per-step damage bonus has a server-side number.
+]]
 function CharacterService.SwingWeapon(player: Player)
 	local character = player.Character
 	if not character then
@@ -211,7 +214,7 @@ function CharacterService.SwingWeapon(player: Player)
 	end
 
 	local archetype = (tool:GetAttribute("Archetype") or "Sword") :: string
-	local rest: CFrame, swung: CFrame
+	local step = 1
 
 	if WeaponModels.IsMelee(archetype) then
 		local state = comboState[player]
@@ -223,44 +226,16 @@ function CharacterService.SwingWeapon(player: Player)
 			state = { Step = (state.Step % 3) + 1, LastAt = now }
 		end
 		comboState[player] = state
-
-		rest, swung = WeaponModels.GetComboSwing(archetype, state.Step)
-	else
-		rest, swung = WeaponModels.GetSwing(archetype)
+		step = state.Step
 	end
 
-	--[[
-		THE WELD, NOT THE GRIP. The engine builds a Weld named "RightGrip" in
-		the right hand when a Tool equips, baking Tool.Grip into its C1 — and
-		never reads Grip again. Tweening Tool.Grip therefore animates nothing
-		(learned the hard way: swings went completely still).
-
-		Weld maths: hand.CFrame * C0 == handle.CFrame * C1, so the handle sits
-		at hand * C0 * C1:Inverse() — putting the weapon at pose P means
-		C1 = P:Inverse(). C0 carries the hand's grip attachment and is left
-		alone.
-	]]
-	local hand = character:FindFirstChild("RightHand")
-	local weld = hand and hand:FindFirstChild("RightGrip")
-	if not weld or not weld:IsA("Weld") then
-		return
-	end
-
-	--[[
-		0.14s out, brief hold, 0.26s back. The old 0.09s strike was verified
-		live to be sub-perceptual — the weapon moved, but nobody could see it.
-		A swing that cannot be seen might as well not exist.
-	]]
-	TweenService:Create(weld, TweenInfo.new(0.14, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-		C1 = swung:Inverse(),
-	}):Play()
-	task.delay(0.2, function()
-		if weld.Parent then
-			TweenService:Create(weld, TweenInfo.new(0.26, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				C1 = rest:Inverse(),
-			}):Play()
-		end
-	end)
+	local fx = Remotes.Get("FXEvent") :: RemoteEvent
+	fx:FireAllClients({
+		Kind = "Swing",
+		UserId = player.UserId,
+		Archetype = archetype,
+		Step = step,
+	})
 end
 
 --[[
