@@ -128,13 +128,29 @@ local function getRig(character: Model): Rig?
 		return cached
 	end
 
-	local upperArm = character:FindFirstChild("RightUpperArm")
-	local upperTorso = character:FindFirstChild("UpperTorso")
-	local hand = character:FindFirstChild("RightHand")
-
-	local shoulder = upperArm and upperArm:FindFirstChild("RightShoulder")
-	local waist = upperTorso and upperTorso:FindFirstChild("Waist")
+	--[[
+	    Recursive search, not a hard-coded path. The first version looked in
+	    character.RightUpperArm/UpperTorso and came back nil on live rigs —
+	    every swing logged shoulder=false and the body half of the animation
+	    was silently absent, which read as "the same boring wrist flick". The
+	    motors are found wherever the rig actually keeps them.
+	]]
+	local shoulder = character:FindFirstChild("RightShoulder", true)
+	local waist = character:FindFirstChild("Waist", true)
+	local hand = character:FindFirstChild("RightHand", true)
 	local grip = hand and hand:FindFirstChild("RightGrip")
+
+	-- If the joints are STILL missing, say what the rig actually contains —
+	-- one paste of this line ends the guessing for good.
+	if not shoulder or not waist then
+		local names = {}
+		for _, d in ipairs(character:GetDescendants()) do
+			if d:IsA("Motor6D") then
+				table.insert(names, (d.Parent and d.Parent.Name or "?") .. "." .. d.Name)
+			end
+		end
+		log:Warn("joints missing — Motor6Ds present: %s", table.concat(names, ", "))
+	end
 
 	if not grip or not grip:IsA("Weld") then
 		return nil
