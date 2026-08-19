@@ -274,7 +274,6 @@ function UIController.Render(profile: any)
 	end
 
 	-- Power and Luck pills are gone; nothing to bind.
-	end
 end
 
 --[[ Single responsive knob: shrink the whole HUD on narrow viewports. ]]
