@@ -229,12 +229,32 @@ function CharacterService.SwingWeapon(player: Player)
 		rest, swung = WeaponModels.GetSwing(archetype)
 	end
 
+	--[[
+		THE WELD, NOT THE GRIP. The engine builds a Weld named "RightGrip" in
+		the right hand when a Tool equips, baking Tool.Grip into its C1 — and
+		never reads Grip again. Tweening Tool.Grip therefore animates nothing
+		(learned the hard way: swings went completely still).
+
+		Weld maths: hand.CFrame * C0 == handle.CFrame * C1, so the handle sits
+		at hand * C0 * C1:Inverse() — putting the weapon at pose P means
+		C1 = P:Inverse(). C0 carries the hand's grip attachment and is left
+		alone.
+	]]
+	local hand = character:FindFirstChild("RightHand")
+	local weld = hand and hand:FindFirstChild("RightGrip")
+	if not weld or not weld:IsA("Weld") then
+		return
+	end
+
 	-- Out fast, back slower: the snap is what makes a hit feel like it landed.
-	-- Tweening Tool.Grip replicates like the Motor6D C0 used to.
-	TweenService:Create(tool, TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Grip = swung }):Play()
+	TweenService:Create(weld, TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		C1 = swung:Inverse(),
+	}):Play()
 	task.delay(0.11, function()
-		if tool.Parent then
-			TweenService:Create(tool, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Grip = rest }):Play()
+		if weld.Parent then
+			TweenService:Create(weld, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				C1 = rest:Inverse(),
+			}):Play()
 		end
 	end)
 end
