@@ -145,9 +145,10 @@ end
 	animation costs no extra network traffic and stays in sync with the damage
 	the server already applied.
 ]]
-local function buildWeapon(definition: ClassConfig.ClassDefinition, character: Model, parent: Folder)
-	local hand = character:FindFirstChild("RightHand") :: BasePart?
-	if not hand then
+local function buildWeapon(definition: ClassConfig.ClassDefinition, character: Model, _parent: Folder)
+	local player = Players:GetPlayerFromCharacter(character)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not player or not humanoid then
 		return
 	end
 
@@ -161,22 +162,27 @@ local function buildWeapon(definition: ClassConfig.ClassDefinition, character: M
 		return
 	end
 
-	local archetype = definition.WeaponArchetype
-	local grip = WeaponModels.GetGripOffset(archetype)
+	--[[
+		The weapon is a real Tool: it lives in the backpack, shows on the
+		hotbar, and can be stowed and drawn with the 1 key. Tool.Grip uses the
+		same hand-relative CFrame our Motor6D C0 did, so GetGripOffset carries
+		over unchanged — and swings tween Grip instead of a joint.
+	]]
+	local tool = Instance.new("Tool")
+	tool.Name = definition.Name
+	tool.CanBeDropped = false
+	tool.RequiresHandle = true
+	tool.Grip = WeaponModels.GetGripOffset(definition.WeaponArchetype)
+	tool:SetAttribute("Archetype", definition.WeaponArchetype)
+	tool:SetAttribute("ClassWeapon", true)
 
-	local handle = model.PrimaryPart :: BasePart
-	model.Parent = parent
-	handle.CFrame = hand.CFrame * grip
+	for _, child in ipairs(model:GetChildren()) do
+		child.Parent = tool
+	end
+	model:Destroy()
 
-	local motor = Instance.new("Motor6D")
-	motor.Name = "WeaponJoint"
-	motor.Part0 = hand
-	motor.Part1 = handle
-	motor.C0 = grip
-	motor.Parent = hand
-
-	-- Recorded so the swing animation can find it without a search.
-	model:SetAttribute("Archetype", archetype)
+	tool.Parent = player:FindFirstChildOfClass("Backpack") or player
+	humanoid:EquipTool(tool)
 end
 
 --[[
@@ -185,29 +191,50 @@ end
 	No-ops when there is no weapon, so unarmed attacks simply do not animate
 	rather than erroring.
 ]]
+--[[
+	Per-player combo bookkeeping. Melee cycles slash -> backhand -> overhead
+	and repeats; pausing longer than COMBO_RESET drops back to the opener, so
+	walking between packs restarts the chain rather than resuming mid-combo.
+]]
+local comboState: { [Player]: { Step: number, LastAt: number } } = {}
+local COMBO_RESET = 1.6
+
 function CharacterService.SwingWeapon(player: Player)
 	local character = player.Character
 	if not character then
 		return
 	end
 
-	local hand = character:FindFirstChild("RightHand")
-	local motor = hand and hand:FindFirstChild("WeaponJoint") :: Motor6D?
-	if not motor then
+	local tool = character:FindFirstChildOfClass("Tool")
+	if not tool or not tool:GetAttribute("ClassWeapon") then
 		return
 	end
 
-	local folder = character:FindFirstChild(EQUIPMENT_FOLDER)
-	local model = folder and folder:FindFirstChildWhichIsA("Model")
-	local archetype = model and model:GetAttribute("Archetype") or "Sword"
+	local archetype = (tool:GetAttribute("Archetype") or "Sword") :: string
+	local rest: CFrame, swung: CFrame
 
-	local rest, swung = WeaponModels.GetSwing(archetype :: string)
+	if WeaponModels.IsMelee(archetype) then
+		local state = comboState[player]
+		local now = os.clock()
+
+		if not state or now - state.LastAt > COMBO_RESET then
+			state = { Step = 1, LastAt = now }
+		else
+			state = { Step = (state.Step % 3) + 1, LastAt = now }
+		end
+		comboState[player] = state
+
+		rest, swung = WeaponModels.GetComboSwing(archetype, state.Step)
+	else
+		rest, swung = WeaponModels.GetSwing(archetype)
+	end
 
 	-- Out fast, back slower: the snap is what makes a hit feel like it landed.
-	TweenService:Create(motor, TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { C0 = swung }):Play()
+	-- Tweening Tool.Grip replicates like the Motor6D C0 used to.
+	TweenService:Create(tool, TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Grip = swung }):Play()
 	task.delay(0.11, function()
-		if motor.Parent then
-			TweenService:Create(motor, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { C0 = rest }):Play()
+		if tool.Parent then
+			TweenService:Create(tool, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Grip = rest }):Play()
 		end
 	end)
 end
@@ -273,11 +300,16 @@ function CharacterService.RefreshLoadout(player: Player)
 
 	clearVisuals(character)
 
-	-- Drop any joint left over from the previous weapon.
-	local hand = character:FindFirstChild("RightHand")
-	local oldMotor = hand and hand:FindFirstChild("WeaponJoint")
-	if oldMotor then
-		oldMotor:Destroy()
+	-- Retire the previous class weapon wherever it is: equipped (a child of
+	-- the character) or stowed (in the backpack).
+	for _, container in ipairs({ character, player:FindFirstChildOfClass("Backpack") }) do
+		if container then
+			for _, child in ipairs(container:GetChildren()) do
+				if child:IsA("Tool") and child:GetAttribute("ClassWeapon") then
+					child:Destroy()
+				end
+			end
+		end
 	end
 
 	local folder = Instance.new("Folder")
@@ -330,6 +362,10 @@ function CharacterService.Start()
 		return
 	end
 	started = true
+
+	Players.PlayerRemoving:Connect(function(player)
+		comboState[player] = nil
+	end)
 
 	local function hook(player: Player)
 		player.CharacterAppearanceLoaded:Connect(function(character)

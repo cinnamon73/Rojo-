@@ -53,6 +53,7 @@ local chip: TextLabel? = nil
 
 local readyAt = 0
 local currentCooldown = 0
+local lastClassId: string? = nil
 
 --========================================================================
 -- Class lookup
@@ -79,6 +80,15 @@ local function applyTheme()
 	local definition = currentClass()
 	if not definition then
 		return
+	end
+
+	-- Swapping class refills the skill: the server clears its cooldowns on
+	-- ClassChanged, so the predicted dial resets with it. Same-class pushes
+	-- (coins ticking up) leave the timer alone.
+	if definition.Id ~= lastClassId then
+		lastClassId = definition.Id
+		readyAt = 0
+		currentCooldown = 0
 	end
 
 	if ring then
@@ -271,9 +281,9 @@ function AbilityController.Start(clientState: any)
 	RunService.RenderStepped:Connect(render)
 	applyTheme()
 
-	-- Switching class changes the ability AND the colours, so both follow the
-	-- profile. The cooldown is deliberately NOT reset: a class swap applies on
-	-- the next spawn, so the old ability's timer is still the honest one.
+	-- Switching class changes the ability, the colours AND the cooldown:
+	-- applyTheme resets the dial on a class change, mirroring the server
+	-- clearing its cooldowns on ClassChanged.
 	client.ProfileChanged:Connect(function()
 		applyTheme()
 		render()

@@ -331,6 +331,43 @@ function WeaponModels.GetGripOffset(archetype: string?): CFrame
 	return CFrame.new(0, -0.7, 0)
 end
 
+--[[ Archetypes that swing rather than shoot. Combos only make sense here. ]]
+local MELEE = {
+	Sword = true,
+	Dagger = true,
+	Greatsword = true,
+	Greataxe = true,
+	PaladinBlade = true,
+	RoyalBlade = true,
+}
+
+function WeaponModels.IsMelee(archetype: string?): boolean
+	return MELEE[archetype or ""] == true
+end
+
+--[[
+	One step of the melee combo: slash, backhand, overhead finisher.
+
+	Three distinct arcs so a repeating combo reads as swordplay instead of the
+	same chop looped. Step wraps 1-3; ranged archetypes never come through here
+	— they get their single GetSwing action (draw, recoil, thrust).
+]]
+function WeaponModels.GetComboSwing(archetype: string?, step: number): (CFrame, CFrame)
+	local rest = WeaponModels.GetGripOffset(archetype)
+	local index = ((step - 1) % 3) + 1
+
+	if index == 1 then
+		-- Diagonal slash, right to left.
+		return rest, rest * CFrame.Angles(math.rad(-85), 0, math.rad(30))
+	elseif index == 2 then
+		-- Backhand return, opposite roll so it visibly comes back the other way.
+		return rest, rest * CFrame.Angles(math.rad(-45), 0, math.rad(-80))
+	end
+
+	-- Overhead finisher: bigger wind, slight forward push.
+	return rest, rest * CFrame.new(0, 0.4, -0.5) * CFrame.Angles(math.rad(-120), 0, 0)
+end
+
 --[[
 	Swing arc for an archetype, as (restC0, swungC0) offsets applied to the
 	joint. Kept here so weapon feel lives with weapon geometry.

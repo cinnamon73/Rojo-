@@ -472,6 +472,16 @@ function AbilityService.Start()
 	end)
 
 	--[[
+		Swapping class refills the skill. The design is that a swap is a fresh
+		start — and it is not free: a mid-session swap only takes effect through
+		a respawn, so this cannot be pumped for cooldown resets mid-fight.
+	]]
+	ClassService.ClassChanged:Connect(function(player: Player)
+		cooldownUntil[player] = nil
+		active[player] = nil
+	end)
+
+	--[[
 		Undying, enforced where damage actually lands.
 
 		Watching HealthChanged rather than intercepting every damage source:

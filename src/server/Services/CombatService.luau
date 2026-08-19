@@ -108,6 +108,13 @@ function CombatService.Attack(player: Player, targetModel: any)
 		return
 	end
 
+	-- The weapon is a Tool now, and a stowed weapon cannot attack. Checked
+	-- before the cooldown stamp so drawing it again is never punished.
+	local tool = character and character:FindFirstChildOfClass("Tool")
+	if not tool or not tool:GetAttribute("ClassWeapon") then
+		return
+	end
+
 	local stats = ClassService.GetStats(profile)
 
 	-- Cooldown from real attack speed. Checked before anything target-related
