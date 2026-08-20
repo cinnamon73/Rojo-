@@ -562,9 +562,58 @@ geometry work needs no Rojo at all.
 Do **not** reach for `rojo syncback` to fix this. It runs Studio → files and
 would let a stale Studio tree overwrite source. Wrong direction.
 
+#### Disconnecting does NOT delete anything — measured
+
+This was tested directly, because it looked like it did: a watcher on all
+three services recorded every add and remove across a real disconnect.
+**46 instances before, 46 after, 0 removals.** Rojo leaves the tree alone. If
+code appears to vanish when you disconnect, something else did it.
+
+What it actually was, and it is the dangerous failure:
+
+> One session added three NEW modules *and* edited two EXISTING files to
+> require them. The other session then connected with a checkout that had the
+> edits but not the new files. The live tree ended up holding code that
+> requires modules which are not there.
+
+The damage is out of all proportion to the cause, because `Bootstrap` requires
+services **in order**:
+
+```
+local ClassService  = require(Services.ClassService)   -- fine
+local EnemyService  = require(Services.EnemyService)   -- THROWS: needs Modules.EnemyRigs
+...
+ClassService.Start()                                   -- never reached
+```
+
+One missing module stopped every service after it from starting. The class
+system was untouched and fully present, but `ClassService.Start()` never ran,
+so there was no class menu — and because `ClassService` sets
+`CharacterAutoLoads = false`, no player could spawn either. It reads as "the
+other person's work was deleted" when nothing was deleted at all.
+
+**So: never disconnect, hand over the lock, or stop a Rojo server without
+checking the tree still loads.** Run
+[`tools/VerifyLiveTree.luau`](tools/VerifyLiveTree.luau) in the command bar —
+it resolves every `require(Container.Name)` and loads every service and
+controller. Leaving a broken tree with no server running is the worst case,
+because nothing can repaint it.
+
+**When you verify, require the REAL module, never a clone.** A clone has no
+parent, so every `script.Parent` lookup inside it fails and the module reports
+an error that has nothing to do with the tree. Doing it the clone way reported
+7 of 17 services broken when all 17 were fine.
+
 **Tell your collaborator this, in their own session.** Both instances are
 expected to raise it with their own user rather than assume the other already
 has — the failure is silent, it looks like the other person deleted your work,
 and only one of the two people involved can see it happening at a time. When
 you take or release the lock, say so in chat and say whether you pulled and
 pushed around it.
+
+**Adding a new module is the risky change, not editing one.** Editing a file
+both checkouts already have is safe: whoever connects last simply repaints it.
+Adding a module *and* pointing existing code at it splits into two states, and
+the checkout without the new file produces a tree that cannot load. If you add
+modules, push immediately, say so in chat, and make sure the other side pulls
+before they next press Connect.
