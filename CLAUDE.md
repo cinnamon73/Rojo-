@@ -293,6 +293,12 @@ Every one of these cost real bugs. Several cost the same bug twice.
 - **Alternating colours across many small parts reads as a glitch.** Twenty
   steps cycling four greys looked like corduroy / z-fighting. One stone colour
   with a thin lighter nosing on each tread reads as masonry.
+- **A building's footprint must be measured in ITS OWN rotated frame.** Every
+  Town building sits at a yaw between −145° and +135°. Taking world-axis
+  extents of a rotated box gives its bounding box, not its size: the Tavern's
+  44 × 32 ground wall measures 53.7 × 53.7 that way, and a plinth built to
+  that is a terrace the building sits in the middle of. Take the size and the
+  rotation from the wall part itself.
 - **Cylinders lie along local X.** A `Cylinder` needs a 90° roll about Z to
   stand upright. This is also how you make a flat disc.
 - **Recovering a yaw from a LookVector is `atan2(-L.X, -L.Z)`**, not
@@ -474,6 +480,29 @@ collisions likely, so:
    verify in as few scripts as possible**, re-read the stored StringValues
    rather than trusting an earlier write, and count parts before and after
    anything long-running.
+8. **NAME EVERY TEMPORARY THING `temp_<name>`.** Previews, test rigs, plinths
+   you stand something on, reference blocks, scratch folders — all of it.
+   Then cleaning up is deleting exactly what matches `temp_`, and nothing
+   else can be caught by it.
+
+   This rule exists because a cleanup sweep that deleted "any part named
+   `Plinth`" — meaning one test object — removed the stone base from all
+   eleven Town buildings, because `Plinth` is a name the village already
+   uses. It was not recoverable: Studio's undo does not cover command-bar
+   deletions, and the six undo steps attempted also silently reverted the
+   session's lighting. The plinths had to be rebuilt from measurements and
+   are no longer the originals.
+
+   So, without exception:
+   - **Never delete by name pattern** unless the pattern is `temp_`. Before
+     any pattern delete, list what it matches and read the list.
+   - **Count `Workspace.World` parts before and after** anything destructive.
+     A change in the total is the fastest signal that something was hit.
+   - **Prefer deleting instances you are holding a reference to** over
+     searching for them by name.
+
+   If a temporary object genuinely has to carry a real name to be tested in
+   place, park it under a `temp_Preview` folder and delete the folder.
 
 ### The Rojo hand-off, and why things "disappear"
 
