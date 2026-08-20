@@ -1,0 +1,7 @@
+{
+  "_note": "Uploaded KeyframeSequence asset ids, CGS Student Development group. Authored by tools/blender_movesets.py against a default R15.",
+  "Greataxe":   { "BerserkerCleave": 97294634234896, "BerserkerCrash": 96754801886481 },
+  "Dagger":     { "DaggerStab": 100750081323298, "DaggerCross": 82632867906328, "DaggerSpin": 135497799861559 },
+  "Greatsword": { "GreatswordCleave": 93793385601090, "GreatswordCrash": 90044575171545 },
+  "_pending":   ["PaladinChop","PaladinSweep","RoyalSlash","RoyalRise","RoyalCrash","SwordSlash","SwordBackhand","SwordThrust"]
+}

@@ -119,7 +119,11 @@ local definitions: { [string]: WeaponDefinition } = {
 		--[[ Our own animations, authored in Blender against a default R15
 		     (tools/blender_rig.py). Two entries, so this is a TWO-hit combo:
 		     horizontal cleave, then the overhead crash. ]]
-		Combo = { 95534608969579, 98764921362960 },
+		--[[ Berserker: horizontal cleave into an overhead crash, authored in
+		     Blender (tools/blender_movesets.py). Replaces the first pair,
+		     which was built while the reference rig had been overwritten by a
+		     player's own avatar. ]]
+		Combo = { 97294634234896, 96754801886481 },
 		StepSpeeds = { 1.0, 1.0 },
 		SwingSpeed = 1.0,
 		Ability = {
@@ -142,7 +146,8 @@ local definitions: { [string]: WeaponDefinition } = {
 		Description = "Short reach, brutal crits, paired.",
 		Archetype = "Dagger",
 		Appearance = { MeshId = 107700310958339, GripLift = 0.890, Color = Color3.fromRGB(64, 68, 82), Material = METAL },
-		Combo = { 522635514, 522635514, 522638767 },
+		-- Assassin: inside stab, cross slash, spinning backhand. Short and fast.
+		Combo = { 100750081323298, 82632867906328, 135497799861559 },
 		SwingSpeed = 1.35,
 		Ability = {
 			Id = "Vanish",
@@ -280,7 +285,8 @@ local definitions: { [string]: WeaponDefinition } = {
 		Description = "Enormous reach, punishing recovery.",
 		Archetype = "Greatsword",
 		Appearance = { MeshId = 98277756842482, GripLift = 3.055, Color = Color3.fromRGB(196, 200, 210), Material = METAL },
-		Combo = { 522635514, 522635514, 522638767 },
+		-- Two hits, both enormous.
+		Combo = { 93793385601090, 90044575171545 },
 		SwingSpeed = 0.72,
 		Ability = {
 			Id = "SpinningSlash",
