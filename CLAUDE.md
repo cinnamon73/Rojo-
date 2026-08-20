@@ -480,10 +480,21 @@ collisions likely, so:
    verify in as few scripts as possible**, re-read the stored StringValues
    rather than trusting an earlier write, and count parts before and after
    anything long-running.
-8. **NAME EVERY TEMPORARY THING `temp_<name>`.** Previews, test rigs, plinths
-   you stand something on, reference blocks, scratch folders — all of it.
-   Then cleaning up is deleting exactly what matches `temp_`, and nothing
-   else can be caught by it.
+8. **NAME EVERY TEMPORARY THING WITH YOUR OWN PREFIX, AND ONLY EVER DELETE
+   YOUR OWN.** Previews, test rigs, plinths you stand something on, reference
+   blocks, scratch folders — all of it.
+
+   | Session | Prefix |
+   |---|---|
+   | hawkwonder's | `temphawk_<name>` |
+   | loloponds's | `templolo_<name>` |
+
+   **Both instances must follow this, and each must tell its own user.** The
+   prefixes are per-session on purpose: a shared `temp_` would still let one
+   Claude delete the other's scratch mid-task, in a world where both edit
+   `Workspace` at the same time with no lock. Clean up **only** what matches
+   your own prefix. Never delete the other instance's scratch, even if it
+   looks abandoned — say so in chat instead.
 
    This rule exists because a cleanup sweep that deleted "any part named
    `Plinth`" — meaning one test object — removed the stone base from all
@@ -494,15 +505,16 @@ collisions likely, so:
    are no longer the originals.
 
    So, without exception:
-   - **Never delete by name pattern** unless the pattern is `temp_`. Before
-     any pattern delete, list what it matches and read the list.
+   - **Never delete by name pattern** unless the pattern is your own prefix.
+     Before any pattern delete, list what it matches and read the list.
    - **Count `Workspace.World` parts before and after** anything destructive.
      A change in the total is the fastest signal that something was hit.
    - **Prefer deleting instances you are holding a reference to** over
      searching for them by name.
 
    If a temporary object genuinely has to carry a real name to be tested in
-   place, park it under a `temp_Preview` folder and delete the folder.
+   place, park it under a folder named with your prefix — e.g.
+   `temphawk_Preview` — and delete the folder.
 
 ### The Rojo hand-off, and why things "disappear"
 
