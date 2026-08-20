@@ -94,7 +94,8 @@ local definitions: { [string]: WeaponDefinition } = {
 		Description = "Balanced reach and speed. Forgiving to swing.",
 		Archetype = "Sword",
 		Appearance = { MeshId = 115223452519261, GripLift = 2.035, Color = Color3.fromRGB(178, 184, 196), Material = METAL },
-		Combo = { 522635514, 522635514, 522638767 },
+		-- Swordsman: diagonal slash, rising backhand, thrust. Crisp and economical.
+		Combo = { 71819766497392, 119558922598423, 87644320142862 },
 		SwingSpeed = 1.0,
 		Ability = {
 			Id = "SpinningSlash",
@@ -170,7 +171,8 @@ local definitions: { [string]: WeaponDefinition } = {
 		Description = "Sword and shield. Slow, immovable.",
 		Archetype = "PaladinBlade",
 		Appearance = { MeshId = 86164855075188, GripLift = 2.075, Color = Color3.fromRGB(226, 200, 128), Material = METAL },
-		Combo = { 522635514, 522635514, 522638767 },
+		-- Paladin: overhead chop into a braced wide sweep. Grounded and heavy.
+		Combo = { 77389900108482, 93750566409396 },
 		SwingSpeed = 0.95,
 		Ability = {
 			Id = "Aegis",
@@ -193,7 +195,8 @@ local definitions: { [string]: WeaponDefinition } = {
 		Description = "The crown's own steel.",
 		Archetype = "RoyalBlade",
 		Appearance = { MeshId = 117988428989265, GripLift = 2.230, Color = Color3.fromRGB(244, 214, 96), Material = METAL },
-		Combo = { 522635514, 522635514, 522638767 },
+		-- King: wide slash, rising cut, overhead finisher. Broad and showy.
+		Combo = { 81946278999189, 121173923737669, 118484204270702 },
 		SwingSpeed = 0.95,
 		Ability = {
 			Id = "RoyalGuard",
