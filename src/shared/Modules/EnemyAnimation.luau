@@ -124,8 +124,15 @@ local IMPACT = 70
 
 --[[
 	Attack: raise the club IN FRONT, then chop down fast.
-	`u` runs 0..1 over one swing. The impact lands at u = 0.50.
+	`u` runs 0..1 over one swing.
+
+	These two are shared with BOTH sides deliberately. The client uses the
+	duration to pace the animation; the server multiplies them together to work
+	out when the club actually connects, so damage lands on the blow rather
+	than the moment the swing starts. If they ever live in two places they will
+	drift and the hit will stop matching the picture.
 ]]
+EnemyAnimation.AttackDuration = 1.05
 EnemyAnimation.AttackImpactPhase = 0.50
 
 function EnemyAnimation.Attack(joints: Joints, u: number, drop: number)

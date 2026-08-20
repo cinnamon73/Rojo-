@@ -28,6 +28,7 @@ local Modules = ReplicatedStorage:WaitForChild("Modules")
 local Config = ReplicatedStorage:WaitForChild("Config")
 
 local EnemyConfig = require(Config.EnemyConfig)
+local EnemyAnimation = require(Modules.EnemyAnimation)
 local EnemyRigs = require(Modules.EnemyRigs)
 local Logger = require(Modules.Logger)
 local Signal = require(Modules.Signal)
@@ -572,7 +573,6 @@ local function stepEnemy(record: EnemyRecord, now: number)
 
 		if now - record.LastAttackAt >= definition.AttackCooldown then
 			record.LastAttackAt = now
-			targetHumanoid:TakeDamage(definition.Damage)
 
 			-- Face the target so the hit reads.
 			record.Root.CFrame = CFrame.lookAt(position, Vector3.new(targetRoot.Position.X, position.Y, targetRoot.Position.Z))
@@ -590,8 +590,50 @@ local function stepEnemy(record: EnemyRecord, now: number)
 				function, and indexing the nil global threw on every swing.
 			]]
 			local m = record.Model
-			if m:GetAttribute("Rig") ~= nil then
+			local articulated = m:GetAttribute("Rig") ~= nil
+			if articulated then
 				m:SetAttribute("AttackSeq", ((m:GetAttribute("AttackSeq") :: number?) or 0) + 1)
+			end
+
+			--[[
+				Damage lands when the CLUB LANDS, not when the swing starts.
+				The delay is the animation's own duration times its impact
+				phase, both read from EnemyAnimation so the hit cannot drift
+				away from the picture.
+
+				A swing is now roughly half a second of real time, so
+				everything is re-checked at impact rather than trusted from
+				when it started: the enemy may have died, the player may have
+				died, respawned, or simply walked out of reach. That last one
+				is deliberate — backing off mid-swing should dodge the blow.
+
+				Welded rigs have no animation to wait for, so they hit at once
+				exactly as before.
+			]]
+			-- Non-nil here: the guard above returns early without a target.
+			local swingTarget = target :: Player
+			local function land()
+				if enemies[m] ~= record or record.Humanoid.Health <= 0 then
+					return
+				end
+				local character = swingTarget.Character
+				local hitHumanoid = character and character:FindFirstChildOfClass("Humanoid")
+				local hitRoot = character and character:FindFirstChild("HumanoidRootPart")
+				if not hitHumanoid or not hitRoot or hitHumanoid.Health <= 0 then
+					return
+				end
+				-- A little slack so a normal step does not make every swing whiff.
+				local reach = definition.AttackRange + 2.5
+				if ((hitRoot :: BasePart).Position - record.Root.Position).Magnitude > reach then
+					return
+				end
+				hitHumanoid:TakeDamage(definition.Damage)
+			end
+
+			if articulated then
+				task.delay(EnemyAnimation.AttackDuration * EnemyAnimation.AttackImpactPhase, land)
+			else
+				land()
 			end
 		end
 	else

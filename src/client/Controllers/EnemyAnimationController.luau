@@ -120,7 +120,8 @@ local function pollTriggers(rigged: Rigged)
 		rigged.LastAttack = attack
 		rigged.OneShot = "Attack"
 		rigged.OneShotT = 0
-		rigged.OneShotLen = 1.05
+		-- Shared with the server, which times the damage off the same number.
+		rigged.OneShotLen = EnemyAnimation.AttackDuration
 		return
 	end
 	local flinch = (rigged.Model:GetAttribute("FlinchSeq") :: number?) or 0
