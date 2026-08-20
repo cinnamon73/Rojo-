@@ -268,12 +268,17 @@ local function buildOffhand(weapon: WeaponConfig.WeaponDefinition, character: Mo
 		return
 	end
 
-	local arm = character:FindFirstChild("LeftLowerArm") :: BasePart?
-	if not arm then
+	local offhandMesh = WeaponConfig.OffhandMeshes[weapon.Offhand]
+	local mount = offhandMesh and offhandMesh.Mount or "Forearm"
+
+	-- A carried off-hand goes in the hand so the arm can swing it; a worn one
+	-- straps to the forearm and stays put.
+	local attachTo = character:FindFirstChild(
+		if mount == "Hand" then "LeftHand" else "LeftLowerArm"
+	) :: BasePart?
+	if not attachTo then
 		return
 	end
-
-	local offhandMesh = WeaponConfig.OffhandMeshes[weapon.Offhand]
 	local model = WeaponModels.BuildOffhand(
 		weapon.Offhand,
 		weapon.Appearance.Color,
@@ -289,11 +294,25 @@ local function buildOffhand(weapon: WeaponConfig.WeaponDefinition, character: Mo
 	local handle = model.PrimaryPart :: BasePart
 	model.Parent = parent
 
-	-- Flat against the outside of the forearm, face outward.
-	handle.CFrame = arm.CFrame * CFrame.new(-0.55, 0, 0) * CFrame.Angles(0, 0, math.rad(90))
+	if mount == "Hand" then
+		--[[ Mirror of the right-hand grip. Reversed spins the blade to point
+		     down past the little finger - an icepick hold, which is how a
+		     second dagger is actually carried and what makes the off-hand
+		     read as armed rather than empty. ]]
+		local grip = CFrame.new(0, -0.7, 0)
+		if offhandMesh and offhandMesh.Reversed then
+			grip = grip * CFrame.Angles(math.rad(180), 0, 0)
+		end
+		local gripAttachment = attachTo:FindFirstChild("LeftGripAttachment") :: Attachment?
+		local base = if gripAttachment then attachTo.CFrame * gripAttachment.CFrame else attachTo.CFrame
+		handle.CFrame = base * grip:Inverse()
+	else
+		-- Flat against the outside of the forearm, face outward.
+		handle.CFrame = attachTo.CFrame * CFrame.new(-0.55, 0, 0) * CFrame.Angles(0, 0, math.rad(90))
+	end
 
 	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = arm
+	weld.Part0 = attachTo
 	weld.Part1 = handle
 	weld.Parent = handle
 end

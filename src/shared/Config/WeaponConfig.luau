@@ -71,6 +71,20 @@ export type WeaponDefinition = {
 	StepSpeeds: { number }?,
 	SwingSpeed: number,
 
+	--[[ How the body CARRIES this thing when it is not swinging. Stance and
+	     locomotion belong to the item for the same reason the moveset does:
+	     hand the Berserker a bow and he should stand like an archer.
+
+	     Attacks play at Action priority and these at Idle/Movement, so the
+	     engine's own priority ordering makes swings override stance with no
+	     extra bookkeeping. 0 means "no animation authored yet" and the stock
+	     R15 idle/walk shows through. ]]
+	Stance: number,
+	Walk: number,
+	Run: number?,
+	-- Silhouette tag, drives FX like the greataxe's ground scrape.
+	Carry: string,
+
 	Ability: Ability,
 
 	-- Offence travels with the weapon.
@@ -97,6 +111,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		-- Swordsman: diagonal slash, rising backhand, thrust. Crisp and economical.
 		Combo = { 71819766497392, 119558922598423, 87644320142862 },
 		SwingSpeed = 1.0,
+		Stance = 0,
+		Walk = 0,
+		Carry = "Ready",
+
 		Ability = {
 			Id = "SpinningSlash",
 			Name = "Spinning Slash",
@@ -127,6 +145,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		Combo = { 97294634234896, 96754801886481 },
 		StepSpeeds = { 1.0, 1.0 },
 		SwingSpeed = 1.0,
+		Stance = 0,
+		Walk = 0,
+		Carry = "Drag",
+
 		Ability = {
 			Id = "Undying",
 			Name = "Undying",
@@ -150,6 +172,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		-- Assassin: inside stab, cross slash, spinning backhand. Short and fast.
 		Combo = { 100750081323298, 82632867906328, 135497799861559 },
 		SwingSpeed = 1.35,
+		Stance = 0,
+		Walk = 0,
+		Carry = "Ready",
+
 		Ability = {
 			Id = "Vanish",
 			Name = "Vanish",
@@ -174,6 +200,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		-- Paladin: overhead chop into a braced wide sweep. Grounded and heavy.
 		Combo = { 77389900108482, 93750566409396 },
 		SwingSpeed = 0.95,
+		Stance = 0,
+		Walk = 0,
+		Carry = "Rest",
+
 		Ability = {
 			Id = "Aegis",
 			Name = "Aegis",
@@ -198,6 +228,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		-- King: wide slash, rising cut, overhead finisher. Broad and showy.
 		Combo = { 81946278999189, 121173923737669, 118484204270702 },
 		SwingSpeed = 0.95,
+		Stance = 0,
+		Walk = 0,
+		Carry = "Shoulder",
+
 		Ability = {
 			Id = "RoyalGuard",
 			Name = "Royal Guard",
@@ -222,6 +256,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		-- reads as nonsense.
 		Combo = { 0 },
 		SwingSpeed = 1.0,
+		Stance = 0,
+		Walk = 0,
+		Carry = "Sling",
+
 		Ability = {
 			Id = "Rapidfire",
 			Name = "Rapidfire",
@@ -244,6 +282,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		Appearance = { MeshId = 122680354862605, GripLift = 1.506, Color = Color3.fromRGB(92, 82, 74), Material = WOOD },
 		Combo = { 0 },
 		SwingSpeed = 1.0,
+		Stance = 0,
+		Walk = 0,
+		Carry = "Shoulder",
+
 		Ability = {
 			Id = "Grenade",
 			Name = "Grenade",
@@ -266,6 +308,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		Appearance = { MeshId = 100515684767440, GripLift = 1.870, Color = Color3.fromRGB(108, 76, 148), Material = WOOD },
 		Combo = { 0 },
 		SwingSpeed = 1.0,
+		Stance = 0,
+		Walk = 0,
+		Carry = "Rest",
+
 		Ability = {
 			Id = "RaiseSkeletons",
 			Name = "Skeleton Army",
@@ -291,6 +337,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		-- Two hits, both enormous.
 		Combo = { 93793385601090, 90044575171545 },
 		SwingSpeed = 0.72,
+		Stance = 0,
+		Walk = 0,
+		Carry = "Shoulder",
+
 		Ability = {
 			Id = "SpinningSlash",
 			Name = "Spinning Slash",
@@ -313,6 +363,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		Appearance = { MeshId = 121807140531417, GripLift = 2.045, Color = Color3.fromRGB(150, 120, 200), Material = WOOD },
 		Combo = { 0 },
 		SwingSpeed = 1.0,
+		Stance = 0,
+		Walk = 0,
+		Carry = "Rest",
+
 		Ability = {
 			Id = "Rapidfire",
 			Name = "Focus",
@@ -335,10 +389,18 @@ WeaponConfig.TrailSeconds = 0.5
 --[[ Offhand meshes. BuildOffhand takes a different path from BuildFromItem
      (offhands are welded flat to the left arm, not jointed), so their ids
      live here rather than on a weapon. 0 falls back to built parts. ]]
+--[[
+	Mount says whether the off-hand is CARRIED or WORN.
+
+	A shield straps to the forearm and never moves independently. A second
+	dagger is a weapon: it belongs in the hand, reversed into an icepick grip,
+	so the arm can actually swing it. Welding it flat to the forearm - which is
+	what it did - made the Assassin's second blade pure decoration.
+]]
 WeaponConfig.OffhandMeshes = {
-	Shield = { MeshId = 99288952766726, GripLift = -0.025 },
-	Dagger = { MeshId = 107700310958339, GripLift = 0.890 },
-} :: { [string]: { MeshId: number, GripLift: number } }
+	Shield = { MeshId = 99288952766726, GripLift = -0.025, Mount = "Forearm" },
+	Dagger = { MeshId = 107700310958339, GripLift = 0.890, Mount = "Hand", Reversed = true },
+} :: { [string]: { MeshId: number, GripLift: number, Mount: string, Reversed: boolean? } }
 
 WeaponConfig.Definitions = definitions
 WeaponConfig.Default = "Sword"

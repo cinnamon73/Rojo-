@@ -234,6 +234,80 @@ if ONLY:
     MOVESETS = {k: v for k, v in MOVESETS.items() if k == ONLY}
 
 
+
+
+# ---------------------------------------------------------------------------
+# STANCES AND WALK CYCLES  (docs/STANCES_AND_CARRY.md)
+# ---------------------------------------------------------------------------
+# A stance says what someone is holding before they ever attack. A walk cycle
+# says how much it weighs. Both LOOP, so the first and last pose must be
+# identical or the cycle pops once per revolution.
+#
+#   carry   (wrist, blade direction) - the held pose
+#   stride  degrees the legs swing; heavy carries take fewer, longer steps
+#   bob     studs the hips drop at contact (weight landing)
+#   lean    forward pitch; a drag leans into the weight it is hauling
+#   sway    how much the weapon rocks with the stride
+
+STANCES = {
+    # Berserker: the axe is too heavy to carry, so he doesn't. It hangs from
+    # the right hand with the head dragging on the ground behind him.
+    "Greataxe": dict(
+        carry=((0.66, 0.42, 0.46), (0.06, -0.72, 0.69)),
+        idle=dict(lean=8, twist=-10, settle=0.05),
+        walk=dict(stride=26, bob=0.16, lean=17, sway=0.09, period=1.10),
+    ),
+    # Assassin: both blades held, low and compact. Nothing is heavy.
+    "Dagger": dict(
+        carry=((0.58, 0.82, -0.44), (0.34, 0.30, -0.89)),
+        idle=dict(lean=4, twist=-14, settle=0.03),
+        walk=dict(stride=34, bob=0.09, lean=6, sway=0.05, period=0.78),
+    ),
+    # Swordsman: balanced middle guard - the readable baseline.
+    "Sword": dict(
+        carry=((0.68, 0.96, -0.34), (0.26, 0.74, -0.62)),
+        idle=dict(lean=3, twist=-10, settle=0.035),
+        walk=dict(stride=30, bob=0.11, lean=8, sway=0.06, period=0.88),
+    ),
+    # Paladin: walks behind the shield, weight on the back foot.
+    "PaladinBlade": dict(
+        carry=((0.72, 0.74, 0.30), (0.42, 0.34, 0.84)),
+        idle=dict(lean=5, twist=18, settle=0.03),
+        walk=dict(stride=24, bob=0.12, lean=10, sway=0.04, period=1.00),
+    ),
+    # King: blade on the shoulder, unhurried. Arrogance is the read.
+    "RoyalBlade": dict(
+        carry=((0.74, 1.16, 0.26), (0.34, 0.62, 0.71)),
+        idle=dict(lean=-2, twist=-8, settle=0.04),
+        walk=dict(stride=28, bob=0.10, lean=2, sway=0.05, period=0.94),
+    ),
+    "Greatsword": dict(
+        carry=((0.62, 1.14, 0.22), (-0.10, 0.70, 0.71)),
+        idle=dict(lean=6, twist=-8, settle=0.04),
+        walk=dict(stride=25, bob=0.14, lean=13, sway=0.07, period=1.05),
+    ),
+}
+
+
+def leg_cycle(phase, stride, bob):
+    """Contact, passing, contact, passing - with real weight transfer.
+
+    Returns (rightUpper, rightLower, leftUpper, leftLower, hipDrop). Feet that
+    do not push off read as sliding no matter how good the upper body is.
+    """
+    import math as _m
+    a = phase * 2 * _m.pi
+    swing_r = _m.sin(a)
+    swing_l = _m.sin(a + _m.pi)
+    # Knees bend on the passing pose and straighten at contact.
+    bend_r = max(0.0, -_m.cos(a))
+    bend_l = max(0.0, -_m.cos(a + _m.pi))
+    # Hips drop twice per stride, once per foot landing.
+    drop = -bob * (0.5 + 0.5 * _m.cos(2 * a))
+    return (-stride * swing_r, stride * 0.9 * bend_r,
+            -stride * swing_l, stride * 0.9 * bend_l, drop)
+
+
 # ---------------------------------------------------------------------------
 # rig  (identical construction to blender_rig.py, which this replaces)
 # ---------------------------------------------------------------------------
@@ -563,6 +637,145 @@ for wname, clips in MOVESETS.items():
         report.append((wname, clip["Name"], dur, len(frames), worst, over))
 
         bpy.data.objects.remove(wctl, do_unlink=True)
+
+stance_report = []
+
+# ---------------------------------------------------------------------------
+# build the looping stances and walks
+# ---------------------------------------------------------------------------
+STANCE_FPS = FPS
+out["Stances"] = {}
+
+for wname, spec in STANCES.items():
+    wspec = WEAPONS[wname]
+    (wrist, wdir) = spec["carry"]
+    out["Stances"][wname] = {}
+
+    for kind in ("Idle", "Walk"):
+        clear_pose()
+        wctl = bpy.data.objects.new("WeaponCtl", None)
+        scene.collection.objects.link(wctl)
+        grip_rel, k_right, rt, lt = build_targets(wspec, wctl)
+
+        if kind == "Idle":
+            cfg = spec["idle"]
+            dur = 2.4                       # slow breathing loop
+            phases = [0.0, 0.5, 1.0]
+        else:
+            cfg = spec["walk"]
+            dur = cfg["period"]
+            phases = [0.0, 0.25, 0.5, 0.75, 1.0]
+
+        scene.frame_start, scene.frame_end = 0, round(dur * STANCE_FPS)
+        wctl.rotation_mode = "QUATERNION"
+
+        for ph in phases:
+            f = round(ph * dur * STANCE_FPS)
+            if kind == "Idle":
+                # Breathe: the whole carry rises and settles a few centimetres.
+                rise = cfg["settle"] * math.sin(ph * 2 * math.pi)
+                w = (wrist[0], wrist[1] + rise, wrist[2])
+                lean, twist = cfg["lean"], cfg["twist"]
+                ru, rl, lu, ll, drop = -6, 8, -4, 6, rise * 0.5
+            else:
+                sway = cfg["sway"] * math.sin(ph * 2 * math.pi)
+                w = (wrist[0] + sway * 0.5, wrist[1] + sway, wrist[2] - sway * 0.4)
+                lean = cfg["lean"]
+                twist = -10 * math.sin(ph * 2 * math.pi)
+                ru, rl, lu, ll, drop = leg_cycle(ph, cfg["stride"], cfg["bob"])
+
+            wctl.matrix_basis = weapon_matrix(w, wdir, k_right)
+            wctl.keyframe_insert("location", frame=f)
+            wctl.keyframe_insert("rotation_quaternion", frame=f)
+
+            key_pose("LowerTorso", Matrix.Translation((0, drop, 0))
+                     @ angles(lean * 0.3, twist * 0.4, 0), f)
+            key_pose("UpperTorso", angles(lean * 0.7, twist * 0.8, 0), f)
+            key_pose("Head", angles(-lean * 0.4, -twist * 0.3, 0), f)
+            key_pose("RightUpperLeg", angles(ru, 0, 0), f)
+            key_pose("RightLowerLeg", angles(rl, 0, 0), f)
+            key_pose("LeftUpperLeg", angles(lu, 0, 0), f)
+            key_pose("LeftLowerLeg", angles(ll, 0, 0), f)
+            if not wspec.get("two"):
+                # Free hand: relaxed and counterbalancing, or holding the
+                # second dagger in a low icepick guard.
+                if wname == "Dagger":
+                    key_pose("LeftUpperArm", angles(-34, 0, 16), f)
+                    key_pose("LeftLowerArm", angles(-52, 0, 0), f)
+                else:
+                    key_pose("LeftUpperArm", angles(-12 - abs(twist) * 0.4, 0, 18), f)
+                    key_pose("LeftLowerArm", angles(-24, 0, 0), f)
+
+        dg = bpy.context.evaluated_depsgraph_get()
+        frames, worst, ground_lo = [], 0.0, 9e9
+        for fnum in range(scene.frame_start, scene.frame_end + 1):
+            scene.frame_set(fnum)
+            dg.update()
+            pose_world = {p: pb[p].matrix.copy() for p in order}
+            basis = {}
+            for p in order:
+                par = PARENT.get(p)
+                rest_local = (arm_data.bones[p].matrix_local if par is None else
+                              arm_data.bones[par].matrix_local.inverted() @ arm_data.bones[p].matrix_local)
+                pp = pose_world[par] if par else Matrix.Identity(4)
+                basis[p] = rest_local.inverted() @ pp.inverted() @ pose_world[p]
+
+            rec = {"T": round(fnum / STANCE_FPS, 4), "Joints": {}}
+            T_by = {}
+            for p in order:
+                if p == ROOT:
+                    continue
+                C = CONV[p].to_4x4()
+                T = C @ basis[p] @ C.inverted()
+                T_by[p] = T
+                rec["Joints"][p] = [round(v, 5) for v in comps(T)]
+            frames.append(rec)
+
+            replay = {ROOT: Matrix.Identity(4)}
+            for p in order:
+                if p == ROOT:
+                    continue
+                j = JOINTS[p]
+                replay[p] = replay[j["Parent"]] @ cf(j["A0"]) @ T_by[p] @ cf(j["A1"]).inverted()
+            F = {p: pose_world[p] @ CONV[p].inverted().to_4x4() for p in order}
+            pw = {p: F[p] @ A1[p].inverted() for p in order}
+            worst = max(worst, max((replay[p].translation - pw[p].translation).length for p in order))
+            # Where does the weapon tip sit? The drag only reads if the axe
+            # head is actually ON the floor.
+            tip = (wctl.matrix_world @ Matrix.Translation((0, 4.4, 0))).translation
+            ground_lo = min(ground_lo, tip.y)
+
+        for idx, ph in enumerate(phases[:-1]):
+            scene.frame_set(round(ph * dur * STANCE_FPS))
+            dg.update()
+            Fp = {p: pb[p].matrix.copy() @ CONV[p].inverted().to_4x4() for p in order}
+            for p, o in preview_parts.items():
+                o.matrix_world = Fp[p] @ A1[p].inverted()
+                o.scale = Vector(PARTS[p]["Size"])
+            wm = wctl.matrix_world.copy()
+            blade_proxy.matrix_world = wm @ Matrix.Translation((0, 2.2, 0))
+            blade_proxy.scale = Vector((0.14, 4.4, 0.5))
+            guard_proxy.matrix_world = wm @ Matrix.Translation((0, 0.05, 0))
+            guard_proxy.scale = Vector((0.16, 0.16, 1.1))
+            scene.render.filepath = os.path.join(
+                RENDER_DIR, "STANCE_%s_%s_%d.png" % (wname, kind, idx))
+            bpy.ops.render.render(write_still=True)
+
+        out["Stances"][wname][kind] = {"Duration": dur, "Frames": frames}
+        stance_report.append((wname, kind, dur, len(frames), worst, ground_lo))
+        bpy.data.objects.remove(wctl, do_unlink=True)
+
+GROUND = rest_part["RightFoot"].translation.y - PARTS["RightFoot"]["Size"][1] / 2
+print("")
+print("%-13s %-6s %5s %6s %11s %s" % ("WEAPON", "KIND", "DUR", "FRAMES", "REPLAY-ERR", "TIP-vs-GROUND"))
+for wname, kind, dur, n, worst, lo in stance_report:
+    gap = lo - GROUND
+    note = ""
+    if wname == "Greataxe" and kind == "Walk":
+        note = "DRAGGING" if abs(gap) < 0.45 else ("floating %.2f" % gap if gap > 0 else "through floor %.2f" % gap)
+    print("%-13s %-6s %5.2f %6d %11.6f  %+.2f %s"
+          % (wname, kind, dur, n, worst, gap, note))
+
 
 json.dump(out, open(OUT_POSES, "w"))
 
