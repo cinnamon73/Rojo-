@@ -47,6 +47,7 @@ local Signal = require(Modules.Signal)
 local DataService = require(script.Parent.DataService)
 local NetGuard = require(script.Parent.NetGuard)
 local ClassService = require(script.Parent.ClassService)
+local WeaponConfig = require(ReplicatedStorage.Config.WeaponConfig)
 local EnemyService = require(script.Parent.EnemyService)
 local MinionService = require(script.Parent.MinionService)
 local ReplicationService = require(script.Parent.ReplicationService)
@@ -403,7 +404,10 @@ function AbilityService.Use(player: Player, payload: any): any
 		return { Success = false, Error = "Dead" }
 	end
 
-	local definition = ClassService.GetClass(profile)
+	--[[ The ability belongs to the item, not the class. Handlers only ever
+	     read `.Ability`, so handing them the weapon definition needs no
+	     change inside any of them. ]]
+	local definition = WeaponConfig.GetEquipped(profile)
 	local ability = definition.Ability
 
 	local now = os.clock()

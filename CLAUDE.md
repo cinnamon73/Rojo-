@@ -203,6 +203,22 @@ Defined ids: `Slime`, `Goblin`, `Wolf`, `GoblinWarrior`, `EliteGoblin`,
 
 ## Terrain, geometry and testing lessons
 
+### The rigs have NO Motor6Ds
+
+Measured live, 19 Aug: player characters here use the **AnimationConstraint**
+joint system. Every joint (RightShoulder, Waist, ...) is an AnimationConstraint
+in the same part, with the same name, exposing C0/C1/Transform as CFrames —
+but **C0/C1 are read-only** (derived from its attachments; TweenService refuses
+them). To pose a joint procedurally, write **Attachment0.CFrame** — that is the
+writable equivalent of Motor6D C0, and the Animator never touches it (it writes
+Transform), so poses layer over walk animations.
+
+Anything that assumes `IsA("Motor6D")` finds ZERO joints and fails silently —
+that exact assumption kept the swing body-animation invisibly dead through
+three rounds of "still boring" reports while every log said healthy. See
+FXController.jointRef for the working adapter. Server-built enemy/minion rigs
+are unaffected (hand-welded parts, no Animator).
+
 ### Live-testing the game from the Studio command bar
 
 Hard-won, all three verified this session:

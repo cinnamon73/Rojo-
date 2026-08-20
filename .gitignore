@@ -45,3 +45,4 @@ gear.zip
 # overwrites its script services with whatever branch is checked out.
 *-test.rbxl
 _local*.rbxl
+tools/meshes/*.blend1

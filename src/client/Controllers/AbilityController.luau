@@ -33,6 +33,7 @@ local Theme = require(UIModules.Theme)
 local Logger = require(Modules.Logger)
 local Remotes = require(Modules.Remotes)
 local ClassConfig = require(Config.ClassConfig)
+local WeaponConfig = require(Config.WeaponConfig)
 
 local log = Logger.new("AbilityController")
 local player = Players.LocalPlayer
@@ -64,9 +65,9 @@ local function currentClass(): ClassConfig.ClassDefinition?
 	return ClassConfig.Get(profile and profile.Class) or ClassConfig.Get(ClassConfig.Default)
 end
 
-local function currentAbility(): ClassConfig.Ability?
-	local definition = currentClass()
-	return if definition then definition.Ability else nil
+local function currentAbility(): WeaponConfig.Ability?
+	local profile = client and client.Profile
+	return WeaponConfig.GetEquipped(profile).Ability
 end
 
 --[[

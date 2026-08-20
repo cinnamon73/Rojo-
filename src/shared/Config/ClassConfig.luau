@@ -27,16 +27,13 @@
 	starting point chosen to be internally consistent, not a tuned game.
 ]]
 
+local WeaponConfig = require(script.Parent.WeaponConfig)
+
 local ClassConfig = {}
 
-export type Ability = {
-	Id: string,
-	Name: string,
-	Description: string,
-	Cooldown: number,
-	-- Seconds the effect persists. 0 for instant abilities like the grenade.
-	Duration: number,
-}
+--[[ Abilities belong to weapons now. Re-exported so older type references
+     (ClassConfig.Ability) still resolve to the one definition. ]]
+export type Ability = WeaponConfig.Ability
 
 export type ClassDefinition = {
 	Id: string,
@@ -46,24 +43,15 @@ export type ClassDefinition = {
 	Role: string,
 	Description: string,
 
-	-- Base stats. These are the whole of a player's power now.
+	--[[ What the BODY is, not what it does. Damage, attack speed, reach, crit,
+	     the moveset and the ability all live on the weapon now
+	     (see WeaponConfig) — so picking up a different item genuinely changes
+	     how the class fights. ]]
 	Health: number,
-	Damage: number,
-	AttackSpeed: number,
-	CritChance: number,
-	CritDamage: number,
 	MoveSpeed: number,
-	-- Reach in studs. Ranged classes are the reason this is per-class.
-	AttackRange: number,
 
-	-- Drives WeaponModels and the swing arc.
-	WeaponArchetype: string,
-	WeaponColor: Color3,
-	WeaponMaterial: Enum.Material,
-	-- Optional second item welded to the left arm: "Dagger" or "Shield".
-	Offhand: string?,
-
-	Ability: Ability,
+	-- The item this class spawns holding. Everything offensive comes from it.
+	StartingWeapon: string,
 
 	-- Banner and mannequin outfit colour on the class select screen.
 	ThemeColor: Color3,
@@ -86,22 +74,8 @@ local definitions: { [string]: ClassDefinition } = {
 		Role = "Ranged",
 		Description = "Steady damage from the wall. Rapidfire removes the reload entirely.",
 		Health = 100,
-		Damage = 14,
-		AttackSpeed = 1.25,
-		CritChance = 10,
-		CritDamage = 60,
+		StartingWeapon = "Bow",
 		MoveSpeed = 16,
-		AttackRange = 90,
-		WeaponArchetype = "Bow",
-		WeaponColor = Color3.fromRGB(126, 94, 58),
-		WeaponMaterial = Enum.Material.Wood,
-		Ability = {
-			Id = "Rapidfire",
-			Name = "Rapidfire",
-			Description = "No draw time. Fire continuously for the duration.",
-			Cooldown = 18,
-			Duration = 6,
-		},
 		ThemeColor = Color3.fromRGB(96, 164, 96)
 	},
 
@@ -112,22 +86,8 @@ local definitions: { [string]: ClassDefinition } = {
 		Role = "Melee",
 		Description = "Holds the line. The spin clears everything pressed against you.",
 		Health = 145,
-		Damage = 18,
-		AttackSpeed = 1.0,
-		CritChance = 8,
-		CritDamage = 55,
+		StartingWeapon = "Sword",
 		MoveSpeed = 16,
-		AttackRange = 12,
-		WeaponArchetype = "Sword",
-		WeaponColor = Color3.fromRGB(178, 184, 196),
-		WeaponMaterial = Enum.Material.Metal,
-		Ability = {
-			Id = "SpinningSlash",
-			Name = "Spinning Slash",
-			Description = "Whirl in place, striking every enemy within reach.",
-			Cooldown = 14,
-			Duration = 3,
-		},
 		ThemeColor = Color3.fromRGB(108, 132, 172)
 	},
 
@@ -139,23 +99,8 @@ local definitions: { [string]: ClassDefinition } = {
 		Role = "Melee",
 		Description = "Walks into the middle of it. For ten seconds, nothing can put him down.",
 		Health = 170,
-		Damage = 22,
-		AttackSpeed = 1.1,
-		CritChance = 12,
-		CritDamage = 70,
+		StartingWeapon = "Greataxe",
 		MoveSpeed = 17,
-		AttackRange = 13,
-		WeaponArchetype = "Greataxe",
-		WeaponColor = Color3.fromRGB(148, 84, 68),
-		WeaponMaterial = Enum.Material.Metal,
-		Ability = {
-			Id = "Undying",
-			Name = "Undying",
-			Description = "Cannot drop below 1 health for the duration.",
-			-- See the header: deliberately longer than the brief's "medium".
-			Cooldown = 45,
-			Duration = 10,
-		},
 		ThemeColor = Color3.fromRGB(178, 84, 64)
 	},
 
@@ -166,22 +111,8 @@ local definitions: { [string]: ClassDefinition } = {
 		Role = "Ranged",
 		Description = "Trades fire rate for reach and a grenade that is almost always ready.",
 		Health = 110,
-		Damage = 26,
-		AttackSpeed = 0.7,
-		CritChance = 10,
-		CritDamage = 65,
+		StartingWeapon = "Musket",
 		MoveSpeed = 16,
-		AttackRange = 85,
-		WeaponArchetype = "Musket",
-		WeaponColor = Color3.fromRGB(92, 82, 74),
-		WeaponMaterial = Enum.Material.Wood,
-		Ability = {
-			Id = "Grenade",
-			Name = "Grenade",
-			Description = "Thrown explosive. Damages everything in a radius where it lands.",
-			Cooldown = 9,
-			Duration = 0,
-		},
 		ThemeColor = Color3.fromRGB(140, 108, 72)
 	},
 
@@ -192,23 +123,8 @@ local definitions: { [string]: ClassDefinition } = {
 		Role = "Boss killer",
 		Description = "Poor against crowds, brutal against anything large. Vanishes to reposition.",
 		Health = 95,
-		Damage = 30,
-		AttackSpeed = 1.4,
-		CritChance = 25,
-		CritDamage = 110,
+		StartingWeapon = "Dagger",
 		MoveSpeed = 19,
-		AttackRange = 11,
-		WeaponArchetype = "Dagger",
-		WeaponColor = Color3.fromRGB(64, 68, 82),
-		WeaponMaterial = Enum.Material.Metal,
-		Offhand = "Dagger",
-		Ability = {
-			Id = "Vanish",
-			Name = "Vanish",
-			Description = "Invisible to enemies. Attacking does not break it.",
-			Cooldown = 12,
-			Duration = 5,
-		},
 		ThemeColor = Color3.fromRGB(84, 88, 108)
 	},
 
@@ -220,23 +136,8 @@ local definitions: { [string]: ClassDefinition } = {
 		Role = "Spellcaster / Melee",
 		Description = "Plants a shield the horde has to break. Allies pass through it freely.",
 		Health = 190,
-		Damage = 19,
-		AttackSpeed = 0.95,
-		CritChance = 8,
-		CritDamage = 55,
+		StartingWeapon = "PaladinBlade",
 		MoveSpeed = 15,
-		AttackRange = 13,
-		WeaponArchetype = "PaladinBlade",
-		WeaponColor = Color3.fromRGB(226, 200, 128),
-		WeaponMaterial = Enum.Material.Metal,
-		Offhand = "Shield",
-		Ability = {
-			Id = "Aegis",
-			Name = "Aegis",
-			Description = "A bubble enemies must destroy to enter. Players walk through it.",
-			Cooldown = 40,
-			Duration = 12,
-		},
 		ThemeColor = Color3.fromRGB(214, 184, 100)
 	},
 
@@ -247,22 +148,8 @@ local definitions: { [string]: ClassDefinition } = {
 		Role = "Summoner",
 		Description = "Weak alone. Raises six skeletons to hold a second front.",
 		Health = 105,
-		Damage = 16,
-		AttackSpeed = 0.85,
-		CritChance = 10,
-		CritDamage = 60,
+		StartingWeapon = "NecroStaff",
 		MoveSpeed = 15,
-		AttackRange = 70,
-		WeaponArchetype = "NecroStaff",
-		WeaponColor = Color3.fromRGB(108, 76, 148),
-		WeaponMaterial = Enum.Material.Neon,
-		Ability = {
-			Id = "RaiseSkeletons",
-			Name = "Skeleton Army",
-			Description = "Six skeletons fight for you until they fall or the duration ends.",
-			Cooldown = 75,
-			Duration = 30,
-		},
 		ThemeColor = Color3.fromRGB(122, 86, 168)
 	},
 
@@ -274,22 +161,8 @@ local definitions: { [string]: ClassDefinition } = {
 		Role = "Summoner / Melee",
 		Description = "Fights, and brings a household guard with him.",
 		Health = 175,
-		Damage = 21,
-		AttackSpeed = 1.0,
-		CritChance = 12,
-		CritDamage = 70,
+		StartingWeapon = "RoyalBlade",
 		MoveSpeed = 16,
-		AttackRange = 13,
-		WeaponArchetype = "RoyalBlade",
-		WeaponColor = Color3.fromRGB(244, 214, 96),
-		WeaponMaterial = Enum.Material.Metal,
-		Ability = {
-			Id = "RoyalGuard",
-			Name = "Royal Guard",
-			Description = "Six knights and three archers answer the call.",
-			Cooldown = 90,
-			Duration = 45,
-		},
 		ThemeColor = Color3.fromRGB(196, 156, 60),
 		RequiresGamepass = "King",
 	},

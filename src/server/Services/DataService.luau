@@ -314,12 +314,27 @@ local function onPlayerAdded(player: Player)
 	end
 
 	if not profile then
-		log:Error("load failed for %s (%d): %s", player.Name, player.UserId, tostring(err))
+		--[[
+			STUDIO OFFLINE MODE. In an unpublished place (a Download-a-Copy
+			.rbxl opened as a file) every DataStore call fails, which used to
+			kick the only person who could test the game. In Studio the load
+			failure falls back to a fresh in-memory profile instead: nothing is
+			ever saved (saveProfile still fails harmlessly), so the real place's
+			data cannot be touched, and the kick-don't-overwrite rule still
+			holds everywhere players actually live.
+		]]
+		if RunService:IsStudio() then
+			log:Warn("load failed for %s in Studio (%s) — using an OFFLINE profile; nothing will save",
+				player.Name, tostring(err))
+			profile = DataSchema.CreateDefault()
+		else
+			log:Error("load failed for %s (%d): %s", player.Name, player.UserId, tostring(err))
 
-		if GameConfig.Data.KickOnLoadFailure then
-			player:Kick(GameConfig.Data.LoadFailureMessage)
+			if GameConfig.Data.KickOnLoadFailure then
+				player:Kick(GameConfig.Data.LoadFailureMessage)
+			end
+			return
 		end
-		return
 	end
 
 	profiles[player] = profile

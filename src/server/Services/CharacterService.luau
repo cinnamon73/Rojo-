@@ -24,8 +24,8 @@ local Modules = ReplicatedStorage:WaitForChild("Modules")
 local Config = ReplicatedStorage:WaitForChild("Config")
 
 local BodyConfig = require(Config.BodyConfig)
-local ClassConfig = require(Config.ClassConfig)
 local WeaponModels = require(Modules.WeaponModels)
+local WeaponConfig = require(Config.WeaponConfig)
 local Remotes = require(Modules.Remotes)
 local Logger = require(Modules.Logger)
 local Signal = require(Modules.Signal)
@@ -146,19 +146,14 @@ end
 	animation costs no extra network traffic and stays in sync with the damage
 	the server already applied.
 ]]
-local function buildWeapon(definition: ClassConfig.ClassDefinition, character: Model, _parent: Folder)
+local function buildWeapon(weapon: WeaponConfig.WeaponDefinition, character: Model, _parent: Folder)
 	local player = Players:GetPlayerFromCharacter(character)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not player or not humanoid then
 		return
 	end
 
-	local model = WeaponModels.Build(
-		definition.WeaponArchetype,
-		definition.WeaponColor,
-		definition.WeaponMaterial,
-		definition.Id .. "Weapon"
-	)
+	local model = WeaponModels.BuildFromItem(weapon, weapon.Id .. "Weapon")
 	if not model then
 		return
 	end
@@ -170,11 +165,13 @@ local function buildWeapon(definition: ClassConfig.ClassDefinition, character: M
 		over unchanged — and swings tween Grip instead of a joint.
 	]]
 	local tool = Instance.new("Tool")
-	tool.Name = definition.Name
+	tool.Name = weapon.Name
 	tool.CanBeDropped = false
 	tool.RequiresHandle = true
-	tool.Grip = WeaponModels.GetGripOffset(definition.WeaponArchetype)
-	tool:SetAttribute("Archetype", definition.WeaponArchetype)
+	tool.Grip = WeaponModels.GetGripOffset(weapon.Archetype)
+	tool:SetAttribute("Archetype", weapon.Archetype)
+	-- The moveset is looked up from this, not from the wielder's class.
+	tool:SetAttribute("WeaponId", weapon.Id)
 	tool:SetAttribute("ClassWeapon", true)
 
 	for _, child in ipairs(model:GetChildren()) do
@@ -229,14 +226,22 @@ function CharacterService.SwingWeapon(player: Player)
 	local archetype = (tool:GetAttribute("Archetype") or "Sword") :: string
 	local step = 1
 
+	local weaponId = (tool:GetAttribute("WeaponId") or archetype) :: string
+
 	if WeaponModels.IsMelee(archetype) then
 		local state = comboState[player]
 		local now = os.clock()
 
+		-- Combo length comes from how many swings the weapon actually has
+		-- authored. Hardcoding 3 here made the greataxe's two-hit combo play
+		-- cleave, crash, cleave-again-as-step-3 - a stutter with no animation
+		-- of its own.
+		local steps = WeaponConfig.GetComboLength(weaponId)
+
 		if not state or now - state.LastAt > COMBO_RESET then
 			state = { Step = 1, LastAt = now }
 		else
-			state = { Step = (state.Step % 3) + 1, LastAt = now }
+			state = { Step = (state.Step % steps) + 1, LastAt = now }
 		end
 		comboState[player] = state
 		step = state.Step
@@ -247,6 +252,7 @@ function CharacterService.SwingWeapon(player: Player)
 		Kind = "Swing",
 		UserId = player.UserId,
 		Archetype = archetype,
+		WeaponId = weaponId,
 		Step = step,
 	})
 end
@@ -257,21 +263,29 @@ end
 	A WeldConstraint, not a Motor6D: offhands are never animated, and a weld
 	survives the arm being moved by animations without fighting them.
 ]]
-local function buildOffhand(definition: ClassConfig.ClassDefinition, character: Model, parent: Folder)
-	if not definition.Offhand then
+local function buildOffhand(weapon: WeaponConfig.WeaponDefinition, character: Model, parent: Folder)
+	if not weapon.Offhand then
 		return
 	end
 
-	local arm = character:FindFirstChild("LeftLowerArm") :: BasePart?
-	if not arm then
+	local offhandMesh = WeaponConfig.OffhandMeshes[weapon.Offhand]
+	local mount = offhandMesh and offhandMesh.Mount or "Forearm"
+
+	-- A carried off-hand goes in the hand so the arm can swing it; a worn one
+	-- straps to the forearm and stays put.
+	local attachTo = character:FindFirstChild(
+		if mount == "Hand" then "LeftHand" else "LeftLowerArm"
+	) :: BasePart?
+	if not attachTo then
 		return
 	end
-
 	local model = WeaponModels.BuildOffhand(
-		definition.Offhand,
-		definition.WeaponColor,
-		definition.WeaponMaterial,
-		definition.Id .. "Offhand"
+		weapon.Offhand,
+		weapon.Appearance.Color,
+		weapon.Appearance.Material,
+		weapon.Id .. "Offhand",
+		offhandMesh and offhandMesh.MeshId,
+		offhandMesh and offhandMesh.GripLift
 	)
 	if not model then
 		return
@@ -280,11 +294,25 @@ local function buildOffhand(definition: ClassConfig.ClassDefinition, character: 
 	local handle = model.PrimaryPart :: BasePart
 	model.Parent = parent
 
-	-- Flat against the outside of the forearm, face outward.
-	handle.CFrame = arm.CFrame * CFrame.new(-0.55, 0, 0) * CFrame.Angles(0, 0, math.rad(90))
+	if mount == "Hand" then
+		--[[ Mirror of the right-hand grip. Reversed spins the blade to point
+		     down past the little finger - an icepick hold, which is how a
+		     second dagger is actually carried and what makes the off-hand
+		     read as armed rather than empty. ]]
+		local grip = CFrame.new(0, -0.7, 0)
+		if offhandMesh and offhandMesh.Reversed then
+			grip = grip * CFrame.Angles(math.rad(180), 0, 0)
+		end
+		local gripAttachment = attachTo:FindFirstChild("LeftGripAttachment") :: Attachment?
+		local base = if gripAttachment then attachTo.CFrame * gripAttachment.CFrame else attachTo.CFrame
+		handle.CFrame = base * grip:Inverse()
+	else
+		-- Flat against the outside of the forearm, face outward.
+		handle.CFrame = attachTo.CFrame * CFrame.new(-0.55, 0, 0) * CFrame.Angles(0, 0, math.rad(90))
+	end
 
 	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = arm
+	weld.Part0 = attachTo
 	weld.Part1 = handle
 	weld.Parent = handle
 end
@@ -295,7 +323,7 @@ end
 	Destroys and rebuilds wholesale rather than diffing. There is only one item
 	now, changes are rare, and diff bugs leave ghost weapons welded to players.
 
-	Reads the class from the profile via ClassConfig rather than asking
+	Reads the equipped ITEM from the profile via WeaponConfig rather than asking
 	ClassService, deliberately: ClassService already depends on this module, and
 	going the other way would close a require cycle.
 ]]
@@ -328,11 +356,9 @@ function CharacterService.RefreshLoadout(player: Player)
 	folder.Name = EQUIPMENT_FOLDER
 	folder.Parent = character
 
-	local definition = ClassConfig.Get(profile.Class) or ClassConfig.Get(ClassConfig.Default)
-	if definition then
-		buildWeapon(definition, character, folder)
-		buildOffhand(definition, character, folder)
-	end
+	local weapon = WeaponConfig.GetEquipped(profile)
+	buildWeapon(weapon, character, folder)
+	buildOffhand(weapon, character, folder)
 end
 
 --========================================================================
