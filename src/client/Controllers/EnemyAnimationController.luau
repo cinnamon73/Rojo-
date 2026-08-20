@@ -10,7 +10,7 @@
 
 	The server does not tell us to walk. We read the Humanoid's own velocity,
 	so an enemy chasing a player animates without any extra message. The server
-	only sets `AnimState` for things velocity cannot imply — a swing, a flinch.
+	only bumps a counter for things velocity cannot imply — a swing, a flinch.
 
 	Enemies opt in by carrying a `Rig` attribute (set in EnemyService). Anything
 	without one is left alone, so the older welded bodies are unaffected.
@@ -46,6 +46,9 @@ type Rigged = {
 	OneShot: string?,
 	OneShotT: number,
 	OneShotLen: number,
+	-- Last counter values seen from the server; a rise means "play it now".
+	LastAttack: number,
+	LastFlinch: number,
 }
 
 local tracked: { [Model]: Rigged } = {}
@@ -78,6 +81,10 @@ local function collect(model: Model): Rigged?
 		OneShot = nil,
 		OneShotT = 0,
 		OneShotLen = 0,
+		-- Seed from whatever has already replicated, so a goblin that swung
+		-- before we started tracking it does not replay that swing on sight.
+		LastAttack = (model:GetAttribute("AttackSeq") :: number?) or 0,
+		LastFlinch = (model:GetAttribute("FlinchSeq") :: number?) or 0,
 	}
 end
 
@@ -101,18 +108,25 @@ local function add(model: Instance)
 end
 
 --[[
-	The server fires this by setting `AnimState` on the model. It is a one-shot:
-	the value is the animation name, and it plays once then falls back to
-	velocity-driven idle/walk.
+	The server bumps `AttackSeq` / `FlinchSeq` when something happens. Polling
+	them each frame rather than binding attribute-changed signals is both
+	simpler and race-free: the old version wired listeners from a loop that ran
+	twice a second, so a goblin that spawned and swung inside that window
+	played nothing at all.
 ]]
-local function onStateChanged(rigged: Rigged)
-	local state = rigged.Model:GetAttribute("AnimState")
-	if state == "Attack" then
+local function pollTriggers(rigged: Rigged)
+	local attack = (rigged.Model:GetAttribute("AttackSeq") :: number?) or 0
+	if attack > rigged.LastAttack then
+		rigged.LastAttack = attack
 		rigged.OneShot = "Attack"
 		rigged.OneShotT = 0
 		rigged.OneShotLen = 1.05
-	elseif state == "Flinch" then
-		-- Do not let a flinch cancel a swing that is already mid-air.
+		return
+	end
+	local flinch = (rigged.Model:GetAttribute("FlinchSeq") :: number?) or 0
+	if flinch > rigged.LastFlinch then
+		rigged.LastFlinch = flinch
+		-- Do not let a flinch cancel a swing that is already in the air.
 		if rigged.OneShot ~= "Attack" then
 			rigged.OneShot = "Flinch"
 			rigged.OneShotT = 0
@@ -137,12 +151,13 @@ local function step(dt: number)
 		rigged.Phase += dt
 		local joints = rigged.Joints
 
+		pollTriggers(rigged)
+
 		if rigged.OneShot then
 			rigged.OneShotT += dt
 			local u = rigged.OneShotT / rigged.OneShotLen
 			if u >= 1 then
 				rigged.OneShot = nil
-				rigged.Model:SetAttribute("AnimState", nil)
 			elseif rigged.OneShot == "Attack" then
 				EnemyAnimation.Attack(joints, u, rigged.Drop)
 			else
@@ -187,25 +202,6 @@ function EnemyAnimationController.Start()
 	Workspace.DescendantRemoving:Connect(function(d)
 		if d:IsA("Model") then
 			tracked[d] = nil
-		end
-	end)
-
-	-- One attribute listener per rig, wired when it starts being tracked.
-	task.spawn(function()
-		local wired: { [Model]: boolean } = {}
-		while true do
-			for model, rigged in pairs(tracked) do
-				if not wired[model] then
-					wired[model] = true
-					model:GetAttributeChangedSignal("AnimState"):Connect(function()
-						local r = tracked[model]
-						if r then
-							onStateChanged(r)
-						end
-					end)
-				end
-			end
-			task.wait(0.5)
 		end
 	end)
 

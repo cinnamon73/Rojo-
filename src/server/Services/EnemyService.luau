@@ -381,11 +381,11 @@ function EnemyService.Damage(model: Model, rawDamage: number, source: Player?): 
 
 	EnemyService.FlashHit(record)
 
-	-- Recoil, on articulated rigs only. The controller refuses to let this
-	-- interrupt a swing already in the air.
+	-- Recoil, on articulated rigs only. A counter for the same reason as the
+	-- swing: repeated hits must each read as a change. The controller refuses
+	-- to let this interrupt a swing already in the air.
 	if record.Humanoid.Health > 0 and model:GetAttribute("Rig") ~= nil then
-		model:SetAttribute("AnimState", nil)
-		model:SetAttribute("AnimState", "Flinch")
+		model:SetAttribute("FlinchSeq", ((model:GetAttribute("FlinchSeq") :: number?) or 0) + 1)
 	end
 
 	if source then
@@ -578,14 +578,20 @@ local function stepEnemy(record: EnemyRecord, now: number)
 			record.Root.CFrame = CFrame.lookAt(position, Vector3.new(targetRoot.Position.X, position.Y, targetRoot.Position.Z))
 
 			--[[
-				Tell the clients to play the swing. Costs one attribute rather
-				than replicating every joint. Only articulated rigs listen;
-				setting it on a welded body is harmless and does nothing.
-				Cleared first so two swings in a row both register as changes.
+				Tell the clients to play the swing: one attribute, rather than
+				replicating every joint every frame.
+
+				A COUNTER, not a string. Setting an attribute to nil and back to
+				"Attack" in the same frame nets to no change, so the second and
+				every later swing would never replicate. An incrementing number
+				always differs from the last one.
+
+				`record.Model`, not `model` — there is no `model` local in this
+				function, and indexing the nil global threw on every swing.
 			]]
-			if model:GetAttribute("Rig") ~= nil then
-				model:SetAttribute("AnimState", nil)
-				model:SetAttribute("AnimState", "Attack")
+			local m = record.Model
+			if m:GetAttribute("Rig") ~= nil then
+				m:SetAttribute("AttackSeq", ((m:GetAttribute("AttackSeq") :: number?) or 0) + 1)
 			end
 		end
 	else
