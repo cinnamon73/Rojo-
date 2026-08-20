@@ -32,6 +32,7 @@ local Remotes = require(Modules.Remotes)
 local Logger = require(Modules.Logger)
 local GameConfig = require(Config.GameConfig)
 local ClassConfig = require(Config.ClassConfig)
+local WeaponConfig = require(Config.WeaponConfig)
 
 local log = Logger.new("CombatController")
 local player = Players.LocalPlayer
@@ -249,8 +250,9 @@ local aiming = false
 ]]
 local function isRangedClass(): boolean
 	local profile = client and client.Profile
-	local definition = ClassConfig.Get(profile and profile.Class) or ClassConfig.Get(ClassConfig.Default)
-	return definition ~= nil and definition.AttackRange >= 30
+	-- Reach is a property of the weapon, so picking up a bow zooms even on a
+	-- melee class.
+	return WeaponConfig.GetEquipped(profile).AttackRange >= 30
 end
 
 local function setAiming(on: boolean)

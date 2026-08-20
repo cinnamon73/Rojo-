@@ -30,6 +30,7 @@ local Modules = ReplicatedStorage:WaitForChild("Modules")
 local Config = ReplicatedStorage:WaitForChild("Config")
 
 local ClassConfig = require(Config.ClassConfig)
+local WeaponConfig = require(Config.WeaponConfig)
 local Logger = require(Modules.Logger)
 local Signal = require(Modules.Signal)
 
@@ -75,14 +76,18 @@ end
 function ClassService.GetStats(profile: any): { [string]: number }
 	local definition = ClassService.GetClass(profile)
 
+	local weapon = WeaponConfig.GetEquipped(profile)
+
+	--[[ Body from the class, offence from the item in hand. Swapping weapons
+	     changes damage, speed, reach and crit with no class involvement. ]]
 	return {
 		Health = definition.Health,
-		Damage = definition.Damage,
-		AttackSpeed = definition.AttackSpeed,
-		CritChance = definition.CritChance,
-		CritDamage = definition.CritDamage,
 		MoveSpeed = definition.MoveSpeed,
-		AttackRange = definition.AttackRange,
+		Damage = weapon.Damage,
+		AttackSpeed = weapon.AttackSpeed,
+		CritChance = weapon.CritChance,
+		CritDamage = weapon.CritDamage,
+		AttackRange = weapon.AttackRange,
 	}
 end
 

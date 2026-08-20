@@ -40,7 +40,7 @@ local Remotes = require(Modules.Remotes)
 local VFX = require(Modules.VFX)
 
 local Config = ReplicatedStorage:WaitForChild("Config")
-local AnimationConfig = require(Config.AnimationConfig)
+local WeaponConfig = require(Config.WeaponConfig)
 
 local log = Logger.new("FXController")
 local localPlayer = Players.LocalPlayer
@@ -321,20 +321,22 @@ local function setTrail(character: Model, enabled: boolean)
 	end
 end
 
-local function animateSwing(character: Model, archetype: string, step: number)
+local function animateSwing(character: Model, archetype: string, step: number, weaponId: string)
 	--[[
 		Uploaded animation first: real keyframes always beat procedural poses.
 		The id slot (AnimationConfig) is where GIF-quality swings get plugged
 		in; the pose system below is the permanent fallback so a missing or
 		moderation-eaten id degrades to motion, never to stillness.
 	]]
-	local uploadedId = AnimationConfig.GetSwingId(archetype, step)
+	-- Moveset comes from the ITEM being swung, so the same body playing the
+	-- same class animates differently depending on what it picked up.
+	local uploadedId = WeaponConfig.GetSwingId(weaponId, step)
 	if uploadedId > 0 then
-		local speed = AnimationConfig.GetSpeed(archetype, step)
+		local speed = WeaponConfig.GetSpeed(weaponId, step)
 		if playUploaded(character, uploadedId, speed) then
-			log:Info("swing %s step %d anim=uploaded(%d) speed=%.2f", archetype, step, uploadedId, speed)
+			log:Info("swing %s step %d anim=uploaded(%d) speed=%.2f", weaponId, step, uploadedId, speed)
 			setTrail(character, true)
-			task.delay(AnimationConfig.TrailSeconds / speed, function()
+			task.delay(WeaponConfig.TrailSeconds / speed, function()
 				setTrail(character, false)
 			end)
 			return
@@ -443,7 +445,8 @@ handlers.Swing = function(payload)
 	local player = Players:GetPlayerByUserId(tonumber(payload.UserId) or 0)
 	local character = player and player.Character
 	if character then
-		animateSwing(character, tostring(payload.Archetype), tonumber(payload.Step) or 1)
+		animateSwing(character, tostring(payload.Archetype), tonumber(payload.Step) or 1,
+			tostring(payload.WeaponId or payload.Archetype))
 	end
 end
 

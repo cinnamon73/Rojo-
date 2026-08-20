@@ -36,6 +36,7 @@ local Logger = require(Modules.Logger)
 local Remotes = require(Modules.Remotes)
 local WeaponModels = require(Modules.WeaponModels)
 local ClassConfig = require(Config.ClassConfig)
+local WeaponConfig = require(Config.WeaponConfig)
 
 local UIController = require(script.Parent.UIController)
 
@@ -113,11 +114,13 @@ local function buildMannequin(definition: ClassConfig.ClassDefinition, parent: I
 		model
 	)
 
-	local weapon = WeaponModels.Build(
-		definition.WeaponArchetype,
-		definition.WeaponColor,
-		definition.WeaponMaterial,
-		definition.Id .. "Weapon"
+	-- The mannequin holds whatever item the class starts with.
+	local item = WeaponConfig.Get(definition.StartingWeapon)
+	local weapon = item and WeaponModels.Build(
+		item.Archetype,
+		item.Appearance.Color,
+		item.Appearance.Material,
+		item.Id .. "Weapon"
 	)
 
 	if weapon then
