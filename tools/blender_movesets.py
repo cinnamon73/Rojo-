@@ -188,6 +188,28 @@ MOVESETS = {
            lean=[(0.20, -18), (0.36, 36), (0.52, 30)], crouch=[(0.36, -0.38), (0.52, -0.30)]),
     ],
 
+    #[[ Berserker: the two-hit combo from the reference GIF - horizontal
+    #   cleave into an overhead crash. Re-authored here because the pair that
+    #   shipped was built while the standard rig had been overwritten by a
+    #   player's own avatar. ]]
+    "Greataxe": [
+        swing("BerserkerCleave", [
+            (0.00, (0.55, 1.04, -0.14), (-0.20, 0.78, 0.59)),
+            (0.18, (0.62, 1.16, 0.18), (-0.25, 0.80, 0.55)),
+            (0.34, (0.10, 0.92, -0.86), (-0.92, 0.10, -0.38)),
+            (0.48, (-0.35, 0.86, -0.62), (-0.80, -0.05, 0.60)),
+            (0.66, (0.55, 1.04, -0.14), (-0.20, 0.78, 0.59)),
+        ], twist=[(0.00, -12), (0.18, -28), (0.34, 24), (0.48, 34), (0.66, -12)]),
+        swing("BerserkerCrash", [
+            (0.00, (0.40, 1.18, 0.04), (-0.15, 0.80, 0.58)),
+            (0.20, (0.24, 1.42, 0.32), (-0.10, 0.70, 0.71)),
+            (0.34, (0.10, 0.96, -0.84), (-0.05, -0.58, -0.81)),
+            (0.48, (0.06, 0.86, -0.78), (-0.05, -0.66, -0.75)),
+            (0.90, (0.40, 1.18, 0.04), (-0.15, 0.80, 0.58)),
+        ], twist=[(0.00, -8), (0.20, 12), (0.34, -8), (0.48, -10), (0.90, -8)],
+           lean=[(0.20, -18), (0.34, 38), (0.48, 32)], crouch=[(0.34, -0.40), (0.48, -0.32)]),
+    ],
+
     # Greatsword: only two hits, both enormous.
     "Greatsword": [
         swing("GreatswordCleave", [
@@ -261,8 +283,7 @@ SHOULDER_Y = rest_frame["RightUpperArm"].translation.y
 if REACH < 1.5 or SHOULDER_Y < 0.5:
     raise SystemExit(
         "REFUSING TO AUTHOR: %s is not a default R15 rig "
-        "(reach=%.3f expected ~1.73, shoulderY=%.2f expected ~0.85).
-"
+        "(reach=%.3f expected ~1.73, shoulderY=%.2f expected ~0.85). "
         "Re-dump a standard rig before running this."
         % (os.path.basename(DUMP), REACH, SHOULDER_Y))
 
@@ -379,6 +400,67 @@ os.makedirs(RENDER_DIR, exist_ok=True)
 out = {"Fps": FPS, "Movesets": {}}
 report = []
 
+
+def box(name, size, color):
+    bpy.ops.mesh.primitive_cube_add(size=1)
+    o = bpy.context.active_object
+    o.name = name
+    o.scale = size
+    o.color = color
+    return o
+
+
+BODY = (0.62, 0.63, 0.68, 1)
+RIGHT = (0.20, 0.45, 0.95, 1)
+LEFT = (0.20, 0.80, 0.35, 1)
+LEG = (0.45, 0.46, 0.52, 1)
+
+
+def tone(p):
+    if "Leg" in p or "Foot" in p:
+        return LEG
+    if p.startswith("Right") and ("Arm" in p or "Hand" in p):
+        return RIGHT
+    if p.startswith("Left") and ("Arm" in p or "Hand" in p):
+        return LEFT
+    return BODY
+
+
+preview_parts = {p: box("m_" + p, PARTS[p]["Size"], tone(p)) for p in order}
+# Weapon proxy: a rod along the haft plus a stub guard, enough to read which
+# way the blade is pointing at any frame.
+blade_proxy = box("w_blade", (0.14, 4.4, 0.5), (0.85, 0.45, 0.15, 1))
+guard_proxy = box("w_guard", (0.16, 0.16, 1.1), (0.55, 0.35, 0.15, 1))
+
+GROUND_Y = rest_part["RightFoot"].translation.y - PARTS["RightFoot"]["Size"][1] / 2
+ground = box("ground", (9, 0.08, 9), (0.80, 0.81, 0.83, 1))
+ground.matrix_basis = (Matrix.Translation((0, GROUND_Y, 0))
+                       @ Matrix.Diagonal(Vector((9, 0.08, 9)).to_4d()))
+
+cam_data = bpy.data.cameras.new("cam")
+cam_data.type = "ORTHO"
+cam_data.ortho_scale = 11.0
+cam = bpy.data.objects.new("cam", cam_data)
+scene.collection.objects.link(cam)
+scene.camera = cam
+
+
+def look_at(loc, target, up=Vector((0, 1, 0))):
+    """Explicit up axis: this scene is Y-up (Roblox), and to_track_quat
+    resolves against Blender's world +Z, which rolls the camera 90 degrees."""
+    f = (Vector(target) - Vector(loc)).normalized()
+    r = f.cross(up).normalized()
+    u = r.cross(f)
+    return Matrix(((r.x, u.x, -f.x, loc[0]), (r.y, u.y, -f.y, loc[1]),
+                   (r.z, u.z, -f.z, loc[2]), (0, 0, 0, 1)))
+
+
+cam.matrix_world = look_at(Vector((6.5, 2.2, -6.5)), Vector((0, 0.2, -0.2)))
+scene.render.engine = "BLENDER_WORKBENCH"
+sh = scene.display.shading
+sh.light, sh.color_type, sh.show_shadows = "STUDIO", "OBJECT", False
+scene.render.resolution_x = scene.render.resolution_y = 420
+
 for wname, clips in MOVESETS.items():
     spec = WEAPONS[wname]
     out["Movesets"][wname] = {}
@@ -459,6 +541,23 @@ for wname, clips in MOVESETS.items():
             F = {p: pose_world[p] @ CONV[p].inverted().to_4x4() for p in order}
             pw = {p: F[p] @ A1[p].inverted() for p in order}
             worst = max(worst, max((replay[p].translation - pw[p].translation).length for p in order))
+
+        # Render this clip's beats so the swing can be judged before upload.
+        for idx, (t, _w, _d) in enumerate(beats):
+            scene.frame_set(round(t * FPS))
+            dg.update()
+            F = {p: pb[p].matrix.copy() @ CONV[p].inverted().to_4x4() for p in order}
+            for p, o in preview_parts.items():
+                o.matrix_world = F[p] @ A1[p].inverted()
+                o.scale = Vector(PARTS[p]["Size"])
+            wm = wctl.matrix_world.copy()
+            blade_proxy.matrix_world = wm @ Matrix.Translation((0, 2.2, 0))
+            blade_proxy.scale = Vector((0.14, 4.4, 0.5))
+            guard_proxy.matrix_world = wm @ Matrix.Translation((0, 0.05, 0))
+            guard_proxy.scale = Vector((0.16, 0.16, 1.1))
+            scene.render.filepath = os.path.join(
+                RENDER_DIR, "%s_%s_%d.png" % (wname, clip["Name"], idx))
+            bpy.ops.render.render(write_still=True)
 
         out["Movesets"][wname][clip["Name"]] = {"Duration": dur, "Frames": frames}
         report.append((wname, clip["Name"], dur, len(frames), worst, over))

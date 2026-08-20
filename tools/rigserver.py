@@ -27,8 +27,9 @@ class H(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         # /poses hands the baked Blender swing back to Studio, so the animation
         # never has to be pasted through a command bar as a giant literal.
-        if self.path.startswith('/poses'):
-            p = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'swing_poses.json')
+        if self.path.startswith('/movesets') or self.path.startswith('/poses'):
+            name = 'movesets.json' if self.path.startswith('/movesets') else 'swing_poses.json'
+            p = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
             body = open(p, 'rb').read()
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
