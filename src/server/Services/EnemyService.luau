@@ -28,6 +28,7 @@ local Modules = ReplicatedStorage:WaitForChild("Modules")
 local Config = ReplicatedStorage:WaitForChild("Config")
 
 local EnemyConfig = require(Config.EnemyConfig)
+local EnemyRigs = require(Modules.EnemyRigs)
 local Logger = require(Modules.Logger)
 local Signal = require(Modules.Signal)
 
@@ -98,9 +99,27 @@ end
 	Assembles a placeholder rig. A real model replaces this wholesale by setting
 	ModelId on the definition — the AI only ever touches Humanoid and the root.
 ]]
+-- Defined just below buildRig; forward-declared so buildRig can call it.
+local finishRig: (EnemyConfig.EnemyDefinition, Model, BasePart, number?) -> (Model, Humanoid, BasePart)
+
 local function buildRig(definition: EnemyConfig.EnemyDefinition): (Model, Humanoid, BasePart)
 	local appearance = definition.Appearance
 	local scale = appearance.Scale
+
+	--[[
+		Articulated rigs take over the BODY only; the humanoid, collision pass
+		and billboard below are shared with the old placeholder builds. The
+		`Rig` attribute is what the client animator looks for — without it the
+		enemy simply stands still, which is what the welded rigs already did.
+	]]
+	if appearance.Rig == "Goblin" then
+		local model, _joints, hipHeight =
+			EnemyRigs.BuildGoblin(appearance.BodyColor, appearance.AccentColor, appearance.Material, scale)
+		model.Name = definition.Id
+		model:SetAttribute("Rig", appearance.Rig)
+		local root = model.PrimaryPart :: BasePart
+		return finishRig(definition, model, root, hipHeight)
+	end
 
 	local model = Instance.new("Model")
 	model.Name = definition.Id
@@ -154,6 +173,25 @@ local function buildRig(definition: EnemyConfig.EnemyDefinition): (Model, Humano
 		end
 	end
 
+	return finishRig(definition, model, root, nil)
+end
+
+--[[
+	Everything shared by the placeholder builds and the articulated rigs:
+	collision and mass, the Humanoid, and the name/health billboard.
+
+	`hipHeight` is only supplied by articulated rigs, which know how far their
+	feet sit below the root. The placeholder builds leave it nil and keep the
+	Humanoid default.
+]]
+finishRig = function(
+	definition: EnemyConfig.EnemyDefinition,
+	model: Model,
+	root: BasePart,
+	hipHeight: number?
+): (Model, Humanoid, BasePart)
+	local scale = definition.Appearance.Scale
+
 	for _, descendant in ipairs(model:GetDescendants()) do
 		if descendant:IsA("BasePart") then
 			descendant.Anchored = false
@@ -169,6 +207,11 @@ local function buildRig(definition: EnemyConfig.EnemyDefinition): (Model, Humano
 	humanoid.WalkSpeed = definition.WalkSpeed
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	humanoid.BreakJointsOnDeath = false
+	if hipHeight then
+		-- Without this the articulated rig sinks into the floor: its root sits
+		-- much higher above the feet than the old welded bodies did.
+		humanoid.HipHeight = hipHeight
+	end
 	humanoid.Parent = model
 
 	model.PrimaryPart = root
@@ -337,6 +380,13 @@ function EnemyService.Damage(model: Model, rawDamage: number, source: Player?): 
 	record.Humanoid.Health = math.max(record.Humanoid.Health - dealt, 0)
 
 	EnemyService.FlashHit(record)
+
+	-- Recoil, on articulated rigs only. The controller refuses to let this
+	-- interrupt a swing already in the air.
+	if record.Humanoid.Health > 0 and model:GetAttribute("Rig") ~= nil then
+		model:SetAttribute("AnimState", nil)
+		model:SetAttribute("AnimState", "Flinch")
+	end
 
 	if source then
 		record.DamageBy[source] = (record.DamageBy[source] or 0) + dealt
@@ -526,6 +576,17 @@ local function stepEnemy(record: EnemyRecord, now: number)
 
 			-- Face the target so the hit reads.
 			record.Root.CFrame = CFrame.lookAt(position, Vector3.new(targetRoot.Position.X, position.Y, targetRoot.Position.Z))
+
+			--[[
+				Tell the clients to play the swing. Costs one attribute rather
+				than replicating every joint. Only articulated rigs listen;
+				setting it on a welded body is harmless and does nothing.
+				Cleared first so two swings in a row both register as changes.
+			]]
+			if model:GetAttribute("Rig") ~= nil then
+				model:SetAttribute("AnimState", nil)
+				model:SetAttribute("AnimState", "Attack")
+			end
 		end
 	else
 		humanoid:MoveTo((targetRoot :: BasePart).Position)

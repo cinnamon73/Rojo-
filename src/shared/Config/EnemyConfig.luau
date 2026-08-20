@@ -23,6 +23,15 @@ export type EnemyAppearance = {
 	Scale: number,
 	-- Set to use a real model from ServerStorage instead of a placeholder.
 	ModelId: string?,
+	--[[
+		Name of an articulated rig in `Modules/EnemyRigs`. When set, that rig is
+		built INSTEAD of the `Build` placeholder above — jointed with Motor6Ds
+		so it can be animated, rather than welded rigid.
+
+		`Build` is still read as the fallback, so an enemy without a Rig keeps
+		its old body exactly as it was.
+	]]
+	Rig: string?,
 }
 
 export type EnemyDefinition = {
@@ -107,6 +116,9 @@ define({
 	LootChance = 0.10,
 	RespawnSeconds = 12,
 	Appearance = {
+		-- Articulated: jointed body, club, and a walk/attack/idle set.
+		-- `Build` is kept only as the fallback if the rig ever fails to load.
+		Rig = "Goblin",
 		Build = "Biped",
 		BodyColor = Color3.fromRGB(118, 158, 92),
 		AccentColor = Color3.fromRGB(84, 66, 48),

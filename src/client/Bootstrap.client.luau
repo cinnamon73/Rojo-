@@ -67,6 +67,9 @@ local function main()
 	require(Controllers.StanceController).Start(Client)
 	require(Controllers.AbilityController).Start(Client)
 	require(Controllers.ClassSelectController).Start(Client)
+	-- Poses the articulated enemy rigs locally; takes no Client handle because
+	-- it reads the world rather than any remote.
+	require(Controllers.EnemyAnimationController).Start()
 
 	log:Info("client ready")
 end
