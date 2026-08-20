@@ -437,6 +437,12 @@ collisions likely, so:
    holder's `Player`. To take it over, delete that ObjectValue and press
    Connect. This does not remove anyone from Team Create and is not the same as
    evicting a collaborator.
+
+   Ports are irrelevant to this. Each collaborator runs `rojo serve` on their
+   own machine bound to `127.0.0.1`, so both can sit on 34872 and never
+   collide. `--port` only matters for two servers on ONE machine. The lock is
+   the constraint, not the port.
+
 5. **Run world scripts once.** Non-idempotent Command Bar scripts have already
    left duplicate `Atmosphere`, `BloomEffect`, `SunRaysEffect` and `Sky` objects
    in `Lighting`. Two enabled blooms stack and two Atmospheres fight. Adopt an
@@ -452,3 +458,48 @@ collisions likely, so:
    verify in as few scripts as possible**, re-read the stored StringValues
    rather than trusting an earlier write, and count parts before and after
    anything long-running.
+
+### The Rojo hand-off, and why things "disappear"
+
+**This has already confused a collaborator, so both instances must handle it
+the same way.**
+
+Connecting is not a merge. Rojo **replaces** the whole of `ReplicatedStorage`,
+`ServerScriptService` and `StarterPlayerScripts` with the connecting person's
+`src/`, and keeps them matching live. `rojo serve` is strictly one-way,
+files → Studio.
+
+So: A connects and the live tree becomes A's checkout. B then connects and it
+becomes B's checkout. If B's tree is behind, everything A added rolls back out
+of Studio. It looks like deletion. It is the projection being repainted from an
+older set of files.
+
+What that does and does not put at risk:
+
+- **Committed work is safe.** `src/` on disk and on GitHub is the truth; the
+  Studio script tree is a rendering of it.
+- **`Workspace` is never touched by Rojo.** World geometry cannot be lost this
+  way.
+- **Scripts edited inside Studio are genuinely destroyed**, by either side's
+  next sync, with no copy anywhere. Put Luau in `src/`.
+
+The sequence that avoids it:
+
+1. `git pull` **immediately before** pressing Connect — not earlier that day.
+2. `git push` before disconnecting or handing the lock over.
+3. Whoever connects next pulls again first.
+
+If both trees match `origin/main`, the second Connect writes byte-identical
+content and nothing changes. The disappearing only happens when the trees
+differ. Also: only connect when you actually need to change scripts — world
+geometry work needs no Rojo at all.
+
+Do **not** reach for `rojo syncback` to fix this. It runs Studio → files and
+would let a stale Studio tree overwrite source. Wrong direction.
+
+**Tell your collaborator this, in their own session.** Both instances are
+expected to raise it with their own user rather than assume the other already
+has — the failure is silent, it looks like the other person deleted your work,
+and only one of the two people involved can see it happening at a time. When
+you take or release the lock, say so in chat and say whether you pulled and
+pushed around it.
