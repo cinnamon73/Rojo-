@@ -484,14 +484,22 @@ collisions likely, so:
    YOUR OWN.** Previews, test rigs, plinths you stand something on, reference
    blocks, scratch folders — all of it.
 
-   | Session | Prefix |
-   |---|---|
-   | hawkwonder's | `temphawk_<name>` |
-   | loloponds's | `templolo_<name>` |
+   | Session | Prefix | Confirmed with the user? |
+   |---|---|---|
+   | hawkwonder's | `temphawk_<name>` | yes |
+   | the other collaborator's | `templolo_<name>` | **NOT YET — ask** |
 
-   **Both instances must follow this, and each must tell its own user.** The
-   prefixes are per-session on purpose: a shared `temp_` would still let one
-   Claude delete the other's scratch mid-task, in a world where both edit
+   **RAISE THIS WITH YOUR USER BEFORE YOU RELY ON IT.** These prefixes were
+   agreed in hawkwonder's session and the second one was derived from the
+   Roblox account name visible in the Team Create session — *not* from
+   anything that user said. If you are the other instance: ask your user
+   which prefix they want, and edit this table to whatever they answer. It
+   only has to be unique between the two sessions; the exact word does not
+   matter. Do not assume `templolo_` is right just because it is written
+   here.
+
+   The prefixes are per-session on purpose: a shared `temp_` would still let
+   one Claude delete the other's scratch mid-task, in a world where both edit
    `Workspace` at the same time with no lock. Clean up **only** what matches
    your own prefix. Never delete the other instance's scratch, even if it
    looks abandoned — say so in chat instead.
