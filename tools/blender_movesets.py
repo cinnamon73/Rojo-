@@ -39,6 +39,13 @@ RENDER_DIR = os.path.join(HERE, "moveset_previews")
 
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 ONLY = argv[argv.index("--only") + 1] if "--only" in argv else None
+#[[ --blend <Weapon> lays that weapon's clips end to end on one timeline with
+#   named markers and saves a .blend, so the animation can be scrubbed and
+#   edited by hand instead of only judged from a contact sheet. ]]
+BLEND = argv[argv.index("--blend") + 1] if "--blend" in argv else None
+FRAME_OFFSET = 0
+MARKERS = []
+SHARED = {}
 
 FPS = 30
 D = math.radians
@@ -392,6 +399,8 @@ pb = arm_obj.pose.bones
 
 
 def clear_pose():
+    if BLEND:
+        return
     for b in pb:
         b.matrix_basis = Matrix.Identity(4)
         b.rotation_mode = "QUATERNION"
@@ -448,8 +457,8 @@ def key_pose(bone, T, frame):
     p.rotation_mode = "QUATERNION"
     C = CONV[bone].to_4x4()
     p.matrix_basis = C.inverted() @ T @ C
-    p.keyframe_insert("rotation_quaternion", frame=frame)
-    p.keyframe_insert("location", frame=frame)
+    p.keyframe_insert("rotation_quaternion", frame=frame + FRAME_OFFSET)
+    p.keyframe_insert("location", frame=frame + FRAME_OFFSET)
 
 
 def lerp_at(keys, t, default=0.0):
@@ -541,9 +550,13 @@ for wname, clips in MOVESETS.items():
 
     for clip in clips:
         clear_pose()
-        wctl = bpy.data.objects.new("WeaponCtl", None)
-        scene.collection.objects.link(wctl)
-        grip_rel, k_right, rt, lt = build_targets(spec, wctl)
+        if BLEND and SHARED.get("ctl"):
+            wctl, k_right = SHARED["ctl"], SHARED["k_right"]
+        else:
+            wctl = bpy.data.objects.new("WeaponCtl", None)
+            scene.collection.objects.link(wctl)
+            grip_rel, k_right, rt, lt = build_targets(spec, wctl)
+            SHARED["ctl"], SHARED["k_right"] = wctl, k_right
 
         beats = clip["Beats"]
         dur = beats[-1][0]
@@ -554,8 +567,8 @@ for wname, clips in MOVESETS.items():
         for (t, wrist, direction) in beats:
             f = round(t * FPS)
             wctl.matrix_basis = weapon_matrix(wrist, direction, k_right)
-            wctl.keyframe_insert("location", frame=f)
-            wctl.keyframe_insert("rotation_quaternion", frame=f)
+            wctl.keyframe_insert("location", frame=f + FRAME_OFFSET)
+            wctl.keyframe_insert("rotation_quaternion", frame=f + FRAME_OFFSET)
             d = (Vector(wrist) - rest_frame["RightUpperArm"].translation).length
             if d > REACH * spec.get("reachMul", 1.0):
                 over.append("t=%.2f right=%.2f" % (t, d))
@@ -635,8 +648,12 @@ for wname, clips in MOVESETS.items():
 
         out["Movesets"][wname][clip["Name"]] = {"Duration": dur, "Frames": frames}
         report.append((wname, clip["Name"], dur, len(frames), worst, over))
+        if BLEND:
+            MARKERS.append((FRAME_OFFSET, clip["Name"]))
+            FRAME_OFFSET += round(dur * FPS) + 8
 
-        bpy.data.objects.remove(wctl, do_unlink=True)
+        if not BLEND:
+            bpy.data.objects.remove(wctl, do_unlink=True)
 
 stance_report = []
 
@@ -647,15 +664,21 @@ STANCE_FPS = FPS
 out["Stances"] = {}
 
 for wname, spec in STANCES.items():
+    if ONLY and wname != ONLY:
+        continue
     wspec = WEAPONS[wname]
     (wrist, wdir) = spec["carry"]
     out["Stances"][wname] = {}
 
     for kind in ("Idle", "Walk"):
         clear_pose()
-        wctl = bpy.data.objects.new("WeaponCtl", None)
-        scene.collection.objects.link(wctl)
-        grip_rel, k_right, rt, lt = build_targets(wspec, wctl)
+        if BLEND and SHARED.get("ctl"):
+            wctl, k_right = SHARED["ctl"], SHARED["k_right"]
+        else:
+            wctl = bpy.data.objects.new("WeaponCtl", None)
+            scene.collection.objects.link(wctl)
+            grip_rel, k_right, rt, lt = build_targets(wspec, wctl)
+            SHARED["ctl"], SHARED["k_right"] = wctl, k_right
 
         if kind == "Idle":
             cfg = spec["idle"]
@@ -685,8 +708,8 @@ for wname, spec in STANCES.items():
                 ru, rl, lu, ll, drop = leg_cycle(ph, cfg["stride"], cfg["bob"])
 
             wctl.matrix_basis = weapon_matrix(w, wdir, k_right)
-            wctl.keyframe_insert("location", frame=f)
-            wctl.keyframe_insert("rotation_quaternion", frame=f)
+            wctl.keyframe_insert("location", frame=f + FRAME_OFFSET)
+            wctl.keyframe_insert("rotation_quaternion", frame=f + FRAME_OFFSET)
 
             key_pose("LowerTorso", Matrix.Translation((0, drop, 0))
                      @ angles(lean * 0.3, twist * 0.4, 0), f)
@@ -763,7 +786,11 @@ for wname, spec in STANCES.items():
 
         out["Stances"][wname][kind] = {"Duration": dur, "Frames": frames}
         stance_report.append((wname, kind, dur, len(frames), worst, ground_lo))
-        bpy.data.objects.remove(wctl, do_unlink=True)
+        if BLEND:
+            MARKERS.append((FRAME_OFFSET, wname + "_" + kind))
+            FRAME_OFFSET += round(dur * STANCE_FPS) + 8
+        if not BLEND:
+            bpy.data.objects.remove(wctl, do_unlink=True)
 
 GROUND = rest_part["RightFoot"].translation.y - PARTS["RightFoot"]["Size"][1] / 2
 print("")
@@ -789,3 +816,50 @@ for wname, cname, dur, n, worst, over in report:
           % (wname, cname, dur, n, worst, flag, ("OVER-REACH " + "; ".join(over)) if over else ""))
 print("\nARM REACH %.3f studs   clips=%d   maths-failures=%d" % (REACH, len(report), bad))
 print("WROTE %s" % OUT_POSES)
+
+if BLEND:
+    #[[ Hand over something editable, not just renders.
+    #
+    #   Preview meshes track the rig with Child Of constraints rather than
+    #   baked keyframes, so editing a pose updates the body live.
+    #
+    #   Everything hangs off one root rotated 90 degrees about X: the scene is
+    #   authored Y-up (Roblox), and Blender navigates Z-up, so without this the
+    #   whole rig lies on its side and orbiting feels wrong. It is purely
+    #   cosmetic - pose_bone.matrix is read in ARMATURE space, so the exported
+    #   animation is identical either way. ]]
+    for p, o in preview_parts.items():
+        o.animation_data_clear()
+        c = o.constraints.new("CHILD_OF")
+        c.target = arm_obj
+        c.subtarget = p
+        c.inverse_matrix = arm_data.bones[p].matrix_local.inverted()
+        o.matrix_basis = rest_part[p] @ Matrix.Diagonal(Vector(PARTS[p]["Size"]).to_4d())
+
+    for proxy, off, size in ((blade_proxy, 2.2, (0.14, 4.4, 0.5)),
+                             (guard_proxy, 0.05, (0.16, 0.16, 1.1))):
+        proxy.animation_data_clear()
+        proxy.parent = wctl
+        proxy.matrix_parent_inverse = Matrix.Identity(4)
+        proxy.matrix_basis = (Matrix.Translation((0, off, 0))
+                              @ Matrix.Diagonal(Vector(size).to_4d()))
+
+    for frame, name in MARKERS:
+        scene.timeline_markers.new(name, frame=frame)
+
+    root = bpy.data.objects.new("RIG_ROOT", None)
+    root.empty_display_size = 0.6
+    scene.collection.objects.link(root)
+    root.rotation_euler = (math.radians(90), 0, 0)
+    for obj in (arm_obj, wctl, ground, cam):
+        obj.parent = root
+        obj.matrix_parent_inverse = Matrix.Identity(4)
+
+    scene.frame_start, scene.frame_end = 0, max(FRAME_OFFSET - 8, 1)
+    scene.frame_set(0)
+    path = os.path.join(HERE, "blend", BLEND + ".blend")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    bpy.ops.wm.save_as_mainfile(filepath=path)
+    print("SAVED %s  (%d frames, %d markers)" % (path, scene.frame_end, len(MARKERS)))
+    for frame, name in MARKERS:
+        print("    frame %4d  %s" % (frame, name))
