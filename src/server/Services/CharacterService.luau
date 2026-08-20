@@ -273,11 +273,14 @@ local function buildOffhand(weapon: WeaponConfig.WeaponDefinition, character: Mo
 		return
 	end
 
+	local offhandMesh = WeaponConfig.OffhandMeshes[weapon.Offhand]
 	local model = WeaponModels.BuildOffhand(
 		weapon.Offhand,
 		weapon.Appearance.Color,
 		weapon.Appearance.Material,
-		weapon.Id .. "Offhand"
+		weapon.Id .. "Offhand",
+		offhandMesh and offhandMesh.MeshId,
+		offhandMesh and offhandMesh.GripLift
 	)
 	if not model then
 		return

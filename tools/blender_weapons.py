@@ -416,8 +416,15 @@ def main():
         bpy.ops.wm.obj_export(filepath=path, export_selected_objects=True,
                               forward_axis="NEGATIVE_Z", up_axis="Y",
                               export_materials=False, apply_modifiers=True)
-        print("EXPORT %-14s %5d tris  -> %s"
-              % (name, len(ob.data.loop_triangles) or len(ob.data.polygons), path))
+        #[[ Roblox re-centres imported meshes on their bounding box, discarding
+        #   the origin-at-the-grip authoring. Half the height is what
+        #   WeaponConfig.Appearance.GripLift has to add back, so print it here
+        #   and the two never drift apart. ]]
+        zs = [(ob.matrix_world @ v.co).z for v in ob.data.vertices]
+        lift = (min(zs) + max(zs)) / 2
+        print("EXPORT %-14s %5d tris  GripLift=%.3f  -> %s"
+              % (name, len(ob.data.loop_triangles) or len(ob.data.polygons),
+                 lift, path))
 
     # Lay them out in a row for one preview sheet.
     for i, ob in enumerate(built):

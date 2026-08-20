@@ -21,9 +21,10 @@
 	is the combo length. A two-entry list is a two-hit weapon. Nothing anywhere
 	hardcodes "3".
 
-	MeshId 0 means "no mesh uploaded yet" and WeaponModels falls back to the
-	part-built model, so a missing upload degrades to the old look rather than
-	an invisible weapon. Meshes are authored by tools/blender_weapons.py.
+	Meshes are authored by tools/blender_weapons.py and uploaded to the CGS
+	Student Development group. MeshId 0 means "not uploaded yet" and
+	WeaponModels falls back to the part-built model, so a missing upload
+	degrades to the old look rather than an invisible weapon.
 ]]
 
 local WeaponConfig = {}
@@ -40,6 +41,14 @@ export type Ability = {
 export type Appearance = {
 	-- 0 until the Blender mesh is uploaded; falls back to built parts.
 	MeshId: number,
+	--[[ Studs to lift the mesh so the GRIP lands in the hand.
+
+	     Roblox re-centres an imported mesh on its bounding box, which discards
+	     the origin-at-the-grip authoring in tools/blender_weapons.py. Without
+	     this the character holds each weapon at its middle — a sword gripped
+	     two studs up the blade. The value is half the mesh's height, printed
+	     by the exporter. ]]
+	GripLift: number,
 	Color: Color3,
 	Material: Enum.Material,
 }
@@ -84,7 +93,7 @@ local definitions: { [string]: WeaponDefinition } = {
 		Name = "Arming Sword",
 		Description = "Balanced reach and speed. Forgiving to swing.",
 		Archetype = "Sword",
-		Appearance = { MeshId = 0, Color = Color3.fromRGB(178, 184, 196), Material = METAL },
+		Appearance = { MeshId = 115223452519261, GripLift = 2.035, Color = Color3.fromRGB(178, 184, 196), Material = METAL },
 		Combo = { 522635514, 522635514, 522638767 },
 		SwingSpeed = 1.0,
 		Ability = {
@@ -106,7 +115,7 @@ local definitions: { [string]: WeaponDefinition } = {
 		Name = "Greataxe",
 		Description = "Two-handed. A cleave into an overhead crash.",
 		Archetype = "Greataxe",
-		Appearance = { MeshId = 0, Color = Color3.fromRGB(148, 84, 68), Material = METAL },
+		Appearance = { MeshId = 92075016378656, GripLift = 2.160, Color = Color3.fromRGB(148, 84, 68), Material = METAL },
 		--[[ Our own animations, authored in Blender against a default R15
 		     (tools/blender_rig.py). Two entries, so this is a TWO-hit combo:
 		     horizontal cleave, then the overhead crash. ]]
@@ -132,7 +141,7 @@ local definitions: { [string]: WeaponDefinition } = {
 		Name = "Twin Daggers",
 		Description = "Short reach, brutal crits, paired.",
 		Archetype = "Dagger",
-		Appearance = { MeshId = 0, Color = Color3.fromRGB(64, 68, 82), Material = METAL },
+		Appearance = { MeshId = 107700310958339, GripLift = 0.890, Color = Color3.fromRGB(64, 68, 82), Material = METAL },
 		Combo = { 522635514, 522635514, 522638767 },
 		SwingSpeed = 1.35,
 		Ability = {
@@ -155,7 +164,7 @@ local definitions: { [string]: WeaponDefinition } = {
 		Name = "Consecrated Blade",
 		Description = "Sword and shield. Slow, immovable.",
 		Archetype = "PaladinBlade",
-		Appearance = { MeshId = 0, Color = Color3.fromRGB(226, 200, 128), Material = METAL },
+		Appearance = { MeshId = 86164855075188, GripLift = 2.075, Color = Color3.fromRGB(226, 200, 128), Material = METAL },
 		Combo = { 522635514, 522635514, 522638767 },
 		SwingSpeed = 0.95,
 		Ability = {
@@ -178,7 +187,7 @@ local definitions: { [string]: WeaponDefinition } = {
 		Name = "Royal Blade",
 		Description = "The crown's own steel.",
 		Archetype = "RoyalBlade",
-		Appearance = { MeshId = 0, Color = Color3.fromRGB(244, 214, 96), Material = METAL },
+		Appearance = { MeshId = 117988428989265, GripLift = 2.230, Color = Color3.fromRGB(244, 214, 96), Material = METAL },
 		Combo = { 522635514, 522635514, 522638767 },
 		SwingSpeed = 0.95,
 		Ability = {
@@ -200,7 +209,7 @@ local definitions: { [string]: WeaponDefinition } = {
 		Name = "Longbow",
 		Description = "Ranged. Zooms when drawn.",
 		Archetype = "Bow",
-		Appearance = { MeshId = 0, Color = Color3.fromRGB(126, 94, 58), Material = WOOD },
+		Appearance = { MeshId = 140279435098759, GripLift = 0.000, Color = Color3.fromRGB(126, 94, 58), Material = WOOD },
 		-- Ranged keeps the procedural draw/recoil; a slash animation on a bow
 		-- reads as nonsense.
 		Combo = { 0 },
@@ -224,7 +233,7 @@ local definitions: { [string]: WeaponDefinition } = {
 		Name = "Musket",
 		Description = "Slow, heavy, hits like a cannon.",
 		Archetype = "Musket",
-		Appearance = { MeshId = 0, Color = Color3.fromRGB(92, 82, 74), Material = WOOD },
+		Appearance = { MeshId = 122680354862605, GripLift = 1.506, Color = Color3.fromRGB(92, 82, 74), Material = WOOD },
 		Combo = { 0 },
 		SwingSpeed = 1.0,
 		Ability = {
@@ -246,7 +255,7 @@ local definitions: { [string]: WeaponDefinition } = {
 		Name = "Bone Staff",
 		Description = "Commands the dead.",
 		Archetype = "NecroStaff",
-		Appearance = { MeshId = 0, Color = Color3.fromRGB(108, 76, 148), Material = WOOD },
+		Appearance = { MeshId = 100515684767440, GripLift = 1.870, Color = Color3.fromRGB(108, 76, 148), Material = WOOD },
 		Combo = { 0 },
 		SwingSpeed = 1.0,
 		Ability = {
@@ -270,7 +279,7 @@ local definitions: { [string]: WeaponDefinition } = {
 		Name = "Greatsword",
 		Description = "Enormous reach, punishing recovery.",
 		Archetype = "Greatsword",
-		Appearance = { MeshId = 0, Color = Color3.fromRGB(196, 200, 210), Material = METAL },
+		Appearance = { MeshId = 98277756842482, GripLift = 3.055, Color = Color3.fromRGB(196, 200, 210), Material = METAL },
 		Combo = { 522635514, 522635514, 522638767 },
 		SwingSpeed = 0.72,
 		Ability = {
@@ -292,7 +301,7 @@ local definitions: { [string]: WeaponDefinition } = {
 		Name = "Staff",
 		Description = "A plain caster's staff.",
 		Archetype = "Staff",
-		Appearance = { MeshId = 0, Color = Color3.fromRGB(150, 120, 200), Material = WOOD },
+		Appearance = { MeshId = 121807140531417, GripLift = 2.045, Color = Color3.fromRGB(150, 120, 200), Material = WOOD },
 		Combo = { 0 },
 		SwingSpeed = 1.0,
 		Ability = {
@@ -313,6 +322,14 @@ local definitions: { [string]: WeaponDefinition } = {
 --[[ Seconds the blade trail stays on from the start of an uploaded swing,
      before speed scaling. ]]
 WeaponConfig.TrailSeconds = 0.5
+
+--[[ Offhand meshes. BuildOffhand takes a different path from BuildFromItem
+     (offhands are welded flat to the left arm, not jointed), so their ids
+     live here rather than on a weapon. 0 falls back to built parts. ]]
+WeaponConfig.OffhandMeshes = {
+	Shield = { MeshId = 99288952766726, GripLift = -0.025 },
+	Dagger = { MeshId = 107700310958339, GripLift = 0.890 },
+} :: { [string]: { MeshId: number, GripLift: number } }
 
 WeaponConfig.Definitions = definitions
 WeaponConfig.Default = "Sword"

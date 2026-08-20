@@ -347,6 +347,10 @@ function WeaponModels.BuildFromItem(weapon: any, name: string?): Model?
 	mesh.MeshType = Enum.MeshType.FileMesh
 	mesh.MeshId = "rbxassetid://" .. tostring(meshId)
 	mesh.Scale = Vector3.one
+	--[[ Lift the mesh so the GRIP sits in the hand rather than the weapon's
+	     midpoint. Roblox re-centres imported meshes on their bounding box,
+	     so without this every weapon is held halfway up its own length. ]]
+	mesh.Offset = Vector3.new(0, appearance.GripLift or 0, 0)
 	mesh.Parent = handle
 
 	addSwingTrail(handle, weapon.Archetype, appearance.Color)
@@ -396,7 +400,21 @@ end
 	Builds an offhand model, or nil for a kind with no builder. The offhand is
 	decorative: welded flat to the left arm by CharacterService, no joint.
 ]]
-function WeaponModels.BuildOffhand(kind: string?, color: Color3, material: Enum.Material, name: string?): Model?
+function WeaponModels.BuildOffhand(kind: string?, color: Color3, material: Enum.Material, name: string?, meshId: number?, gripLift: number?): Model?
+	if meshId and meshId > 0 then
+		local model = Instance.new("Model")
+		model.Name = name or (kind :: string)
+		local handle = makePart("Handle", Vector3.new(0.3, 0.9, 0.3), color, material, model)
+		model.PrimaryPart = handle
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.FileMesh
+		mesh.MeshId = "rbxassetid://" .. tostring(meshId)
+		mesh.Scale = Vector3.one
+		mesh.Offset = Vector3.new(0, gripLift or 0, 0)
+		mesh.Parent = handle
+		return model
+	end
+
 	local builder = offhandBuilders[kind or ""]
 	if not builder then
 		return nil
