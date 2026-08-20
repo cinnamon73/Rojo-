@@ -116,12 +116,7 @@ local function buildMannequin(definition: ClassConfig.ClassDefinition, parent: I
 
 	-- The mannequin holds whatever item the class starts with.
 	local item = WeaponConfig.Get(definition.StartingWeapon)
-	local weapon = item and WeaponModels.Build(
-		item.Archetype,
-		item.Appearance.Color,
-		item.Appearance.Material,
-		item.Id .. "Weapon"
-	)
+	local weapon = item and WeaponModels.BuildFromItem(item, item.Id .. "Weapon")
 
 	if weapon then
 		-- Roughly where the right hand ends up, blade tilted outward so long

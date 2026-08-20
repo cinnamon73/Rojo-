@@ -153,12 +153,7 @@ local function buildWeapon(weapon: WeaponConfig.WeaponDefinition, character: Mod
 		return
 	end
 
-	local model = WeaponModels.Build(
-		weapon.Archetype,
-		weapon.Appearance.Color,
-		weapon.Appearance.Material,
-		weapon.Id .. "Weapon"
-	)
+	local model = WeaponModels.BuildFromItem(weapon, weapon.Id .. "Weapon")
 	if not model then
 		return
 	end

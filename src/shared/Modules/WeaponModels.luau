@@ -283,6 +283,8 @@ local TRAIL_TIP_Y: { [string]: number } = {
 	RoyalBlade = 4.9,
 }
 
+local addSwingTrail
+
 function WeaponModels.Build(archetype: string?, color: Color3, material: Enum.Material, name: string?): Model?
 	local builder = builders[archetype or ""]
 	if not builder then
@@ -303,6 +305,64 @@ function WeaponModels.Build(archetype: string?, color: Color3, material: Enum.Ma
 		two attachments IS what makes a 0.07s strike readable — the arc paints
 		itself even when the weapon moves too fast to track.
 	]]
+	addSwingTrail(handle, archetype, color)
+
+	return model
+end
+
+--[[
+	Builds the weapon from an uploaded mesh when the item has one.
+
+	A SpecialMesh rather than a MeshPart: MeshPart.MeshId cannot be assigned at
+	runtime, and AssetService:CreateMeshPartAsync yields on every spawn. A
+	FileMesh on the Handle renders the whole weapon from one part, so the mesh
+	build is also CHEAPER than the part assembly it replaces (1 part, not 5-8).
+
+	The mesh is authored with its origin at the grip and the weapon running up
+	+Y (tools/blender_weapons.py), which is the same frame the Handle uses — so
+	GetGripOffset, the trail attachments and every swing animation are unchanged.
+]]
+function WeaponModels.BuildFromItem(weapon: any, name: string?): Model?
+	local appearance = weapon and weapon.Appearance
+	local meshId = appearance and appearance.MeshId or 0
+
+	if meshId <= 0 then
+		-- No upload yet: fall back to the part-built model rather than nothing.
+		return WeaponModels.Build(
+			weapon.Archetype,
+			appearance.Color,
+			appearance.Material,
+			name
+		)
+	end
+
+	local model = Instance.new("Model")
+	model.Name = name or weapon.Id
+
+	local handle = makePart("Handle", Vector3.new(0.32, 1.2, 0.32),
+		appearance.Color, appearance.Material, model)
+	model.PrimaryPart = handle
+
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.FileMesh
+	mesh.MeshId = "rbxassetid://" .. tostring(meshId)
+	mesh.Scale = Vector3.one
+	mesh.Parent = handle
+
+	addSwingTrail(handle, weapon.Archetype, appearance.Color)
+
+	return model
+end
+
+--[[
+	The swing trail, shared by both build paths.
+
+	Built disabled into every melee weapon; the client FX layer enables it only
+	during strike frames. The ribbon between these two attachments IS what makes
+	a 0.07s strike readable — the arc paints itself even when the weapon moves
+	too fast to track.
+]]
+function addSwingTrail(handle: BasePart, archetype: string?, color: Color3)
 	local tipY = TRAIL_TIP_Y[archetype or ""]
 	if tipY then
 		local base = Instance.new("Attachment")
@@ -330,8 +390,6 @@ function WeaponModels.Build(archetype: string?, color: Color3, material: Enum.Ma
 		trail.Enabled = false
 		trail.Parent = handle
 	end
-
-	return model
 end
 
 --[[
