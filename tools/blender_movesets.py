@@ -195,26 +195,50 @@ MOVESETS = {
            lean=[(0.20, -18), (0.36, 36), (0.52, 30)], crouch=[(0.36, -0.38), (0.52, -0.30)]),
     ],
 
-    #[[ Berserker: the two-hit combo from the reference GIF - horizontal
-    #   cleave into an overhead crash. Re-authored here because the pair that
-    #   shipped was built while the standard rig had been overwritten by a
-    #   player's own avatar. ]]
+    # Berserker: horizontal cleave into an overhead crash.
+
+    #   Re-authored after the first version read as a jump cut and passed
+    #   through his own head. Three rules came out of that:
+    #
+    #     1. MORE BEATS THROUGH THE FAST PART. Five keys across a 150 degree
+    #        arc on a 4.4 stud lever moves the tip ~8 studs between frames,
+    #        which the eye reads as a cut rather than a swing.
+    #     2. WIND UP TO THE RIGHT, NEVER OVERHEAD-CENTRE. The head sits at
+    #        x=0, so a centred windup routes the blade straight through it.
+    #        Keeping the wind out at +x clears it by the width of a shoulder.
+    #     3. STRIKE FORWARD, ALWAYS. Every impact drives toward -Z so there is
+    #        never a question which way he is facing.
     "Greataxe": [
         swing("BerserkerCleave", [
-            (0.00, (0.55, 1.04, -0.14), (-0.20, 0.78, 0.59)),
-            (0.18, (0.62, 1.16, 0.18), (-0.25, 0.80, 0.55)),
-            (0.34, (0.10, 0.92, -0.86), (-0.92, 0.10, -0.38)),
-            (0.48, (-0.35, 0.86, -0.62), (-0.80, -0.05, 0.60)),
-            (0.66, (0.55, 1.04, -0.14), (-0.20, 0.78, 0.59)),
-        ], twist=[(0.00, -12), (0.18, -28), (0.34, 24), (0.48, 34), (0.66, -12)]),
+            # Level sweep at chest height, blade always pointing away from the
+            # body. The head sits at y~1.6, so a swing that stays at y~0.95
+            # and forward of the chest cannot reach it however fast it moves.
+            (0.00, (0.72, 0.92, -0.30), (0.55, 0.10, -0.83)),
+            (0.18, (0.86, 0.94, 0.02), (0.80, 0.06, -0.60)),
+            (0.32, (0.80, 0.94, -0.30), (0.55, 0.04, -0.84)),
+            (0.42, (0.55, 0.94, -0.62), (0.12, 0.02, -0.99)),
+            (0.52, (0.18, 0.94, -0.76), (-0.40, 0.00, -0.92)),
+            (0.62, (-0.22, 0.92, -0.72), (-0.78, -0.02, -0.63)),
+            (0.72, (-0.50, 0.90, -0.52), (-0.94, -0.04, -0.34)),
+            (0.88, (-0.30, 0.92, -0.38), (-0.60, 0.10, -0.79)),
+            (1.04, (0.72, 0.92, -0.30), (0.55, 0.10, -0.83)),
+        ], twist=[(0.00, -14), (0.18, -30), (0.32, -18), (0.52, 14), (0.72, 32),
+                  (0.88, 20), (1.04, -14)]),
         swing("BerserkerCrash", [
-            (0.00, (0.40, 1.18, 0.04), (-0.15, 0.80, 0.58)),
-            (0.20, (0.24, 1.42, 0.32), (-0.10, 0.70, 0.71)),
-            (0.34, (0.10, 0.96, -0.84), (-0.05, -0.58, -0.81)),
-            (0.48, (0.06, 0.86, -0.78), (-0.05, -0.66, -0.75)),
-            (0.90, (0.40, 1.18, 0.04), (-0.15, 0.80, 0.58)),
-        ], twist=[(0.00, -8), (0.20, 12), (0.34, -8), (0.48, -10), (0.90, -8)],
-           lean=[(0.20, -18), (0.34, 38), (0.48, 32)], crouch=[(0.34, -0.40), (0.48, -0.32)]),
+            (0.00, (0.66, 1.02, -0.10), (0.34, 0.66, 0.67)),
+            (0.16, (0.74, 1.24, 0.20), (0.40, 0.74, 0.54)),
+            (0.30, (0.72, 1.34, 0.24), (0.30, 0.82, 0.49)),
+            (0.40, (0.62, 1.30, 0.06), (0.20, 0.74, -0.64)),
+            (0.48, (0.46, 1.16, -0.34), (0.10, 0.30, -0.95)),
+            (0.56, (0.30, 1.00, -0.62), (0.04, -0.28, -0.96)),
+            (0.64, (0.20, 0.92, -0.74), (0.00, -0.62, -0.78)),
+            (0.74, (0.16, 0.86, -0.76), (-0.02, -0.72, -0.69)),
+            (0.90, (0.40, 0.94, -0.44), (0.16, 0.10, -0.98)),
+            (1.10, (0.66, 1.02, -0.10), (0.34, 0.66, 0.67)),
+        ], twist=[(0.00, -8), (0.16, -18), (0.30, -14), (0.48, -4), (0.64, 6),
+                  (0.74, 8), (1.10, -8)],
+           lean=[(0.30, -12), (0.64, 26), (0.74, 24)],
+           crouch=[(0.64, -0.28), (0.74, -0.24)]),
     ],
 
     # Greatsword: only two hits, both enormous.
@@ -399,6 +423,7 @@ pb = arm_obj.pose.bones
 
 
 def clear_pose():
+    _QPREV.clear()
     if BLEND:
         return
     for b in pb:
@@ -452,12 +477,38 @@ def weapon_matrix(wrist, direction, k_right):
     return Matrix.Translation(origin) @ R
 
 
+# QUATERNION CONTINUITY.
+#
+#   A quaternion and its negation describe the SAME orientation, so nothing
+#   about a pose is wrong if consecutive keys land in opposite hemispheres -
+#   but the F-curve interpolates componentwise, and between q and -q that is
+#   the long way round: an almost full revolution between two keys.
+#
+#   That is what "massive jumps between frames" and the blade passing through
+#   his own head actually were. Not too few keys - the wrong ARC between them.
+#   Adding beats could never have fixed it.
+#
+#   Fix: before keying, flip the sign if it opposes the previous key on that
+#   same channel, so successive keys always take the short path.
+_QPREV = {}
+
+
+def key_quat(target, channel_key, frame):
+    q = target.rotation_quaternion
+    prev = _QPREV.get(channel_key)
+    if prev and (q.w * prev[0] + q.x * prev[1] + q.y * prev[2] + q.z * prev[3]) < 0:
+        target.rotation_quaternion = (-q.w, -q.x, -q.y, -q.z)
+        q = target.rotation_quaternion
+    _QPREV[channel_key] = (q.w, q.x, q.y, q.z)
+    target.keyframe_insert("rotation_quaternion", frame=frame)
+
+
 def key_pose(bone, T, frame):
     p = pb[bone]
     p.rotation_mode = "QUATERNION"
     C = CONV[bone].to_4x4()
     p.matrix_basis = C.inverted() @ T @ C
-    p.keyframe_insert("rotation_quaternion", frame=frame + FRAME_OFFSET)
+    key_quat(p, "bone:" + bone, frame + FRAME_OFFSET)
     p.keyframe_insert("location", frame=frame + FRAME_OFFSET)
 
 
@@ -568,7 +619,7 @@ for wname, clips in MOVESETS.items():
             f = round(t * FPS)
             wctl.matrix_basis = weapon_matrix(wrist, direction, k_right)
             wctl.keyframe_insert("location", frame=f + FRAME_OFFSET)
-            wctl.keyframe_insert("rotation_quaternion", frame=f + FRAME_OFFSET)
+            key_quat(wctl, "wctl", f + FRAME_OFFSET)
             d = (Vector(wrist) - rest_frame["RightUpperArm"].translation).length
             if d > REACH * spec.get("reachMul", 1.0):
                 over.append("t=%.2f right=%.2f" % (t, d))
@@ -596,6 +647,19 @@ for wname, clips in MOVESETS.items():
         dg = bpy.context.evaluated_depsgraph_get()
         frames = []
         worst = 0.0
+        #[[ Two things a contact sheet cannot show, both reported by feedback:
+        #
+        #   step  - how far the blade tip travels in ONE frame. A big number is
+        #           the "massive jump" you see when a huge rotation is spread
+        #           over three or four frames; the eye reads it as a cut.
+        #   head  - closest the weapon SEGMENT (grip to tip) comes to the head.
+        #           Specifying only endpoints lets the interpolated arc pass
+        #           straight through the skull, which no pose check catches.
+        #
+        #   Measure them, do not hope. ]]
+        prev_tip = None
+        steps = []
+        min_head = 9e9
         for fnum in range(scene.frame_start, scene.frame_end + 1):
             scene.frame_set(fnum)
             dg.update()
@@ -629,6 +693,19 @@ for wname, clips in MOVESETS.items():
             pw = {p: F[p] @ A1[p].inverted() for p in order}
             worst = max(worst, max((replay[p].translation - pw[p].translation).length for p in order))
 
+            wm = wctl.matrix_world
+            grip_pt = wm.translation
+            tip_pt = (wm @ Matrix.Translation((0, 4.4, 0))).translation
+            if prev_tip is not None:
+                steps.append((tip_pt - prev_tip).length)
+            prev_tip = tip_pt
+
+            head_pt = pw["Head"].translation
+            seg = tip_pt - grip_pt
+            L2 = seg.dot(seg)
+            t = 0.0 if L2 < 1e-9 else max(0.0, min(1.0, (head_pt - grip_pt).dot(seg) / L2))
+            min_head = min(min_head, (head_pt - (grip_pt + seg * t)).length)
+
         # Render this clip's beats so the swing can be judged before upload.
         for idx, (t, _w, _d) in enumerate(beats):
             scene.frame_set(round(t * FPS))
@@ -647,7 +724,16 @@ for wname, clips in MOVESETS.items():
             bpy.ops.render.render(write_still=True)
 
         out["Movesets"][wname][clip["Name"]] = {"Duration": dur, "Frames": frames}
-        report.append((wname, clip["Name"], dur, len(frames), worst, over))
+        #[[ A fast swing SHOULD move fast; what reads as a jump is a
+        #   DISCONTINUITY - one frame stepping far further than its
+        #   neighbours. So compare the worst step against the typical one
+        #   rather than against an absolute speed. ]]
+        ordered = sorted(steps)
+        median = ordered[len(ordered) // 2] if ordered else 0.0
+        max_step = max(steps) if steps else 0.0
+        ratio = (max_step / median) if median > 1e-6 else 0.0
+        report.append((wname, clip["Name"], dur, len(frames), worst, over,
+                       max_step, min_head, ratio))
         if BLEND:
             MARKERS.append((FRAME_OFFSET, clip["Name"]))
             FRAME_OFFSET += round(dur * FPS) + 8
@@ -709,7 +795,7 @@ for wname, spec in STANCES.items():
 
             wctl.matrix_basis = weapon_matrix(w, wdir, k_right)
             wctl.keyframe_insert("location", frame=f + FRAME_OFFSET)
-            wctl.keyframe_insert("rotation_quaternion", frame=f + FRAME_OFFSET)
+            key_quat(wctl, "wctl", f + FRAME_OFFSET)
 
             key_pose("LowerTorso", Matrix.Translation((0, drop, 0))
                      @ angles(lean * 0.3, twist * 0.4, 0), f)
@@ -808,12 +894,21 @@ json.dump(out, open(OUT_POSES, "w"))
 
 print("\n%-13s %-20s %5s %6s %11s %s" % ("WEAPON", "CLIP", "DUR", "FRAMES", "REPLAY-ERR", "REACH"))
 bad = 0
-for wname, cname, dur, n, worst, over in report:
-    flag = "OK" if worst < 1e-3 else "BAD MATHS"
+HEAD_R = PARTS["Head"]["Size"][1] / 2 + 0.15
+for wname, cname, dur, n, worst, over, step, head, ratio in report:
     if worst >= 1e-3:
         bad += 1
-    print("%-13s %-20s %5.2f %6d %11.6f %s  %s"
-          % (wname, cname, dur, n, worst, flag, ("OVER-REACH " + "; ".join(over)) if over else ""))
+    notes = []
+    if worst >= 1e-3:
+        notes.append("BAD MATHS")
+    if ratio > 3.0:
+        notes.append("JUMPY(x%.1f)" % ratio)
+    if head < HEAD_R:
+        notes.append("THROUGH HEAD")
+    if over:
+        notes.append("OVER-REACH")
+    print("%-13s %-18s %5.2f %9.2f %6.1f %7.2f %s"
+          % (wname, cname, dur, step, ratio, head, " ".join(notes)))
 print("\nARM REACH %.3f studs   clips=%d   maths-failures=%d" % (REACH, len(report), bad))
 print("WROTE %s" % OUT_POSES)
 
