@@ -1,16 +1,24 @@
 """Receives rig dumps POSTed from Roblox Studio (the same localhost trick Rojo uses)."""
 import http.server, json, os, sys
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'rig_dump.json')
+#[[ Live dumps go to their OWN file. They used to share a name with the
+#   standard-R15 reference, so a test session posting the player's avatar
+#   silently replaced the rig every animation is authored against. ]]
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'rig_live.json')
 
 
 class H(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         n = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(n)
-        with open(OUT, 'wb') as f:
+        # /standard is the reference skeleton every animation is authored
+        # against; anything else is a throwaway live capture.
+        here = os.path.dirname(os.path.abspath(__file__))
+        out = os.path.join(here, 'rig_standard_r15.json'
+                           if self.path.startswith('/standard') else 'rig_live.json')
+        with open(out, 'wb') as f:
             f.write(body)
-        print('RECEIVED %d bytes -> %s' % (len(body), OUT), flush=True)
+        print('RECEIVED %d bytes -> %s' % (len(body), out), flush=True)
         self.send_response(200)
         self.send_header('Content-Type', 'text/plain')
         self.end_headers()
