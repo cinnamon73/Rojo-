@@ -75,8 +75,8 @@ missing floors and never wipes.
 
 ## The world as it stands
 
-`Workspace.World` holds `Village` (9,758 parts) and `StarterZone` (4,583).
-14,341 parts and 227 light sources in total; terrain is ~489,000 voxel cells.
+`Workspace.World` holds `Village` (9,758 parts) and `StarterZone` (4,580).
+14,338 parts and 227 light sources in total; terrain is ~489,000 voxel cells.
 
 **The fortifications were rebuilt from scratch for players to fight from**
 (2,789 parts): 62 curtain bays with the walk at `y = 28.8` and merlons to

@@ -48,13 +48,15 @@ Five review checkpoints, all complete.
 | | Stage | Result |
 |---|---|---|
 | 1 | Perimeter and terrain | Cliffs, ravine, hollows, battlefield scarring, arena bowl. World sealed all round. |
-| 2 | Route and combat spaces | Walkable spine plus four spurs, nothing over 26°. 14 spawn markers wired to the attribute contract. |
+| 2 | Route and combat spaces | Walkable spine plus four spurs, nothing over 26°. 14 spawn markers wired to the attribute contract *(17 today)*. |
 | 3 | Structures | Goblin camp and outpost, 3 watchtowers, trench works, ruins, siege engine, slime pond, arena, Zone 2 gate. |
 | 4 | Vegetation | 234 trees by chapter, 452 bushes and tufts, 451 boulders, logs, stumps, dead trees on the battlefield. |
 | 5 | Atmosphere | 21 torch posts, 4 junction cairns, glowing fungus. Wilds fog retuned against measured visibility. |
 
-Final: **4,337 parts (72% of the 6,000 budget)**, zero holes over 5,625
-samples, zero floating parts, every `EnemyId` resolving.
+At completion: **4,337 parts (72% of the 6,000 budget)**, zero holes over 5,625
+samples, zero floating parts, every `EnemyId` resolving. Zone 1 has grown since,
+to **4,580 parts and 17 spawn markers**, with the skeleton camp and wolf den
+added on top of the phase plan. All 17 ids still resolve.
 
 Also done outside the phase plan: the **village floor converted to voxel
 terrain** with the roads painted into it and the `Paths` folder deleted, the
@@ -198,7 +200,7 @@ for but never tested on hardware.
   camp) and the Necromancer's summon in `MinionConfig`. The registries are
   separate so nothing breaks, but players and logs see two different things
   called the same name. Rename one.
-- **Mobile is untested on hardware**, and the world is now 14,341 parts with 227
+- **Mobile is untested on hardware**, and the world is now 14,338 parts with 227
   light sources.
 - **No sound anywhere.**
 

@@ -31,7 +31,7 @@ removed outright, not demoted, and classes took its place.
 
 | System | State |
 |---|---|
-| World | Walled village and a rebuilt hostile zone, both on voxel terrain. 14,341 parts, 227 light sources |
+| World | Walled village and a rebuilt hostile zone, both on voxel terrain. 14,338 parts, 227 light sources |
 | Combat | 7 enemy types, aggro/chase/attack/leash AI, crits, melee combos, ranged aim-zoom |
 | Enemy animation | **2 of the 7 articulated** — Goblin and Skeleton have jointed rigs with idle, walk and attack. The other five are welded and still |
 | Classes | 8 classes across 3 tiers plus a paid one. A class **is** the loadout — stats, weapon and one ability |
@@ -93,7 +93,7 @@ Village/                        9,758 parts   <- the thing you defend
   _WallLine  _WallTowers  _WallGate    the wall geometry - do not delete
   _PathRoutes  _PathMask  the ONLY record of the road network - do not delete
 
-StarterZone/                    4,583 parts   <- where they come from
+StarterZone/                    4,580 parts   <- where they come from
   Vegetation/      2,259  forest by chapter, dead trees on the battlefield
   Structures/      1,447  goblin camp and outpost, 3 watchtowers, battlefield
                           trench works and ruins, slime pond, boss arena,
@@ -103,7 +103,7 @@ StarterZone/                    4,583 parts   <- where they come from
   EnemySpawns/        14  attribute-driven markers
 ```
 
-14,341 parts in the world, 227 light sources, roughly 489,000 voxel cells.
+14,338 parts in the world, 227 light sources, roughly 489,000 voxel cells.
 
 ---
 
@@ -372,7 +372,7 @@ features stay inert rather than erroring — but they are required before launch
 
 - [ ] **Set `Lighting.Technology` to `Future`** in Properties. Scripts cannot
       set it; it needs elevated permission, and the command bar cannot even
-      read it. Until it is set, all **223** light sources glow but do not
+      read it. Until it is set, all **227** light sources glow but do not
       properly light the surfaces around them. This is the single biggest
       visual win available and takes one click.
 - [ ] **Enable Studio Access to API Services** — Game Settings → Security.
