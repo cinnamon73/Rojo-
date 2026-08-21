@@ -180,6 +180,9 @@ define({
 	LootChance = 0.16,
 	RespawnSeconds = 18,
 	Appearance = {
+		-- Articulated: jointed bones, an upright sword, a small broken shield.
+		-- `Build` is kept only as the fallback if the rig ever fails to load.
+		Rig = "Skeleton",
 		Build = "Biped",
 		BodyColor = Color3.fromRGB(226, 222, 206),
 		AccentColor = Color3.fromRGB(84, 80, 74),

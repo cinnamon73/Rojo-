@@ -103,6 +103,23 @@ end
 -- Defined just below buildRig; forward-declared so buildRig can call it.
 local finishRig: (EnemyConfig.EnemyDefinition, Model, BasePart, number?) -> (Model, Humanoid, BasePart)
 
+--[[
+	Articulated builders, keyed by the `Rig` name in EnemyConfig. A table rather
+	than a chain of `if` branches, so a new creature is one line here and one
+	line in the config: every builder returns the same triple and every rig uses
+	the same joint names, so nothing downstream needs to know which it got.
+
+	A definition naming a rig that is NOT in this table falls through to the
+	welded placeholder below instead of erroring. That matters for more than
+	typos — if one collaborator's checkout is missing a builder the other has
+	added, their enemies come out as the old blocky bodies rather than taking
+	the whole spawn pass down with them.
+]]
+local RIG_BUILDERS: { [string]: (Color3, Color3, Enum.Material, number) -> (Model, { [string]: Motor6D }, number) } = {
+	Goblin = EnemyRigs.BuildGoblin,
+	Skeleton = EnemyRigs.BuildSkeleton,
+}
+
 local function buildRig(definition: EnemyConfig.EnemyDefinition): (Model, Humanoid, BasePart)
 	local appearance = definition.Appearance
 	local scale = appearance.Scale
@@ -112,10 +129,12 @@ local function buildRig(definition: EnemyConfig.EnemyDefinition): (Model, Humano
 		and billboard below are shared with the old placeholder builds. The
 		`Rig` attribute is what the client animator looks for — without it the
 		enemy simply stands still, which is what the welded rigs already did.
+		It is also what selects the pose set, so it must be set on the model.
 	]]
-	if appearance.Rig == "Goblin" then
+	local buildArticulated = if appearance.Rig then RIG_BUILDERS[appearance.Rig] else nil
+	if buildArticulated then
 		local model, _joints, hipHeight =
-			EnemyRigs.BuildGoblin(appearance.BodyColor, appearance.AccentColor, appearance.Material, scale)
+			buildArticulated(appearance.BodyColor, appearance.AccentColor, appearance.Material, scale)
 		model.Name = definition.Id
 		model:SetAttribute("Rig", appearance.Rig)
 		local root = model.PrimaryPart :: BasePart
@@ -590,16 +609,23 @@ local function stepEnemy(record: EnemyRecord, now: number)
 				function, and indexing the nil global threw on every swing.
 			]]
 			local m = record.Model
-			local articulated = m:GetAttribute("Rig") ~= nil
+			local rigName = m:GetAttribute("Rig") :: string?
+			local articulated = rigName ~= nil
 			if articulated then
 				m:SetAttribute("AttackSeq", ((m:GetAttribute("AttackSeq") :: number?) or 0) + 1)
 			end
 
 			--[[
-				Damage lands when the CLUB LANDS, not when the swing starts.
+				Damage lands when the WEAPON LANDS, not when the swing starts.
 				The delay is the animation's own duration times its impact
 				phase, both read from EnemyAnimation so the hit cannot drift
 				away from the picture.
+
+				PER RIG, because the animations differ in both length and shape:
+				the goblin's overhead chop connects halfway through a 1.05s
+				swing, the skeleton's horizontal slash at 46% of a 1.15s one.
+				Using one rig's numbers for the other lands the hit visibly
+				early or late.
 
 				A swing is now roughly half a second of real time, so
 				everything is re-checked at impact rather than trusted from
@@ -631,7 +657,8 @@ local function stepEnemy(record: EnemyRecord, now: number)
 			end
 
 			if articulated then
-				task.delay(EnemyAnimation.AttackDuration * EnemyAnimation.AttackImpactPhase, land)
+				local poses = EnemyAnimation.Get(rigName)
+				task.delay(poses.AttackDuration * poses.AttackImpactPhase, land)
 			else
 				land()
 			end

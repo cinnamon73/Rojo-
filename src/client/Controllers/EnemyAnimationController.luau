@@ -38,6 +38,11 @@ type Rigged = {
 	Root: BasePart,
 	Humanoid: Humanoid,
 	Joints: { [string]: Motor6D },
+	--[[ The pose set for THIS rig, resolved once at collect time. Rigs share
+		joint names but not poses: a sword held point-up swings nothing like a
+		club held point-down, so driving a skeleton with the goblin's swing
+		throws its blade back over its own shoulder. ]]
+	Set: EnemyAnimation.Set,
 	FootL: BasePart?,
 	FootR: BasePart?,
 	Phase: number,
@@ -74,6 +79,7 @@ local function collect(model: Model): Rigged?
 		Root = root,
 		Humanoid = humanoid,
 		Joints = joints,
+		Set = EnemyAnimation.Get(model:GetAttribute("Rig") :: string?),
 		FootL = model:FindFirstChild("FootL") :: BasePart?,
 		FootR = model:FindFirstChild("FootR") :: BasePart?,
 		Phase = math.random() * 10, -- desync identical enemies so they do not march in step
@@ -121,7 +127,8 @@ local function pollTriggers(rigged: Rigged)
 		rigged.OneShot = "Attack"
 		rigged.OneShotT = 0
 		-- Shared with the server, which times the damage off the same number.
-		rigged.OneShotLen = EnemyAnimation.AttackDuration
+		-- Per rig: the skeleton's slash is longer than the goblin's chop.
+		rigged.OneShotLen = rigged.Set.AttackDuration
 		return
 	end
 	local flinch = (rigged.Model:GetAttribute("FlinchSeq") :: number?) or 0
@@ -160,9 +167,9 @@ local function step(dt: number)
 			if u >= 1 then
 				rigged.OneShot = nil
 			elseif rigged.OneShot == "Attack" then
-				EnemyAnimation.Attack(joints, u, rigged.Drop)
+				rigged.Set.Attack(joints, u, rigged.Drop)
 			else
-				EnemyAnimation.Flinch(joints, u, rigged.Drop)
+				rigged.Set.Flinch(joints, u, rigged.Drop)
 			end
 		end
 
@@ -171,9 +178,9 @@ local function step(dt: number)
 			local v = rigged.Root.AssemblyLinearVelocity
 			local speed = Vector3.new(v.X, 0, v.Z).Magnitude
 			if speed > WALK_THRESHOLD then
-				EnemyAnimation.Walk(joints, rigged.Phase, rigged.Drop)
+				rigged.Set.Walk(joints, rigged.Phase, rigged.Drop)
 			else
-				EnemyAnimation.Idle(joints, rigged.Phase, rigged.Drop)
+				rigged.Set.Idle(joints, rigged.Phase, rigged.Drop)
 			end
 		end
 
