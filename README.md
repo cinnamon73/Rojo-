@@ -413,6 +413,12 @@ looks frozen. Third, if a shared module failed to compile earlier in the Edit
 session, Roblox serves that cached failure to every later `require` — press
 Play, which gets a clean module cache, before believing anything is broken.
 
+**Only *some* enemies animate.** This was a real bug, fixed 21 Aug. Rigs were
+assembled once, a frame after the model appeared, and StreamingEnabled delivers
+the body over the following frames — so whether an enemy animated was a race.
+The controller now retries until the rig assembles. If it ever returns, look at
+`pending` in `EnemyAnimationController`.
+
 **The village looks flat and washed out.** `Lighting.Technology` is not set to
 `Future`. See the manual steps above.
 

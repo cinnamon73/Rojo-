@@ -57,6 +57,25 @@ type Rigged = {
 }
 
 local tracked: { [Model]: Rigged } = {}
+--[[
+	Rigs seen but not yet assembled, mapped to the time we give up on them.
+
+	WHY THIS EXISTS. StreamingEnabled delivers a Model first and its parts over
+	the following frames. The original code collected a rig ONCE, a single frame
+	after the model appeared, and silently dropped it if the body had not arrived
+	yet — with no retry. Whether an enemy animated was therefore a race against
+	the network, which presented as "some skeletons animate and some don't" and
+	is very hard to read as a bug: the rigs look perfect when you inspect them
+	afterwards, because by then the body HAS arrived.
+
+	Measured: 5 skeletons at 19-48 studs, 101 parts and 100 joints each, all
+	static — and all 5 animating immediately after a fresh collection pass.
+]]
+local pending: { [Model]: number } = {}
+-- How often to retry pending rigs, and how long before giving up on one.
+local RETRY_INTERVAL = 0.2
+local RETRY_TIMEOUT = 30
+local retryAccum = 0
 local connection: RBXScriptConnection? = nil
 
 local function collect(model: Model): Rigged?
@@ -94,23 +113,42 @@ local function collect(model: Model): Rigged?
 	}
 end
 
+--[[
+	Queue a rig for assembly. Deliberately does NOT try to collect here: the
+	body may be seconds away over the network, so collection is retried from
+	step() until it succeeds rather than attempted once and abandoned.
+]]
 local function add(model: Instance)
-	if not model:IsA("Model") or tracked[model] then
+	if not model:IsA("Model") or tracked[model] or pending[model] then
 		return
 	end
 	if model:GetAttribute("Rig") == nil then
 		return
 	end
-	-- The model replicates in pieces; wait a moment for its joints to arrive.
-	task.defer(function()
+	pending[model] = os.clock() + RETRY_TIMEOUT
+end
+
+--[[
+	Retry every queued rig. Cheap: `pending` only ever holds rigs whose bodies
+	have not finished replicating, which is a handful at most.
+]]
+local function drainPending()
+	for model, deadline in pairs(pending) do
 		if not model.Parent then
-			return
+			-- Streamed out or died before it ever assembled.
+			pending[model] = nil
+		else
+			local rigged = collect(model)
+			if rigged then
+				tracked[model] = rigged
+				pending[model] = nil
+			elseif os.clock() > deadline then
+				-- Carries a Rig attribute but never produced a usable body.
+				-- Stop burning a check on it every frame.
+				pending[model] = nil
+			end
 		end
-		local rigged = collect(model)
-		if rigged then
-			tracked[model] = rigged
-		end
-	end)
+	end
 end
 
 --[[
@@ -146,6 +184,13 @@ end
 local function step(dt: number)
 	local camera = Workspace.CurrentCamera
 	local origin = if camera then camera.CFrame.Position else Vector3.zero
+
+	-- Pick up rigs whose bodies have finished arriving since the last check.
+	retryAccum += dt
+	if retryAccum >= RETRY_INTERVAL then
+		retryAccum = 0
+		drainPending()
+	end
 
 	for model, rigged in pairs(tracked) do
 		if not model.Parent or not rigged.Root.Parent then
@@ -210,6 +255,9 @@ function EnemyAnimationController.Start()
 	Workspace.DescendantRemoving:Connect(function(d)
 		if d:IsA("Model") then
 			tracked[d] = nil
+			-- Also drop it from the retry queue, or a rig that streams out
+			-- mid-assembly is retried until its timeout for nothing.
+			pending[d] = nil
 		end
 	end)
 
@@ -222,6 +270,8 @@ function EnemyAnimationController.Stop()
 		connection = nil
 	end
 	table.clear(tracked)
+	table.clear(pending)
+	retryAccum = 0
 end
 
 return EnemyAnimationController

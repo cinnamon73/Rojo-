@@ -246,6 +246,25 @@ per enemy per frame is not worth spending on something a few pixels wide. The
 village spawn is ~500 studs from the nearest articulated enemy, so from spawn
 the whole world looks frozen — that is the gate working, not a bug.
 
+**A RIG MUST BE COLLECTED WITH RETRIES, NEVER ONCE.** StreamingEnabled delivers
+a `Model` first and its parts over the following frames. The controller
+originally tried to assemble a rig a single frame after the model appeared and
+silently dropped it if the body had not arrived — no retry. Whether an enemy
+animated was therefore **a race against the network**, which presents as *"some
+skeletons animate and some don't"*.
+
+It is a nasty one to read, because inspecting a broken rig afterwards shows
+nothing wrong: by the time you look, the body HAS arrived. Measured: 5
+skeletons at 19–48 studs, 101 parts and 100 joints each, all static — and all
+5 animating the instant a fresh collection pass ran. `EnemyAnimationController`
+now keeps a `pending` queue and retries every 0.2s until a rig assembles,
+giving up after 30s.
+
+**"Some but not all" demands per-instance measurement, not a sample.** An
+earlier check teleported to one group, found 9 of 9 goblins animating, and
+concluded the system worked — but those had already finished streaming. The
+bug only shows if you enumerate *every* rig in range and report each one.
+
 **A rig that fails to build degrades, it does not throw.** A `Rig` name missing
 from `RIG_BUILDERS` falls through to the welded placeholder. That matters
 between the two sessions: a checkout lacking a builder produces blocky enemies
