@@ -171,8 +171,10 @@ Things worth knowing before editing any of it:
   undying is on a 45s cooldown, not the "medium" it was specified as, because
   10s of immortality on a medium timer is over 50% uptime.
 
-Abilities are **defined but not implemented** — `AbilityService` does not exist
-yet. `AbilityRequest` is declared in the manifest and unhandled.
+Abilities **are implemented**: `AbilityService` handles all eight and
+`AbilityController` is the client half. (This paragraph said the opposite until
+21 Aug; the service had been built and the note never updated.) They have no
+animation of their own yet.
 
 ## The enemy spawn contract
 
@@ -199,7 +201,55 @@ Three consequences:
   returns nil and the marker is skipped with no warning.
 
 Defined ids: `Slime`, `Goblin`, `Wolf`, `GoblinWarrior`, `EliteGoblin`,
-`GoblinKing`. The boss marker is `BossSpawn` and carries `BossId`.
+`Skeleton`, `GoblinKing`. The boss marker is `BossSpawn` and carries `BossId`.
+
+## Articulated enemies
+
+**Two of the seven are articulated: `Goblin` and `Skeleton`.** The other five —
+`Wolf`, `Slime`, `GoblinWarrior`, `EliteGoblin`, `GoblinKing` — are still the
+original bodies welded rigidly to the root and **cannot move at all**. That is
+18 of the ~34 enemies alive in the world, so most things you walk up to are
+static. Anyone reporting "the animations don't work" is usually standing next
+to a wolf.
+
+An enemy opts in with a `Rig` name in `EnemyConfig.Appearance`:
+
+| Piece | Where | Notes |
+|---|---|---|
+| Body | `EnemyRigs.Build<Name>` | Motor6D chains; every joint stores its `RestC0` |
+| Poses | `EnemyAnimation.Sets.<Name>` | Idle, Walk, Attack, Flinch, and the two timing numbers |
+| Dispatch | `EnemyService.RIG_BUILDERS` | one line per rig |
+| Playback | `EnemyAnimationController` | client-side, reads `Rig` off the model |
+
+`EnemyAnimation.Get(rigName)` returns a set, falling back to the goblin's for an
+unknown name. The top-level `EnemyAnimation.Idle/Walk/Attack` are still the
+goblin's, so older callers are unaffected.
+
+**RIGS SHARE JOINT NAMES BUT NOT POSES, AND THIS IS NOT OPTIONAL.** The goblin's
+club hangs point-DOWN from its fist; the skeleton's sword is held point-UP. That
+inverts the weapon relative to the hand, so the exact shoulder arc that raises
+the club in front throws the sword back over the shoulder. Measured while
+driving the skeleton with the goblin's swing: the blade finished **1.06 studs
+behind the skull, 143° from vertical**. Before writing a new rig's attack, check
+which way its weapon points out of the hand.
+
+**Damage is timed per rig**, as `AttackDuration * AttackImpactPhase` read from
+that rig's own set, so the blow lands when the weapon arrives rather than when
+the swing starts — goblin 0.525s into a 1.05s overhead chop, skeleton 0.529s
+into a 1.15s slash. The server re-checks everything at impact (enemy alive,
+player alive, still in range), so backing off mid-swing dodges the blow. Both
+sides read the same two numbers; if they ever live in two places they drift and
+the hit stops matching the picture.
+
+**Nothing animates beyond 220 studs** (`ANIMATE_DISTANCE`). Posing ~18 joints
+per enemy per frame is not worth spending on something a few pixels wide. The
+village spawn is ~500 studs from the nearest articulated enemy, so from spawn
+the whole world looks frozen — that is the gate working, not a bug.
+
+**A rig that fails to build degrades, it does not throw.** A `Rig` name missing
+from `RIG_BUILDERS` falls through to the welded placeholder. That matters
+between the two sessions: a checkout lacking a builder produces blocky enemies
+rather than taking the whole spawn pass down.
 
 ## Terrain, geometry and testing lessons
 
@@ -219,6 +269,49 @@ three rounds of "still boring" reports while every log said healthy. See
 FXController.jointRef for the working adapter. Server-built enemy/minion rigs
 are unaffected (hand-welded parts, no Animator).
 
+### Posing enemy rigs
+
+These are Motor6D rigs, so they *are* posed by writing `C0` — but always as an
+offset from the stored rest, `joint.C0 = RestC0 * CFrame.Angles(...)`, never
+compounding onto the live `C0`, which drifts within seconds.
+
+- **Solve poses by measurement, in a live preview.** Every angle in
+  `EnemyAnimation` was found by sweeping a joint and recording where the weapon
+  actually ended up. Guessed angles have been wrong every single time.
+- **INDEPENDENT AXIS SWEEPS DO NOT COMPOSE.** Rotations multiply, so the pose
+  you get from combining three separately-measured angles is not the sum of
+  their effects. Sweep to find *which axis does what*, then grid-search whole
+  candidate poses for the frame you actually want. The skeleton's slash impact
+  came from testing 108 complete poses.
+- **A blade is laid flat by ROLL, not pitch.** Pitching the wrist (`X`) never
+  got the sword past 57° from vertical; the roll axis (`WristR` `Z`) takes it
+  to 89° at `-90`. A whole pass was lost before sweeping all three axes and
+  reading which one moved the blade tilt.
+- **Weapon geometry is built pointing one way and turned by the grip.** The
+  skeleton's sword is built hanging DOWN the grip's local `-Y`; a 159° X in the
+  grip's `C0` is what stands it up. A consequence that will catch you: after
+  that flip, a POSITIVE local Y offset travels DOWNWARD in the world, which is
+  why its pommel offset is positive and its guard negative.
+- **Roll the weapon about the grip's own axis, and check it.** The skeleton's
+  blade shipped edge-on in an early pass — flats facing fore and aft instead of
+  left and right. Alignment of the blade's wide axis with fore/aft measured
+  `0.00` before the fix and `1.00` after a 90° roll. Rolling about the grip's
+  own Y leaves the blade axis untouched, so a finger wrap derived from that axis
+  survives it.
+- **A hilt must sit ON the fist.** Give the grip no translation so it centres on
+  the palm, and place guard and pommel from the hand's own half-height. A
+  hand-tuned offset left 0.16 studs of bare leather between fist and guard —
+  over half a hand's height — and the sword read as floating beside the hand.
+- **Fingers must cross the weapon, not point past it.** Straight forward-pointing
+  fingers leave the grip passing through an unbroken block and nothing appears to
+  hold it. Derive the wrap directions from the grip's own axis; the hand is
+  rotated by the whole arm chain, so world-axis guesses are meaningless — the
+  same trap as measuring a rotated building's footprint on world axes.
+- **Give the joint chain time to settle before reading positions.** One sweep
+  reported the sword tip barely moving across a full 360° of shoulder because it
+  sampled too soon. Prove your wait is long enough — pose a joint hard, read
+  immediately, read again after a beat, and compare — before trusting a sweep.
+
 ### Live-testing the game from the Studio command bar
 
 Hard-won, all three verified this session:
@@ -236,7 +329,25 @@ Hard-won, all three verified this session:
   proved VFX spawning and replicating while four consecutive screenshots showed
   nothing: 0.28-0.45s lifetimes are sub-perceptual in normal play. When
   something "does not work" visually, first check whether it is absent or
-  merely too fast — the fixes are entirely different.
+  merely too fast — the fixes are entirely different. A full sword swing is
+  ~1.1s; play one at a third speed when judging its *shape*.
+- **ROBLOX CACHES A MODULE'S COMPILE ERROR FOR THE WHOLE SESSION.** Once a
+  module fails to compile, every later `require` in that Edit session returns
+  the same stale failure — even after Rojo has repaired the source. One syntax
+  error made six healthy modules report as broken long after the fix landed,
+  and it reads exactly like real breakage. To see the truth: require a
+  `:Clone()` (fresh compile), or press Play, which gets a clean module cache.
+- **NEVER SET `workspace.CurrentCamera.CameraType = Scriptable`.** It takes the
+  viewport away from the user entirely — their camera simply stops responding —
+  and every scripted screenshot that re-asserts it fights them again. It is not
+  obviously a script doing it, so it reads as Studio being broken. If a
+  particular angle is needed, ask the user to point the camera, or move the
+  *subject*. Leave the camera on `Fixed`.
+- **Rojo's file watcher can silently miss a file.** Twice in one session the
+  live tree sat stale while the source on disk was correct, which presents as
+  "my edit did nothing". `touch` the file to force a re-push, and verify by
+  searching the live `Source` for a marker string rather than trusting that a
+  save propagated.
 
 
 Every one of these cost real bugs. Several cost the same bug twice.
@@ -388,9 +499,11 @@ src/
 │   ├── Config/      Designer-tunable values. No magic numbers in services.
 │   └── Modules/     Shared utilities, types, the remote manifest
 ├── server/          → ServerScriptService
-│   └── Services/    8 services (Data, Enemy, Combat, RNG, Equipment, …)
+│   └── Services/    9: Ability, Character, Class, Combat, Data, Enemy,
+│                       Minion, NetGuard, Replication
 └── client/          → StarterPlayerScripts
-    └── Controllers/ 7 controllers (UI, Roll, Inventory, Combat, Gear, Atmosphere)
+    └── Controllers/ 8: Ability, Atmosphere, ClassSelect, Combat,
+                        EnemyAnimation, FX, Stance, UI
 ```
 
 Rojo suffix conventions: `.server.luau` → `Script`, `.client.luau` →
@@ -425,8 +538,12 @@ Rojo suffix conventions: `.server.luau` → `Script`, `.client.luau` →
   barrow camp) and the Necromancer's summon in `MinionConfig`. They never look
   each other up, so nothing breaks, but a player fighting one while another
   fights beside them sees the same name twice. Worth renaming one.
-- **Enemies and minions are primitive rigs.** Weapons have real shaped geometry;
-  enemies and minions are assembled from blocks and do not animate.
+- **Five of the seven enemies still do not animate.** `Goblin` and `Skeleton`
+  are articulated; `Wolf`, `Slime`, `GoblinWarrior`, `EliteGoblin` and
+  `GoblinKing` are blocks welded to the root. The warrior, elite and king can
+  reuse the biped rig with different proportions; the wolf and slime need rigs
+  of their own. All minions are still welded too.
+- **`AbilityService` exists, but abilities have no animation.**
 - **No audio anywhere.** Every id in `AssetConfig` is `0`.
 - **Buildings are shells** with no interiors, and the village has no NPCs.
 - **Mobile is untested on hardware.**

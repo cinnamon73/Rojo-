@@ -33,6 +33,7 @@ removed outright, not demoted, and classes took its place.
 |---|---|
 | World | Walled village and a rebuilt hostile zone, both on voxel terrain. 14,341 parts, 227 light sources |
 | Combat | 7 enemy types, aggro/chase/attack/leash AI, crits, melee combos, ranged aim-zoom |
+| Enemy animation | **2 of the 7 articulated** — Goblin and Skeleton have jointed rigs with idle, walk and attack. The other five are welded and still |
 | Classes | 8 classes across 3 tiers plus a paid one. A class **is** the loadout — stats, weapon and one ability |
 | Abilities | One per class, implemented in `AbilityService` |
 | Minions | Necromancer and King summon squads via `MinionService` |
@@ -43,6 +44,15 @@ removed outright, not demoted, and classes took its place.
 
 **Not built yet:** waves themselves, the boss fight, objectives, defenses,
 audio, monetization.
+
+**Enemies are being redone one at a time.** Each gets a jointed rig and its own
+animation set rather than a shared one, because a weapon held point-up swings
+nothing like one held point-down. **Goblin** (club) and **Skeleton** (upright
+sword, broken shield) are done. Wolf, Slime, GoblinWarrior, EliteGoblin and the
+GoblinKing are still welded blocks that cannot move — which is most of what you
+meet, so the world looks stiller than the system is. Note also that nothing
+animates beyond **220 studs**, and the village spawn is ~500 studs from the
+nearest articulated enemy.
 
 **Rolling is gone.** `RNGService`, `EquipmentService`, `ItemConfig`,
 `ItemInstance`, `RarityConfig`, `ModifierConfig`, `MultiplierConfig` and the
@@ -393,6 +403,15 @@ unreachable.
 
 **Enemies spawn but never move.** They only step while at least one player is in
 the server, and they leash back to their marker if pulled too far.
+
+**Enemies move around but never animate.** Three separate causes, in the order
+worth checking. First, only **Goblin** and **Skeleton** are articulated at all —
+wolves and slimes are welded blocks and physically cannot animate. Second,
+nothing animates past **220 studs** of the camera, and the village spawn is
+~500 studs from the nearest articulated enemy, so from spawn the whole world
+looks frozen. Third, if a shared module failed to compile earlier in the Edit
+session, Roblox serves that cached failure to every later `require` — press
+Play, which gets a clean module cache, before believing anything is broken.
 
 **The village looks flat and washed out.** `Lighting.Technology` is not set to
 `Future`. See the manual steps above.

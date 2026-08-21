@@ -57,8 +57,27 @@ Final: **4,337 parts (72% of the 6,000 budget)**, zero holes over 5,625
 samples, zero floating parts, every `EnemyId` resolving.
 
 Also done outside the phase plan: the **village floor converted to voxel
-terrain** with the roads painted into it and the `Paths` folder deleted, and the
-**outer treeline** bridging the village wall to the Zone 1 hills.
+terrain** with the roads painted into it and the `Paths` folder deleted, the
+**outer treeline** bridging the village wall to the Zone 1 hills, the **skeleton
+camp and wolf den** added to Zone 1, the atmosphere moved to a **dark overcast
+afternoon**, and the **enemy rework** begun — see below.
+
+### Enemy rework — in progress
+
+Enemies are being rebuilt one at a time as jointed Motor6D rigs with real
+animation, replacing the blocks welded to the root. **2 of 7 done.**
+
+| Enemy | State |
+|---|---|
+| Goblin | Articulated. Club, idle/walk/overhead chop |
+| Skeleton | Articulated. Upright sword and a small broken shield, idle/walk/horizontal slash |
+| GoblinWarrior, EliteGoblin, GoblinKing | Welded — can reuse the biped rig, different proportions |
+| Wolf, Slime | Welded — need rigs of their own |
+
+Each rig gets **its own pose set**, not a shared one. This is the load-bearing
+rule: the goblin's club hangs point-down and the skeleton's sword points up, so
+the same shoulder arc that raises one in front throws the other over its
+shoulder. Damage is timed per rig to the frame the weapon lands.
 
 ---
 
@@ -136,15 +155,25 @@ Everything here **works**. It is placeholder quality. None of it is blocking.
 
 - **There is no armour any more** — a class carries its stats directly, and
   what you see is the class weapon and tint from `ClassConfig`.
-- **Enemies and minions** are primitive rigs (`Blob`, `Biped`, `Quadruped`)
-  assembled at spawn. They do not animate. A Goblin and a Goblin Warrior differ
-  only in colour and scale.
+- **Enemies are being redone one at a time**, each getting a jointed Motor6D rig
+  and its own animation set. **Done: Goblin** (club) and **Skeleton** (upright
+  sword, small broken shield). **Still welded blocks that cannot move:** Wolf,
+  Slime, GoblinWarrior, EliteGoblin, GoblinKing — and every minion.
+  The warrior, elite and king can reuse the biped rig with different
+  proportions; the wolf and slime need rigs of their own.
 
 ### Animation
 
-Only one animation exists: a single Motor6D swing arc per archetype. Needs idle
-poses, combo chains, hit reactions, real projectiles for bows and staves, and
-ability animations.
+Player weapons still have only a single Motor6D swing arc per archetype, and
+abilities have no animation at all. Needs combo chains, hit reactions and real
+projectiles for bows and staves.
+
+Articulated **enemies** are further along: idle, walk, attack and flinch per
+rig, with damage timed to the moment the weapon actually lands. The one rule to
+carry into the remaining conversions is that **rigs share joint names but not
+poses** — a weapon held point-up swings nothing like one held point-down, so
+each new rig needs its swing mapped by measurement. See CLAUDE.md, "Articulated
+enemies" and "Posing enemy rigs".
 
 ### GUI
 
@@ -157,6 +186,11 @@ for but never tested on hardware.
 ## Known gaps
 
 - **Waves do not exist.** Enemies spawn from static markers.
+- **5 of the 7 enemies cannot animate** — only Goblin and Skeleton are
+  articulated. Wolves and slimes alone are 18 of the ~34 enemies alive, so most
+  of what a player meets is frozen.
+- **Nothing animates beyond 220 studs**, and the village spawn is ~500 studs
+  from the nearest articulated enemy. Deliberate, but it reads as broken.
 - **The boss does not spawn.**
 - **Both zone gates are decorative** — the attribute exists, nothing reads it.
 - **Nothing spends coins.** Kills pay them, there is no sink.
