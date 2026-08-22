@@ -194,42 +194,42 @@ MOVESETS = {
     # Swordsman: level cut, level return, straight thrust. Crisp, economical.
     "Sword": [
         arc("SwordSlash",   dir0=(0.62, 0.16, -0.77), axis=(0, 1, 0), sweep=-120,
-            wrist=(0.62, 1.02, -0.40), dur=0.80, reach=0.35),
+            wrist=(0.70, 1.00, -0.86), dur=0.80, reach=0.35),
         arc("SwordBackhand", dir0=(-0.70, 0.12, -0.70), axis=(0, 1, 0), sweep=102,
-            wrist=(0.52, 0.97, -0.58), dur=0.80, reach=0.32),
+            wrist=(0.62, 0.98, -0.92), dur=0.80, reach=0.32),
         arc("SwordThrust",  dir0=(0.30, 0.12, -0.95), axis=(0, 1, 0), sweep=-26,
-            wrist=(0.62, 1.02, -0.34), dur=0.66, reach=0.85, twist_amp=18),
+            wrist=(0.70, 1.00, -0.80), dur=0.66, reach=0.85, twist_amp=18),
     ],
 
     # Assassin: short, quick, close. Small sweeps - the reach is the dagger's
     # weakness and the animation should say so.
     "Dagger": [
         arc("DaggerStab",  dir0=(0.26, 0.10, -0.96), axis=(0, 1, 0), sweep=-20,
-            wrist=(0.56, 0.94, -0.34), dur=0.46, reach=0.70, twist_amp=16),
+            wrist=(0.62, 0.95, -0.78), dur=0.46, reach=0.70, twist_amp=16),
         arc("DaggerCross", dir0=(0.60, 0.12, -0.79), axis=(0, 1, 0), sweep=-95,
-            wrist=(0.54, 0.96, -0.40), dur=0.52, reach=0.30, twist_amp=24),
+            wrist=(0.62, 0.96, -0.84), dur=0.52, reach=0.30, twist_amp=24),
         arc("DaggerSpin",  dir0=(-0.72, 0.10, -0.69), axis=(0, 1, 0), sweep=100,
-            wrist=(0.50, 0.98, -0.40), dur=0.56, reach=0.30, twist_amp=26),
+            wrist=(0.58, 0.98, -0.84), dur=0.56, reach=0.30, twist_amp=26),
     ],
 
     # Paladin: braced and short. He does not over-commit - he is holding ground.
     "PaladinBlade": [
         arc("PaladinChop",  dir0=(0.30, 0.72, -0.62), axis=(1, 0, 0), sweep=-92,
-            wrist=(0.60, 1.10, -0.34), dur=0.86, reach=0.30, twist_amp=14,
+            wrist=(0.68, 1.08, -0.80), dur=0.86, reach=0.30, twist_amp=14,
             lean=[(0.20, -10), (0.55, 22), (0.70, 18)],
             crouch=[(0.55, -0.22), (0.70, -0.18)]),
         arc("PaladinSweep", dir0=(0.70, 0.12, -0.70), axis=(0, 1, 0), sweep=-105,
-            wrist=(0.62, 1.00, -0.36), dur=0.86, reach=0.30, twist_amp=26),
+            wrist=(0.70, 1.00, -0.82), dur=0.86, reach=0.30, twist_amp=26),
     ],
 
     # King: wide and unhurried, but still inside the body's envelope.
     "RoyalBlade": [
         arc("RoyalSlash", dir0=(0.66, 0.18, -0.73), axis=(0, 1, 0), sweep=-125,
-            wrist=(0.62, 1.06, -0.38), dur=0.86, reach=0.35),
+            wrist=(0.70, 1.04, -0.84), dur=0.86, reach=0.35),
         arc("RoyalRise",  dir0=(-0.60, -0.04, -0.80), axis=(0, 1, 0), sweep=98,
-            wrist=(0.54, 1.02, -0.40), dur=0.86, reach=0.32),
+            wrist=(0.62, 1.02, -0.86), dur=0.86, reach=0.32),
         arc("RoyalCrash", dir0=(0.26, 0.74, -0.62), axis=(1, 0, 0), sweep=-96,
-            wrist=(0.58, 1.14, -0.32), dur=0.92, reach=0.32, twist_amp=14,
+            wrist=(0.66, 1.12, -0.78), dur=0.92, reach=0.32, twist_amp=14,
             lean=[(0.22, -12), (0.56, 24), (0.72, 20)],
             crouch=[(0.56, -0.24), (0.72, -0.20)]),
     ],
@@ -237,9 +237,9 @@ MOVESETS = {
     # Berserker: the two-hit combo. Level cleave, then over the top.
     "Greataxe": [
         arc("BerserkerCleave", dir0=(0.66, 0.10, -0.74), axis=(0, 1, 0), sweep=-130,
-            wrist=(0.60, 0.96, -0.38), dur=0.90, reach=0.35, twist_amp=30),
+            wrist=(0.68, 0.96, -0.84), dur=0.90, reach=0.35, twist_amp=30),
         arc("BerserkerCrash",  dir0=(0.28, 0.72, -0.63), axis=(1, 0, 0), sweep=-98,
-            wrist=(0.56, 1.06, -0.32), dur=0.96, reach=0.34, twist_amp=14,
+            wrist=(0.64, 1.06, -0.78), dur=0.96, reach=0.34, twist_amp=14,
             lean=[(0.22, -14), (0.56, 26), (0.72, 22)],
             crouch=[(0.56, -0.26), (0.72, -0.22)]),
     ],
@@ -247,9 +247,9 @@ MOVESETS = {
     # Greatsword: the same two beats, slower and wider.
     "Greatsword": [
         arc("GreatswordCleave", dir0=(0.60, 0.16, -0.78), axis=(0, 1, 0), sweep=-128,
-            wrist=(0.56, 1.04, -0.36), dur=0.96, reach=0.36, twist_amp=30),
+            wrist=(0.64, 1.04, -0.82), dur=0.96, reach=0.36, twist_amp=30),
         arc("GreatswordCrash",  dir0=(0.24, 0.74, -0.63), axis=(1, 0, 0), sweep=-100,
-            wrist=(0.54, 1.10, -0.30), dur=1.02, reach=0.34, twist_amp=14,
+            wrist=(0.62, 1.10, -0.76), dur=1.02, reach=0.34, twist_amp=14,
             lean=[(0.22, -15), (0.56, 27), (0.72, 23)],
             crouch=[(0.56, -0.28), (0.72, -0.24)]),
     ],
@@ -607,8 +607,77 @@ def clear_pose():
     for b in pb:
         for c in list(b.constraints):
             b.constraints.remove(c)
+        b.lock_ik_x = b.lock_ik_y = b.lock_ik_z = False
+        b.use_ik_limit_x = b.use_ik_limit_z = False
+        b.ik_stiffness_x = b.ik_stiffness_z = 0.0
+    for o in list(bpy.data.objects):
+        if o.name.startswith("Pole"):
+            bpy.data.objects.remove(o, do_unlink=True)
     if arm_obj.animation_data:
         arm_obj.animation_data_clear()
+
+
+def make_pole(name, shoulder, offset):
+    """Elbow pole, placed in ARMATURE space below and behind the shoulder.
+
+    It must NOT be bone-parented. Blender attaches bone-parented objects at
+    the bone's TAIL, and the torso bone twists through the swing, which threw
+    the pole 3.5 studs between consecutive frames - measured. The IK plane
+    followed it, and that swinging plane WAS the flail: the hand tracked the
+    weapon correctly the whole time while the elbow was hurled around behind
+    it.
+
+    A fixed point keeps the plane steady, which is what an elbow does.
+    """
+    e = bpy.data.objects.new(name, None)
+    e.empty_display_size = 0.25
+    scene.collection.objects.link(e)
+    e.matrix_basis = Matrix.Translation(Vector(shoulder) + Vector(offset))
+    return e
+
+
+def hinge_ik(lower, upper, target, pole, pole_angle):
+    """IK with a CONTROLLED elbow.
+
+    With no pole the solver is free to spin the elbow around the
+    shoulder-to-wrist axis, and it does - measured 144 degrees of elbow roll
+    across three frames of the greataxe cleave. The hand goes where it should
+    while the elbow thrashes behind it, which is exactly what reads as
+    flailing rather than swinging.
+
+    The pole fixes the PLANE the arm bends in. The limits make the elbow a
+    hinge: one axis of bend, no twist, no hyperextension - none of which a
+    human elbow does. Shoulder stiffness stops it taking the whole rotation
+    and leaving the forearm to catch up.
+    """
+    p = pb[lower]
+    c = p.constraints.new("IK")
+    c.target, c.chain_count, c.use_rotation = target, 2, False
+    if pole is not None:
+        c.pole_target = pole
+        c.pole_angle = math.radians(pole_angle)
+
+    #[[ The hinge is local Z, not X. Measured directly: with the locks off,
+    #   the elbow's local euler runs (0.0, 0.0, -155 -> -103) through a swing -
+    #   all of the bend on Z and exactly none on the other two. Locking Z and
+    #   freeing X, which is what this did first, pinned the elbow at a constant
+    #   147 degrees and left the whole arm to swing rigidly from the shoulder. ]]
+    p.lock_ik_x = True
+    p.lock_ik_y = True
+    p.use_ik_limit_z = True
+    p.ik_min_z = math.radians(-165)
+    #[[ NEVER fully straight. At full extension the elbow's plane is
+    #   undefined, and the solver flips between the two valid solutions - one
+    #   92 degree snap in a single frame, with the elbow dead still either
+    #   side of it. That lone flip is what read as a flail. A few degrees of
+    #   residual bend keeps the plane defined, and is how arms actually are:
+    #   nobody locks their elbow mid-swing. ]]
+    p.ik_max_z = math.radians(-12)
+
+    u = pb[upper]
+    u.ik_stiffness_x = 0.15
+    u.ik_stiffness_z = 0.25
+    return c
 
 
 def build_targets(spec, wctl):
@@ -621,8 +690,7 @@ def build_targets(spec, wctl):
     rt.matrix_parent_inverse = Matrix.Identity(4)
     rt.matrix_basis = k_right @ CONV["RightHand"].to_4x4()
 
-    c = pb["RightLowerArm"].constraints.new("IK")
-    c.target, c.chain_count, c.use_rotation = rt, 2, False
+    hinge_ik("RightLowerArm", "RightUpperArm", rt, make_pole("PoleR", rest_frame["RightUpperArm"].translation, (0.55, -1.35, 1.05)), -90)
     cr = pb["RightHand"].constraints.new("COPY_ROTATION")
     cr.target = rt
 
@@ -635,8 +703,7 @@ def build_targets(spec, wctl):
         lt.matrix_parent_inverse = Matrix.Identity(4)
         lt.matrix_basis = (Matrix.Translation(left_off)
                            @ Matrix.Rotation(math.pi, 4, "Y") @ CONV["LeftHand"].to_4x4())
-        c2 = pb["LeftLowerArm"].constraints.new("IK")
-        c2.target, c2.chain_count, c2.use_rotation = lt, 2, False
+        hinge_ik("LeftLowerArm", "LeftUpperArm", lt, make_pole("PoleL", rest_frame["LeftUpperArm"].translation, (-0.55, -1.35, 1.05)), -90)
         cr2 = pb["LeftHand"].constraints.new("COPY_ROTATION")
         cr2.target = lt
     return grip_rel, k_right, rt, lt
@@ -863,6 +930,12 @@ for wname, clips in MOVESETS.items():
         steps = []
         min_head = 9e9
         worst_part = "-"
+        #[[ ELBOW ROLL: how far the elbow swings AROUND the shoulder-to-wrist
+        #   axis between frames. The hand can be going exactly where it should
+        #   while the elbow spins behind it, and that - not the hand path - is
+        #   what reads as flailing. Nothing measured it before. ]]
+        prev_perp = None
+        elbow_steps = []
         for fnum in range(scene.frame_start, scene.frame_end + 1):
             scene.frame_set(fnum)
             dg.update()
@@ -908,6 +981,20 @@ for wname, clips in MOVESETS.items():
             #   measuring one part meant the others were never checked. Every
             #   body part is tested against the weapon segment, each with a
             #   radius taken from its own size. ]]
+            sh_pt = F["RightUpperArm"].translation
+            el_pt = F["RightLowerArm"].translation
+            wr_pt = F["RightHand"].translation
+            arm_axis = wr_pt - sh_pt
+            if arm_axis.length > 1e-5:
+                arm_axis = arm_axis.normalized()
+                perp = (el_pt - sh_pt) - arm_axis * (el_pt - sh_pt).dot(arm_axis)
+                if perp.length > 1e-4:
+                    perp = perp.normalized()
+                    if prev_perp is not None:
+                        dot = max(-1.0, min(1.0, perp.dot(prev_perp)))
+                        elbow_steps.append(math.degrees(math.acos(dot)))
+                    prev_perp = perp
+
             seg = tip_pt - grip_pt
             L2 = seg.dot(seg)
             for part_name in (CLIP_PARTS_BASE if spec.get("two") else CLIP_PARTS):
@@ -965,12 +1052,23 @@ for wname, clips in MOVESETS.items():
         #   DISCONTINUITY - one frame stepping far further than its
         #   neighbours. So compare the worst step against the typical one
         #   rather than against an absolute speed. ]]
+        #[[ A sweeping arm rotates its elbow plane steadily and that is
+        #   correct; what looks like flailing is a REVERSAL - the elbow
+        #   snapping to the other side between frames. So measure the spread,
+        #   not the magnitude: worst step against the typical one. ]]
+        #[[ Raw worst single-frame swing, in degrees. A ratio was useless
+        #   here: a well-behaved elbow is STILL for most of a clip, so the
+        #   median is ~0 and any spike divides to infinity. What matters is
+        #   simply how big the worst snap is - past ~30 degrees in one frame
+        #   the eye reads it as the arm changing its mind. ]]
+        max_elbow = max(elbow_steps) if elbow_steps else 0.0
+
         ordered = sorted(steps)
         median = ordered[len(ordered) // 2] if ordered else 0.0
         max_step = max(steps) if steps else 0.0
         ratio = (max_step / median) if median > 1e-6 else 0.0
         report.append((wname, clip["Name"], dur, len(frames), worst, over,
-                       max_step, min_head, ratio, worst_part))
+                       max_step, min_head, ratio, worst_part, max_elbow))
         if BLEND:
             MARKERS.append((FRAME_OFFSET, clip["Name"]))
             FRAME_OFFSET += round(dur * FPS) + 8
@@ -1144,7 +1242,7 @@ if not BLEND:
 print("\n%-13s %-20s %5s %6s %11s %s" % ("WEAPON", "CLIP", "DUR", "FRAMES", "REPLAY-ERR", "REACH"))
 bad = 0
 HEAD_R = PARTS["Head"]["Size"][1] / 2 + 0.15
-for wname, cname, dur, n, worst, over, step, head, ratio, wpart in report:
+for wname, cname, dur, n, worst, over, step, head, ratio, wpart, elbow in report:
     if worst >= 1e-3:
         bad += 1
     notes = []
@@ -1155,12 +1253,14 @@ for wname, cname, dur, n, worst, over, step, head, ratio, wpart in report:
     #  runs far past that; the broken clips measured x5 to x12.5. ]
     if ratio > 4.5:
         notes.append("JUMPY(x%.1f)" % ratio)
+    if elbow > 30.0:
+        notes.append("ELBOW-SNAP(%.0fdeg)" % elbow)
     if head < 0.0:
         notes.append("CLIPS " + wpart.upper())
     if over:
         notes.append("OVER-REACH")
-    print("%-13s %-18s %5.2f %9.2f %6.1f %7.2f %s"
-          % (wname, cname, dur, step, ratio, head, " ".join(notes)))
+    print("%-13s %-18s %5.2f %9.2f %6.1f %7.2f %6.0f %s"
+          % (wname, cname, dur, step, ratio, head, elbow, " ".join(notes)))
 print("\nARM REACH %.3f studs   clips=%d   maths-failures=%d" % (REACH, len(report), bad))
 print("WROTE %s" % OUT_POSES)
 
