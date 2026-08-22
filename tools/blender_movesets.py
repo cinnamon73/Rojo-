@@ -107,6 +107,71 @@ def swing(name, beats, twist=None, lean=None, crouch=None, step=None, left=None,
                 Crouch=crouch or [], Step=step or [], Left=left or [], Legs=legs)
 
 
+
+
+def arc(name, dir0, axis, sweep, wrist, dur, reach=0.0, samples=9,
+        twist_amp=28.0, lean=None, crouch=None, step_amp=0.85, legs=True):
+    """A swing described as what it physically IS: the blade sweeping through
+    an arc.
+
+    Nine hand-typed (wrist, direction) triples per clip was the wrong surface.
+    It let the arc wander, the speed go uneven and the blade drift into the
+    body, and every one of those had to be found afterwards by measuring. A
+    direction ROTATED about a fixed axis cannot wander - it is a circle - so
+    smoothness stops being something to verify and becomes a property of how
+    the swing is written.
+
+        dir0   blade direction at the start (the guard)
+        axis   what the blade rotates about; (0,1,0) sweeps level, (1,0,0)
+               chops vertically
+        sweep  total degrees travelled
+        wrist  base wrist position; the hands barely move, the BLADE does
+        reach  studs the wrist pushes forward at impact, for commitment
+
+    Timing is eased: slow load, fast strike, slow recovery. Sampling theta on
+    that curve puts the frames where the motion is, which is what keeps the
+    tip step even instead of bunching.
+    """
+    ax = Vector(axis).normalized()
+    d0 = Vector(dir0).normalized()
+    w0 = Vector(wrist)
+    beats = []
+    for i in range(samples):
+        u = i / (samples - 1)
+        #[[ Out and BACK, so the clip starts and ends on the same pose.
+        #
+        #   The first version only travelled outward, which meant the guard
+        #   anchoring had to teleport the blade home at the last beat - and on
+        #   the greataxe, whose guard is the DRAG pose with the head on the
+        #   floor, that jump was the whole animation. Measured x12.5.
+        #
+        #   Strike out to the full sweep by u=0.62, then recover to the guard,
+        #   with the wrist pulled in on the way back so the return reads as
+        #   recovering the weapon rather than rewinding the swing. ]]
+        if u <= 0.62:
+            k = u / 0.62
+            e = 0.16 * k * k if k < 0.42 else 0.16 + 0.84 * (((k - 0.42) / 0.58) ** 0.85)
+            pull = 0.0
+        else:
+            k = (u - 0.62) / 0.38
+            e = 1.0 - (k * k * (3 - 2 * k))
+            pull = 0.30 * math.sin(math.pi * k)
+        theta = math.radians(sweep) * e
+        d = (Matrix.Rotation(theta, 4, ax).to_3x3() @ d0).normalized()
+        push = reach * math.sin(math.pi * min(max((u - 0.10) / 0.55, 0.0), 1.0)) if u <= 0.65 else 0.0
+        w = w0 + d * (push * 0.35 - pull * 0.25) + Vector((0, pull * 0.10, -push * 0.5))
+        beats.append((round(u * dur, 3), (w.x, w.y, w.z), (d.x, d.y, d.z)))
+
+    twist, stepk = [], []
+    for i in range(samples):
+        u = i / (samples - 1)
+        e = -1.0 if u < 0.2 else (1.0 if u < 0.72 else 0.35)
+        twist.append((beats[i][0], twist_amp * (e if u >= 0.2 else -1.0) * (-1 if sweep < 0 else 1)))
+        stepk.append((beats[i][0], step_amp * (-0.8 if u < 0.25 else (1.0 if u < 0.66 else 0.3))))
+    return swing(name, beats, twist=twist, lean=lean, crouch=crouch,
+                 step=stepk, legs=legs)
+
+
 # ---------------------------------------------------------------------------
 # THE MOVESETS - one per class, deliberately different silhouettes
 # ---------------------------------------------------------------------------
@@ -114,197 +179,84 @@ def swing(name, beats, twist=None, lean=None, crouch=None, step=None, left=None,
 # with 1.73 studs of reach, so every wrist below stays well inside that.
 
 MOVESETS = {
-    # Every clip below follows the same four rules, which came out of the
-    # jump-cut fix and the head-clearance measurements:
-    #   1. Eight to ten beats, so no single frame carries a huge rotation.
-    #   2. The blade always points AWAY from the body; it never routes over
-    #      the head, which sits at x=0, y~1.6.
-    #   3. Wind up to the side, strike FORWARD (-Z), so facing is unambiguous.
-    #   4. Step tracks the weight: load onto the back foot, drive off it,
-    #      plant. A swing with static legs reads as a torso on a pole.
+    # Every swing below is one arc: a blade direction rotated about an axis.
+    # Six numbers each instead of nine hand-typed triples, and the shape of the
+    # motion is stated rather than approximated.
+    #
+    #   axis (0,1,0)  level sweep, blade stays at chest height
+    #   axis (1,0,0)  vertical chop, blade comes over the top
+    #   sweep sign    which way round it travels
+    #
+    # Blade directions all start well away from the body and the sweeps are
+    # deliberately SHORTER than before - a 120 degree cut that reads clearly
+    # beats a 200 degree one that wraps through the character.
 
-    # Swordsman: crisp and economical. Level slash, level backhand, thrust.
+    # Swordsman: level cut, level return, straight thrust. Crisp, economical.
     "Sword": [
-        swing("SwordSlash", [
-            (0.00, (0.70, 1.02, -0.30), (0.52, 0.16, -0.84)),
-            (0.14, (0.84, 1.06, 0.02), (0.78, 0.12, -0.61)),
-            (0.26, (0.80, 1.04, -0.26), (0.54, 0.08, -0.84)),
-            (0.36, (0.56, 1.02, -0.60), (0.14, 0.04, -0.99)),
-            (0.46, (0.20, 1.00, -0.76), (-0.38, 0.02, -0.92)),
-            (0.56, (-0.18, 0.98, -0.70), (-0.76, 0.00, -0.65)),
-            (0.66, (-0.44, 0.96, -0.52), (-0.93, -0.02, -0.36)),
-            (0.80, (-0.26, 0.99, -0.38), (-0.58, 0.12, -0.81)),
-            (0.96, (0.70, 1.02, -0.30), (0.52, 0.16, -0.84)),
-        ], twist=[(0.00, -12), (0.14, -28), (0.36, -8), (0.56, 20), (0.66, 30), (0.96, -12)],
-           step=[(0.00, -0.2), (0.14, -0.7), (0.36, 0.2), (0.46, 0.8), (0.66, 0.5), (0.96, -0.2)]),
-        swing("SwordBackhand", [
-            (0.00, (-0.40, 0.98, -0.50), (-0.90, 0.02, -0.44)),
-            (0.14, (-0.54, 0.96, -0.30), (-0.96, 0.00, -0.28)),
-            (0.26, (-0.34, 0.98, -0.62), (-0.72, 0.04, -0.69)),
-            (0.36, (0.02, 1.02, -0.78), (-0.24, 0.08, -0.97)),
-            (0.46, (0.40, 1.06, -0.70), (0.30, 0.10, -0.95)),
-            (0.56, (0.72, 1.08, -0.46), (0.72, 0.12, -0.68)),
-            (0.66, (0.86, 1.08, -0.16), (0.88, 0.14, -0.45)),
-            (0.80, (0.80, 1.05, -0.30), (0.66, 0.16, -0.73)),
-            (0.96, (0.70, 1.02, -0.30), (0.52, 0.16, -0.84)),
-        ], twist=[(0.00, 30), (0.14, 38), (0.36, 10), (0.56, -18), (0.66, -28), (0.96, -12)],
-           step=[(0.00, 0.4), (0.14, -0.5), (0.36, 0.3), (0.46, 0.8), (0.66, 0.4), (0.96, -0.2)]),
-        swing("SwordThrust", [
-            (0.00, (0.72, 1.02, -0.26), (0.36, 0.14, -0.92)),
-            (0.14, (0.86, 1.00, 0.10), (0.30, 0.12, -0.95)),
-            (0.24, (0.80, 1.00, -0.20), (0.20, 0.08, -0.98)),
-            (0.32, (0.62, 1.00, -0.62), (0.10, 0.04, -0.99)),
-            (0.40, (0.42, 1.00, -0.96), (0.02, 0.02, -1.00)),
-            (0.50, (0.46, 1.00, -0.88), (0.04, 0.04, -1.00)),
-            (0.64, (0.62, 1.01, -0.56), (0.20, 0.10, -0.98)),
-            (0.84, (0.70, 1.02, -0.30), (0.52, 0.16, -0.84)),
-        ], twist=[(0.00, -14), (0.14, -26), (0.40, 12), (0.50, 14), (0.84, -12)],
-           lean=[(0.40, 12), (0.50, 10)],
-           step=[(0.00, -0.2), (0.14, -0.8), (0.32, 0.4), (0.40, 0.9), (0.64, 0.4), (0.84, -0.2)]),
+        arc("SwordSlash",   dir0=(0.62, 0.16, -0.77), axis=(0, 1, 0), sweep=-120,
+            wrist=(0.62, 1.02, -0.40), dur=0.80, reach=0.35),
+        arc("SwordBackhand", dir0=(-0.70, 0.12, -0.70), axis=(0, 1, 0), sweep=102,
+            wrist=(0.52, 0.97, -0.58), dur=0.80, reach=0.32),
+        arc("SwordThrust",  dir0=(0.30, 0.12, -0.95), axis=(0, 1, 0), sweep=-26,
+            wrist=(0.62, 1.02, -0.34), dur=0.66, reach=0.85, twist_amp=18),
     ],
 
-    # Assassin: short, fast, low. Both hands work.
+    # Assassin: short, quick, close. Small sweeps - the reach is the dagger's
+    # weakness and the animation should say so.
     "Dagger": [
-        swing("DaggerStab", [
-            (0.00, (0.60, 0.92, -0.34), (0.30, 0.10, -0.95)),
-            (0.08, (0.72, 0.90, 0.00), (0.26, 0.08, -0.96)),
-            (0.16, (0.62, 0.90, -0.34), (0.16, 0.06, -0.99)),
-            (0.24, (0.44, 0.90, -0.72), (0.06, 0.02, -1.00)),
-            (0.32, (0.34, 0.90, -0.94), (0.02, 0.00, -1.00)),
-            (0.42, (0.40, 0.91, -0.78), (0.08, 0.04, -1.00)),
-            (0.58, (0.60, 0.92, -0.34), (0.30, 0.10, -0.95)),
-        ], twist=[(0.00, -12), (0.08, -24), (0.32, 14), (0.58, -12)],
-           step=[(0.00, -0.2), (0.08, -0.7), (0.24, 0.5), (0.32, 0.9), (0.58, -0.2)]),
-        swing("DaggerCross", [
-            (0.00, (0.62, 0.96, -0.36), (0.48, 0.10, -0.87)),
-            (0.10, (0.78, 0.98, -0.06), (0.72, 0.08, -0.69)),
-            (0.20, (0.68, 0.96, -0.42), (0.42, 0.06, -0.90)),
-            (0.28, (0.38, 0.94, -0.72), (0.02, 0.04, -1.00)),
-            (0.36, (0.02, 0.92, -0.80), (-0.44, 0.02, -0.90)),
-            (0.46, (-0.30, 0.92, -0.66), (-0.82, 0.00, -0.57)),
-            (0.60, (-0.10, 0.94, -0.48), (-0.44, 0.08, -0.89)),
-            (0.74, (0.60, 0.92, -0.34), (0.30, 0.10, -0.95)),
-        ], twist=[(0.00, -14), (0.10, -30), (0.28, 4), (0.46, 28), (0.74, -12)],
-           step=[(0.00, -0.2), (0.10, -0.7), (0.28, 0.5), (0.36, 0.9), (0.60, 0.3), (0.74, -0.2)]),
-        swing("DaggerSpin", [
-            (0.00, (-0.28, 0.92, -0.52), (-0.82, 0.06, -0.57)),
-            (0.10, (-0.46, 0.94, -0.28), (-0.94, 0.10, -0.32)),
-            (0.20, (-0.22, 0.96, -0.62), (-0.66, 0.14, -0.74)),
-            (0.28, (0.14, 1.00, -0.80), (-0.18, 0.18, -0.97)),
-            (0.36, (0.50, 1.04, -0.72), (0.36, 0.22, -0.91)),
-            (0.46, (0.76, 1.06, -0.44), (0.74, 0.24, -0.63)),
-            (0.60, (0.70, 1.00, -0.40), (0.52, 0.16, -0.84)),
-            (0.76, (0.60, 0.92, -0.34), (0.30, 0.10, -0.95)),
-        ], twist=[(0.00, 30), (0.10, 40), (0.28, 6), (0.46, -26), (0.76, -12)],
-           step=[(0.00, 0.3), (0.10, -0.6), (0.28, 0.4), (0.36, 0.9), (0.60, 0.3), (0.76, -0.2)]),
+        arc("DaggerStab",  dir0=(0.26, 0.10, -0.96), axis=(0, 1, 0), sweep=-20,
+            wrist=(0.56, 0.94, -0.34), dur=0.46, reach=0.70, twist_amp=16),
+        arc("DaggerCross", dir0=(0.60, 0.12, -0.79), axis=(0, 1, 0), sweep=-95,
+            wrist=(0.54, 0.96, -0.40), dur=0.52, reach=0.30, twist_amp=24),
+        arc("DaggerSpin",  dir0=(-0.72, 0.10, -0.69), axis=(0, 1, 0), sweep=100,
+            wrist=(0.50, 0.98, -0.40), dur=0.56, reach=0.30, twist_amp=26),
     ],
 
-    # Paladin: grounded and heavy, always braced behind the shield.
+    # Paladin: braced and short. He does not over-commit - he is holding ground.
     "PaladinBlade": [
-        swing("PaladinChop", [
-            (0.00, (0.68, 1.08, -0.22), (0.42, 0.42, -0.80)),
-            (0.16, (0.84, 1.30, 0.06), (0.52, 0.62, -0.59)),
-            (0.28, (0.80, 1.34, -0.10), (0.42, 0.66, -0.62)),
-            (0.38, (0.66, 1.22, -0.48), (0.24, 0.34, -0.91)),
-            (0.48, (0.44, 1.02, -0.76), (0.10, -0.24, -0.97)),
-            (0.58, (0.30, 0.90, -0.86), (0.02, -0.56, -0.83)),
-            (0.70, (0.28, 0.86, -0.84), (0.00, -0.62, -0.78)),
-            (0.88, (0.50, 0.98, -0.50), (0.20, 0.06, -0.98)),
-            (1.06, (0.68, 1.08, -0.22), (0.42, 0.42, -0.80)),
-        ], twist=[(0.00, -8), (0.16, -18), (0.48, 4), (0.70, 8), (1.06, -8)],
-           lean=[(0.16, -12), (0.58, 24), (0.70, 22)], crouch=[(0.58, -0.26), (0.70, -0.22)],
-           step=[(0.00, -0.2), (0.16, -0.8), (0.38, 0.3), (0.58, 0.9), (0.88, 0.4), (1.06, -0.2)]),
-        swing("PaladinSweep", [
-            (0.00, (0.74, 1.00, -0.24), (0.60, 0.10, -0.79)),
-            (0.16, (0.88, 1.00, 0.08), (0.84, 0.08, -0.54)),
-            (0.28, (0.82, 1.00, -0.24), (0.58, 0.06, -0.81)),
-            (0.38, (0.58, 0.98, -0.62), (0.16, 0.04, -0.99)),
-            (0.48, (0.20, 0.96, -0.80), (-0.36, 0.02, -0.93)),
-            (0.58, (-0.20, 0.96, -0.74), (-0.76, 0.00, -0.65)),
-            (0.70, (-0.50, 0.96, -0.54), (-0.94, -0.02, -0.34)),
-            (0.86, (-0.28, 0.98, -0.40), (-0.56, 0.08, -0.82)),
-            (1.04, (0.74, 1.00, -0.24), (0.60, 0.10, -0.79)),
-        ], twist=[(0.00, -16), (0.16, -32), (0.38, -6), (0.58, 22), (0.70, 32), (1.04, -16)],
-           step=[(0.00, -0.2), (0.16, -0.8), (0.38, 0.3), (0.48, 0.9), (0.70, 0.4), (1.04, -0.2)]),
+        arc("PaladinChop",  dir0=(0.30, 0.72, -0.62), axis=(1, 0, 0), sweep=-92,
+            wrist=(0.60, 1.10, -0.34), dur=0.86, reach=0.30, twist_amp=14,
+            lean=[(0.20, -10), (0.55, 22), (0.70, 18)],
+            crouch=[(0.55, -0.22), (0.70, -0.18)]),
+        arc("PaladinSweep", dir0=(0.70, 0.12, -0.70), axis=(0, 1, 0), sweep=-105,
+            wrist=(0.62, 1.00, -0.36), dur=0.86, reach=0.30, twist_amp=26),
     ],
 
-    # King: broad and showy, but never wild.
+    # King: wide and unhurried, but still inside the body's envelope.
     "RoyalBlade": [
-        swing("RoyalSlash", [
-            (0.00, (0.72, 1.06, -0.28), (0.56, 0.18, -0.81)),
-            (0.14, (0.88, 1.10, 0.04), (0.80, 0.16, -0.58)),
-            (0.26, (0.82, 1.08, -0.26), (0.56, 0.12, -0.82)),
-            (0.36, (0.58, 1.04, -0.62), (0.14, 0.08, -0.99)),
-            (0.46, (0.20, 1.02, -0.78), (-0.38, 0.06, -0.92)),
-            (0.56, (-0.20, 1.00, -0.72), (-0.78, 0.04, -0.62)),
-            (0.68, (-0.48, 0.98, -0.52), (-0.94, 0.00, -0.34)),
-            (0.84, (-0.26, 1.02, -0.38), (-0.56, 0.14, -0.82)),
-            (1.00, (0.72, 1.06, -0.28), (0.56, 0.18, -0.81)),
-        ], twist=[(0.00, -14), (0.14, -30), (0.36, -6), (0.56, 22), (0.68, 32), (1.00, -14)],
-           step=[(0.00, -0.2), (0.14, -0.7), (0.36, 0.3), (0.46, 0.9), (0.68, 0.4), (1.00, -0.2)]),
-        swing("RoyalRise", [
-            (0.00, (-0.42, 0.92, -0.48), (-0.90, -0.10, -0.43)),
-            (0.14, (-0.56, 0.86, -0.28), (-0.94, -0.20, -0.28)),
-            (0.26, (-0.34, 0.92, -0.60), (-0.70, 0.04, -0.71)),
-            (0.36, (0.02, 1.02, -0.78), (-0.22, 0.24, -0.95)),
-            (0.46, (0.42, 1.16, -0.72), (0.30, 0.44, -0.85)),
-            (0.56, (0.74, 1.28, -0.46), (0.68, 0.52, -0.52)),
-            (0.68, (0.88, 1.32, -0.18), (0.82, 0.50, -0.28)),
-            (0.84, (0.80, 1.16, -0.28), (0.66, 0.30, -0.69)),
-            (1.00, (0.72, 1.06, -0.28), (0.56, 0.18, -0.81)),
-        ], twist=[(0.00, 30), (0.14, 38), (0.36, 8), (0.56, -22), (0.68, -30), (1.00, -14)],
-           step=[(0.00, 0.3), (0.14, -0.6), (0.36, 0.4), (0.46, 0.9), (0.68, 0.4), (1.00, -0.2)]),
-        swing("RoyalCrash", [
-            (0.00, (0.66, 1.10, -0.26), (0.38, 0.46, -0.80)),
-            (0.16, (0.80, 1.34, 0.02), (0.44, 0.68, -0.59)),
-            (0.30, (0.74, 1.40, -0.14), (0.32, 0.74, -0.59)),
-            (0.40, (0.62, 1.28, -0.50), (0.18, 0.40, -0.90)),
-            (0.50, (0.42, 1.06, -0.78), (0.06, -0.20, -0.98)),
-            (0.60, (0.26, 0.92, -0.88), (0.00, -0.54, -0.84)),
-            (0.72, (0.22, 0.88, -0.86), (-0.02, -0.62, -0.78)),
-            (0.90, (0.48, 1.00, -0.52), (0.18, 0.10, -0.98)),
-            (1.08, (0.72, 1.06, -0.28), (0.56, 0.18, -0.81)),
-        ], twist=[(0.00, -8), (0.16, -16), (0.50, 2), (0.72, 8), (1.08, -14)],
-           lean=[(0.16, -14), (0.60, 26), (0.72, 24)], crouch=[(0.60, -0.28), (0.72, -0.24)],
-           step=[(0.00, -0.2), (0.16, -0.8), (0.40, 0.3), (0.60, 0.9), (0.90, 0.4), (1.08, -0.2)]),
+        arc("RoyalSlash", dir0=(0.66, 0.18, -0.73), axis=(0, 1, 0), sweep=-125,
+            wrist=(0.62, 1.06, -0.38), dur=0.86, reach=0.35),
+        arc("RoyalRise",  dir0=(-0.60, -0.04, -0.80), axis=(0, 1, 0), sweep=98,
+            wrist=(0.54, 1.02, -0.40), dur=0.86, reach=0.32),
+        arc("RoyalCrash", dir0=(0.26, 0.74, -0.62), axis=(1, 0, 0), sweep=-96,
+            wrist=(0.58, 1.14, -0.32), dur=0.92, reach=0.32, twist_amp=14,
+            lean=[(0.22, -12), (0.56, 24), (0.72, 20)],
+            crouch=[(0.56, -0.24), (0.72, -0.20)]),
     ],
 
-    # Berserker: level cleave, then the overhead crash. Both stay forward.
+    # Berserker: the two-hit combo. Level cleave, then over the top.
     "Greataxe": [
-        swing("BerserkerCleave", [
-            (0.00, (0.72, 0.92, -0.30), (0.55, 0.10, -0.83)),
-            (0.18, (0.86, 0.94, 0.02), (0.80, 0.06, -0.60)),
-            (0.32, (0.80, 0.94, -0.30), (0.55, 0.04, -0.84)),
-            (0.42, (0.55, 0.94, -0.62), (0.12, 0.02, -0.99)),
-            (0.52, (0.18, 0.94, -0.76), (-0.40, 0.00, -0.92)),
-            (0.62, (-0.22, 0.92, -0.72), (-0.78, -0.02, -0.63)),
-            (0.72, (-0.50, 0.90, -0.52), (-0.94, -0.04, -0.34)),
-            (0.88, (-0.30, 0.92, -0.38), (-0.60, 0.10, -0.79)),
-            (1.04, (0.72, 0.92, -0.30), (0.55, 0.10, -0.83)),
-        ], twist=[(0.00, -14), (0.18, -30), (0.32, -18), (0.52, 14), (0.72, 32), (0.88, 20), (1.04, -14)],
-           step=[(0.00, -0.2), (0.18, -0.8), (0.42, 0.3), (0.52, 0.9), (0.72, 0.5), (1.04, -0.2)]),
-        swing("BerserkerCrash", [
-            (0.00, (0.68, 1.00, -0.22), (0.40, 0.42, -0.81)),
-            (0.18, (0.84, 1.26, 0.04), (0.50, 0.64, -0.58)),
-            (0.32, (0.78, 1.34, -0.12), (0.38, 0.70, -0.60)),
-            (0.42, (0.64, 1.20, -0.52), (0.20, 0.34, -0.92)),
-            (0.52, (0.44, 1.00, -0.80), (0.08, -0.26, -0.96)),
-            (0.62, (0.28, 0.88, -0.90), (0.02, -0.58, -0.81)),
-            (0.74, (0.24, 0.84, -0.88), (0.00, -0.66, -0.75)),
-            (0.92, (0.48, 0.96, -0.52), (0.18, 0.08, -0.98)),
-            (1.12, (0.68, 1.00, -0.22), (0.40, 0.42, -0.81)),
-        ], twist=[(0.00, -8), (0.18, -18), (0.52, 2), (0.74, 8), (1.12, -8)],
-           lean=[(0.18, -14), (0.62, 28), (0.74, 26)], crouch=[(0.62, -0.30), (0.74, -0.26)],
-           step=[(0.00, -0.2), (0.18, -0.8), (0.42, 0.3), (0.62, 0.95), (0.92, 0.4), (1.12, -0.2)]),
+        arc("BerserkerCleave", dir0=(0.66, 0.10, -0.74), axis=(0, 1, 0), sweep=-130,
+            wrist=(0.60, 0.96, -0.38), dur=0.90, reach=0.35, twist_amp=30),
+        arc("BerserkerCrash",  dir0=(0.28, 0.72, -0.63), axis=(1, 0, 0), sweep=-98,
+            wrist=(0.56, 1.06, -0.32), dur=0.96, reach=0.34, twist_amp=14,
+            lean=[(0.22, -14), (0.56, 26), (0.72, 22)],
+            crouch=[(0.56, -0.26), (0.72, -0.22)]),
     ],
 
+    # Greatsword: the same two beats, slower and wider.
+    "Greatsword": [
+        arc("GreatswordCleave", dir0=(0.60, 0.16, -0.78), axis=(0, 1, 0), sweep=-128,
+            wrist=(0.56, 1.04, -0.36), dur=0.96, reach=0.36, twist_amp=30),
+        arc("GreatswordCrash",  dir0=(0.24, 0.74, -0.63), axis=(1, 0, 0), sweep=-100,
+            wrist=(0.54, 1.10, -0.30), dur=1.02, reach=0.34, twist_amp=14,
+            lean=[(0.22, -15), (0.56, 27), (0.72, 23)],
+            crouch=[(0.56, -0.28), (0.72, -0.24)]),
+    ],
 
     # ------------------------------------------------------------------
-    # RANGED. A slash animation on a musket reads as nonsense, so these are
-    # authored as what they actually are: a draw, a shot and a cast. Each is
-    # a single clip, because a bow has no combo - it has a rhythm.
+    # RANGED. Not arcs - a draw, a shot and a cast have their own shapes.
     # ------------------------------------------------------------------
-
     # Archer: raise, draw to the cheek, hold, loose, recover. The bow hand is
     # steady; the STRING hand does the work, so it gets an explicit track.
     "Bow": [
@@ -364,33 +316,6 @@ MOVESETS = {
     ],
 
     # Greatsword: two hits, both enormous, both in front.
-    "Greatsword": [
-        swing("GreatswordCleave", [
-            (0.00, (0.66, 1.04, -0.24), (0.50, 0.20, -0.84)),
-            (0.18, (0.84, 1.08, 0.08), (0.78, 0.16, -0.60)),
-            (0.32, (0.78, 1.06, -0.26), (0.54, 0.12, -0.83)),
-            (0.42, (0.54, 1.02, -0.64), (0.12, 0.08, -0.99)),
-            (0.52, (0.16, 1.00, -0.80), (-0.40, 0.04, -0.92)),
-            (0.62, (-0.24, 0.98, -0.74), (-0.80, 0.02, -0.60)),
-            (0.74, (-0.52, 0.96, -0.52), (-0.95, 0.00, -0.32)),
-            (0.90, (-0.30, 1.00, -0.38), (-0.58, 0.14, -0.80)),
-            (1.08, (0.66, 1.04, -0.24), (0.50, 0.20, -0.84)),
-        ], twist=[(0.00, -14), (0.18, -30), (0.42, -6), (0.62, 22), (0.74, 34), (1.08, -14)],
-           step=[(0.00, -0.2), (0.18, -0.85), (0.42, 0.3), (0.52, 0.95), (0.74, 0.5), (1.08, -0.2)]),
-        swing("GreatswordCrash", [
-            (0.00, (0.62, 1.08, -0.20), (0.36, 0.48, -0.80)),
-            (0.18, (0.80, 1.34, 0.06), (0.44, 0.70, -0.56)),
-            (0.34, (0.74, 1.42, -0.12), (0.32, 0.76, -0.56)),
-            (0.44, (0.60, 1.26, -0.54), (0.18, 0.36, -0.91)),
-            (0.54, (0.40, 1.04, -0.82), (0.06, -0.24, -0.97)),
-            (0.64, (0.24, 0.90, -0.92), (0.00, -0.58, -0.82)),
-            (0.76, (0.20, 0.86, -0.90), (-0.02, -0.66, -0.75)),
-            (0.94, (0.46, 1.00, -0.52), (0.16, 0.10, -0.98)),
-            (1.14, (0.62, 1.08, -0.20), (0.36, 0.48, -0.80)),
-        ], twist=[(0.00, -8), (0.18, -18), (0.54, 2), (0.76, 8), (1.14, -8)],
-           lean=[(0.18, -16), (0.64, 30), (0.76, 28)], crouch=[(0.64, -0.32), (0.76, -0.28)],
-           step=[(0.00, -0.2), (0.18, -0.85), (0.44, 0.3), (0.64, 0.95), (0.94, 0.4), (1.14, -0.2)]),
-    ],
 }
 
 if ONLY:
@@ -870,12 +795,13 @@ for wname, clips in MOVESETS.items():
         #   Anchoring both ends to one shared pose makes every transition
         #   continuous BY CONSTRUCTION rather than by careful matching, and it
         #   means adding a fourth combo step can never break the first three. ]]
-        guard = STANCES.get(wname, {}).get("carry")
+        #[[ Anchor to the clip's OWN first beat, which the arc generator makes
+        #   the fighting guard. Anchoring to the resting carry pose instead was
+        #   wrong: a dragged axe or a shouldered blade is where a body STANDS,
+        #   not where it swings from, and forcing it made every attack open
+        #   with a teleport. Stance -> guard is a crossfade's job. ]]
         beats = list(clip["Beats"])
-        if guard:
-            gw, gd = guard
-            beats[0] = (beats[0][0], gw, gd)
-            beats[-1] = (beats[-1][0], gw, gd)
+        beats[-1] = (beats[-1][0], beats[0][1], beats[0][2])
         dur = beats[-1][0]
         scene.frame_start, scene.frame_end = 0, round(dur * FPS)
 
