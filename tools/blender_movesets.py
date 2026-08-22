@@ -43,6 +43,12 @@ ONLY = argv[argv.index("--only") + 1] if "--only" in argv else None
 #   named markers and saves a .blend, so the animation can be scrubbed and
 #   edited by hand instead of only judged from a contact sheet. ]]
 BLEND = argv[argv.index("--blend") + 1] if "--blend" in argv else None
+#[[ --readback prints the WeaponCtl keyframes of an already-open .blend as a
+#   beats table ready to paste into MOVESETS. This is the return leg of the
+#   pipeline: pose it by hand in Blender, save, read it back, and the source
+#   table becomes what you actually posed - instead of the .blend and the
+#   script drifting apart, which is why hand-editing it was discouraged. ]]
+READBACK = "--readback" in argv
 FRAME_OFFSET = 0
 MARKERS = []
 SHARED = {}
@@ -502,6 +508,76 @@ def leg_cycle(phase, stride, bob):
 # ---------------------------------------------------------------------------
 # rig  (identical construction to blender_rig.py, which this replaces)
 # ---------------------------------------------------------------------------
+if READBACK:
+    import mathutils
+    wctl_ro = bpy.data.objects.get("WeaponCtl")
+    arm_ro = bpy.data.objects.get("R15")
+    if not wctl_ro or not wctl_ro.animation_data or not wctl_ro.animation_data.action:
+        raise SystemExit("READBACK: open a .blend from tools/blend/ that has an animated WeaponCtl")
+
+    scene_ro = bpy.context.scene
+    marks = sorted(((m.frame, m.name) for m in scene_ro.timeline_markers))
+    def _fcurves(action):
+        #[ Blender 4.4+ moved F-curves into action layers/slots; older builds
+        #  expose action.fcurves directly. Support both. ]
+        if hasattr(action, "fcurves"):
+            return list(action.fcurves)
+        out = []
+        for layer in getattr(action, "layers", []):
+            for strip in getattr(layer, "strips", []):
+                for bag in getattr(strip, "channelbags", []):
+                    out.extend(bag.fcurves)
+        return out
+
+    keyed = sorted({int(round(kp.co[0]))
+                    for fc in _fcurves(wctl_ro.animation_data.action)
+                    for kp in fc.keyframe_points})
+
+    # The grip offset has to be undone to recover the WRIST, because that is
+    # what the beats table is written in.
+    rig_ro = json.load(open(DUMP))
+    J_ro = {j["Child"]: j for j in rig_ro["Joints"]}
+
+    def _cf(c):
+        x, y, z, a, b, cc, d, e, f, g, h, i = c
+        return Matrix(((a, b, cc, x), (d, e, f, y), (g, h, i, z), (0, 0, 0, 1)))
+
+    #[[ Two corrections, or the numbers come back subtly wrong and look right.
+    #
+    #   1. The .blend hangs everything off RIG_ROOT, rotated 90 about X so
+    #      Blender navigates Z-up. Undo it or every pose returns with y and z
+    #      swapped.
+    #   2. matrix_world gives the weapon ORIGIN; the beats table is written in
+    #      WRIST positions. Convert back through the same grip offset the
+    #      forward pass used. ]]
+    root_ro = bpy.data.objects.get("RIG_ROOT")
+    root_inv = root_ro.matrix_world.inverted() if root_ro else Matrix.Identity(4)
+
+    wname_ro = ONLY or os.path.splitext(os.path.basename(bpy.data.filepath))[0]
+    spec_ro = WEAPONS.get(wname_ro)
+    if not spec_ro:
+        raise SystemExit("READBACK: unknown weapon '%s' - pass --only <Weapon>" % wname_ro)
+    rga_ro = _cf(rig_ro["Grip"]["C0"])
+    k_ro = (rga_ro @ spec_ro["grip"].inverted()).inverted() @ _cf(J_ro["RightHand"]["A1"])
+
+    print("# --- readback: %s, paste into MOVESETS ---" % wname_ro)
+    for idx, (mf, mname) in enumerate(marks):
+        end = marks[idx + 1][0] if idx + 1 < len(marks) else scene_ro.frame_end + 1
+        ks = [k for k in keyed if mf <= k < end]
+        if not ks:
+            continue
+        print('        swing("%s", [' % mname)
+        for k in ks:
+            scene_ro.frame_set(k)
+            m = root_inv @ wctl_ro.matrix_world
+            ydir = m.to_3x3() @ Vector((0, 1, 0))
+            wrist = m.translation + m.to_3x3() @ k_ro.translation
+            print("            (%.2f, (%.2f, %.2f, %.2f), (%.2f, %.2f, %.2f)),"
+                  % ((k - mf) / FPS, wrist.x, wrist.y, wrist.z,
+                     ydir.x, ydir.y, ydir.z))
+        print("        ]),")
+    raise SystemExit(0)
+
 data = json.load(open(DUMP))
 JOINTS = {j["Child"]: j for j in data["Joints"]}
 PARTS = data["Parts"]
@@ -533,8 +609,16 @@ for child, j in JOINTS.items():
     A1[child] = cf(j["A1"])
 rest_frame = {p: rest_part[p] @ A1[p] for p in rest_part}
 
-CLIP_PARTS = ["Head", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm",
-              "RightUpperLeg", "LeftUpperLeg", "RightLowerLeg", "LeftLowerLeg"]
+#[[ Parts the weapon must not pass through.
+#
+#   The hands and forearms that HOLD it are excluded - they are supposed to be
+#   touching it. For a two-handed weapon that means the LEFT arm too, since it
+#   is gripping the haft: measuring it flagged the grip itself as clipping,
+#   and "fixing" that would have pushed the off-hand off the weapon.
+#   Frames 19-26 of the greataxe cleave were exactly this false positive. ]]
+CLIP_PARTS_BASE = ["Head", "UpperTorso", "LowerTorso",
+                   "RightUpperLeg", "LeftUpperLeg", "RightLowerLeg", "LeftLowerLeg"]
+CLIP_PARTS = CLIP_PARTS_BASE + ["LeftUpperArm", "LeftLowerArm"]
 #[ Radius per part, taken from the rig's own measurements rather than guessed:
 #  half the smaller cross-section, so a blade grazing the surface reads as 0. ]
 CLIP_RADIUS = {p: 0.5 * min(PARTS[p]["Size"][0], PARTS[p]["Size"][2]) for p in CLIP_PARTS}
@@ -900,7 +984,7 @@ for wname, clips in MOVESETS.items():
             #   radius taken from its own size. ]]
             seg = tip_pt - grip_pt
             L2 = seg.dot(seg)
-            for part_name in CLIP_PARTS:
+            for part_name in (CLIP_PARTS_BASE if spec.get("two") else CLIP_PARTS):
                 p_pt = pw[part_name].translation
                 t = 0.0 if L2 < 1e-9 else max(0.0, min(1.0, (p_pt - grip_pt).dot(seg) / L2))
                 gap = (p_pt - (grip_pt + seg * t)).length - CLIP_RADIUS[part_name]
