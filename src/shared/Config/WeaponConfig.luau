@@ -109,10 +109,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		Archetype = "Sword",
 		Appearance = { MeshId = 115223452519261, GripLift = 2.035, Color = Color3.fromRGB(178, 184, 196), Material = METAL },
 		-- Swordsman: diagonal slash, rising backhand, thrust. Crisp and economical.
-		Combo = { 71819766497392, 119558922598423, 87644320142862 },
+		Combo = { 93738432217271, 79289014997765, 105673598585502 },
 		SwingSpeed = 1.0,
-		Stance = 0,
-		Walk = 0,
+		Stance = 81817781040427,
+		Walk = 132997968913332,
 		Carry = "Ready",
 
 		Ability = {
@@ -142,11 +142,11 @@ local definitions: { [string]: WeaponDefinition } = {
 		     Blender (tools/blender_movesets.py). Replaces the first pair,
 		     which was built while the reference rig had been overwritten by a
 		     player's own avatar. ]]
-		Combo = { 97294634234896, 96754801886481 },
+		Combo = { 79921050277731, 84660138650806 },
 		StepSpeeds = { 1.0, 1.0 },
 		SwingSpeed = 1.0,
-		Stance = 0,
-		Walk = 0,
+		Stance = 101658576232658,
+		Walk = 87130400954238,
 		Carry = "Drag",
 
 		Ability = {
@@ -170,10 +170,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		Archetype = "Dagger",
 		Appearance = { MeshId = 107700310958339, GripLift = 0.890, Color = Color3.fromRGB(64, 68, 82), Material = METAL },
 		-- Assassin: inside stab, cross slash, spinning backhand. Short and fast.
-		Combo = { 100750081323298, 82632867906328, 135497799861559 },
+		Combo = { 100162912905241, 119573796725161, 106784601149188 },
 		SwingSpeed = 1.35,
-		Stance = 0,
-		Walk = 0,
+		Stance = 127274078032706,
+		Walk = 131708640517202,
 		Carry = "Ready",
 
 		Ability = {
@@ -198,10 +198,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		Archetype = "PaladinBlade",
 		Appearance = { MeshId = 86164855075188, GripLift = 2.075, Color = Color3.fromRGB(226, 200, 128), Material = METAL },
 		-- Paladin: overhead chop into a braced wide sweep. Grounded and heavy.
-		Combo = { 77389900108482, 93750566409396 },
+		Combo = { 88919094986917, 140621686914931 },
 		SwingSpeed = 0.95,
-		Stance = 0,
-		Walk = 0,
+		Stance = 134344376340060,
+		Walk = 74080106395659,
 		Carry = "Rest",
 
 		Ability = {
@@ -226,10 +226,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		Archetype = "RoyalBlade",
 		Appearance = { MeshId = 117988428989265, GripLift = 2.230, Color = Color3.fromRGB(244, 214, 96), Material = METAL },
 		-- King: wide slash, rising cut, overhead finisher. Broad and showy.
-		Combo = { 81946278999189, 121173923737669, 118484204270702 },
+		Combo = { 85414568281115, 76510655678690, 70483256194012 },
 		SwingSpeed = 0.95,
-		Stance = 0,
-		Walk = 0,
+		Stance = 126004212590646,
+		Walk = 82491299360112,
 		Carry = "Shoulder",
 
 		Ability = {
@@ -254,10 +254,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		Appearance = { MeshId = 140279435098759, GripLift = 0.000, Color = Color3.fromRGB(126, 94, 58), Material = WOOD },
 		-- Ranged keeps the procedural draw/recoil; a slash animation on a bow
 		-- reads as nonsense.
-		Combo = { 0 },
+		Combo = { 117083314153459 },
 		SwingSpeed = 1.0,
-		Stance = 0,
-		Walk = 0,
+		Stance = 103819794640904,
+		Walk = 84957110165611,
 		Carry = "Sling",
 
 		Ability = {
@@ -280,10 +280,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		Description = "Slow, heavy, hits like a cannon.",
 		Archetype = "Musket",
 		Appearance = { MeshId = 122680354862605, GripLift = 1.506, Color = Color3.fromRGB(92, 82, 74), Material = WOOD },
-		Combo = { 0 },
+		Combo = { 135406989017583 },
 		SwingSpeed = 1.0,
-		Stance = 0,
-		Walk = 0,
+		Stance = 82517576297699,
+		Walk = 110303022636866,
 		Carry = "Shoulder",
 
 		Ability = {
@@ -306,10 +306,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		Description = "Commands the dead.",
 		Archetype = "NecroStaff",
 		Appearance = { MeshId = 100515684767440, GripLift = 1.870, Color = Color3.fromRGB(108, 76, 148), Material = WOOD },
-		Combo = { 0 },
+		Combo = { 79472344635190 },
 		SwingSpeed = 1.0,
-		Stance = 0,
-		Walk = 0,
+		Stance = 81682650816059,
+		Walk = 123671839829140,
 		Carry = "Rest",
 
 		Ability = {
@@ -335,10 +335,10 @@ local definitions: { [string]: WeaponDefinition } = {
 		Archetype = "Greatsword",
 		Appearance = { MeshId = 98277756842482, GripLift = 3.055, Color = Color3.fromRGB(196, 200, 210), Material = METAL },
 		-- Two hits, both enormous.
-		Combo = { 93793385601090, 90044575171545 },
+		Combo = { 136142025175191, 110740590320542 },
 		SwingSpeed = 0.72,
-		Stance = 0,
-		Walk = 0,
+		Stance = 87312086126666,
+		Walk = 98931400636827,
 		Carry = "Shoulder",
 
 		Ability = {

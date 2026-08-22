@@ -152,14 +152,29 @@ local function update()
 		return
 	end
 
-	-- MoveDirection rather than Velocity: falling or being knocked back is not
-	-- walking, and using speed alone makes the walk cycle stutter on ledges.
-	local moving = humanoid.MoveDirection.Magnitude > 0.1
-		and humanoid.Velocity.Magnitude > MOVING_SPEED
+	--[[ Velocity lives on the root PART, not on the Humanoid - reading
+	     humanoid.Velocity throws, and because this runs inside a pcall it
+	     failed silently sixty times a second while no stance ever played.
+
+	     STATE plus speed, not MoveDirection. MoveDirection is only populated
+	     by player INPUT: a humanoid walking under MoveTo or pathfinding
+	     reports exactly zero while travelling at full speed, so keying off it
+	     meant the walk never played for anything the player was not steering
+	     by hand. Measured: md=0.00 speed=17.00 state=Running.
+
+	     Testing the grounded states also gets the case MoveDirection was
+	     there to cover for free - falling and being knocked back are not
+	     Running, so they correctly keep the stance rather than the walk. ]]
+	local root = humanoid.RootPart
+	local speed = if root then root.AssemblyLinearVelocity.Magnitude else 0
+	local state = humanoid:GetState()
+	local grounded = state == Enum.HumanoidStateType.Running
+		or state == Enum.HumanoidStateType.RunningNoPhysics
+	local moving = grounded and speed > MOVING_SPEED
 
 	if moving then
 		stop(entry.Stance)
-		local running = entry.Run and humanoid.Velocity.Magnitude > humanoid.WalkSpeed * 0.85
+		local running = entry.Run and speed > humanoid.WalkSpeed * 0.85
 		if running then
 			stop(entry.Walk)
 			play(entry.Run)
