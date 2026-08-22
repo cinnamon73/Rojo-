@@ -533,6 +533,12 @@ for child, j in JOINTS.items():
     A1[child] = cf(j["A1"])
 rest_frame = {p: rest_part[p] @ A1[p] for p in rest_part}
 
+CLIP_PARTS = ["Head", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm",
+              "RightUpperLeg", "LeftUpperLeg", "RightLowerLeg", "LeftLowerLeg"]
+#[ Radius per part, taken from the rig's own measurements rather than guessed:
+#  half the smaller cross-section, so a blade grazing the surface reads as 0. ]
+CLIP_RADIUS = {p: 0.5 * min(PARTS[p]["Size"][0], PARTS[p]["Size"][2]) for p in CLIP_PARTS}
+
 REACH = ((rest_frame["RightUpperArm"].translation - rest_frame["RightLowerArm"].translation).length
          + (rest_frame["RightLowerArm"].translation - rest_frame["RightHand"].translation).length)
 
@@ -733,7 +739,7 @@ ground.matrix_basis = (Matrix.Translation((0, GROUND_Y, 0))
 
 cam_data = bpy.data.cameras.new("cam")
 cam_data.type = "ORTHO"
-cam_data.ortho_scale = 11.0
+cam_data.ortho_scale = 13.5
 cam = bpy.data.objects.new("cam", cam_data)
 scene.collection.objects.link(cam)
 scene.camera = cam
@@ -769,7 +775,23 @@ for wname, clips in MOVESETS.items():
             grip_rel, k_right, rt, lt = build_targets(spec, wctl)
             SHARED["ctl"], SHARED["k_right"] = wctl, k_right
 
-        beats = clip["Beats"]
+        #[[ THE GUARD POSE.
+        #
+        #   Every clip is forced to begin and end on the weapon's carry pose -
+        #   the same pose the stance holds. Clips used to start and end
+        #   wherever their own authoring happened to leave the hands, so
+        #   stance->attack and attack->attack both snapped: the body teleported
+        #   from one clip's idea of "ready" to the next one's.
+        #
+        #   Anchoring both ends to one shared pose makes every transition
+        #   continuous BY CONSTRUCTION rather than by careful matching, and it
+        #   means adding a fourth combo step can never break the first three. ]]
+        guard = STANCES.get(wname, {}).get("carry")
+        beats = list(clip["Beats"])
+        if guard:
+            gw, gd = guard
+            beats[0] = (beats[0][0], gw, gd)
+            beats[-1] = (beats[-1][0], gw, gd)
         dur = beats[-1][0]
         scene.frame_start, scene.frame_end = 0, round(dur * FPS)
 
@@ -830,6 +852,7 @@ for wname, clips in MOVESETS.items():
         prev_tip = None
         steps = []
         min_head = 9e9
+        worst_part = "-"
         for fnum in range(scene.frame_start, scene.frame_end + 1):
             scene.frame_set(fnum)
             dg.update()
@@ -870,11 +893,45 @@ for wname, clips in MOVESETS.items():
                 steps.append((tip_pt - prev_tip).length)
             prev_tip = tip_pt
 
-            head_pt = pw["Head"].translation
+            #[[ Clipping is not only a head problem. The blade passes through
+            #   the torso, the shoulder and the thigh just as readily, and
+            #   measuring one part meant the others were never checked. Every
+            #   body part is tested against the weapon segment, each with a
+            #   radius taken from its own size. ]]
             seg = tip_pt - grip_pt
             L2 = seg.dot(seg)
-            t = 0.0 if L2 < 1e-9 else max(0.0, min(1.0, (head_pt - grip_pt).dot(seg) / L2))
-            min_head = min(min_head, (head_pt - (grip_pt + seg * t)).length)
+            for part_name in CLIP_PARTS:
+                p_pt = pw[part_name].translation
+                t = 0.0 if L2 < 1e-9 else max(0.0, min(1.0, (p_pt - grip_pt).dot(seg) / L2))
+                gap = (p_pt - (grip_pt + seg * t)).length - CLIP_RADIUS[part_name]
+                if gap < min_head:
+                    min_head = gap
+                    worst_part = part_name
+
+        #[[ MOTION TRAIL.
+        #
+        #   The single biggest gap in this workflow: a contact sheet shows
+        #   POSES, and every question worth asking about a swing is about the
+        #   PATH between them - is the arc smooth, does it double back, does
+        #   it cut through the body. Drawing the tip's path as one curve puts
+        #   all of that in a single image.
+        #
+        #   Coloured dark to light along the clip so the direction of travel
+        #   is unambiguous. ]]
+        for ob in list(bpy.data.objects):
+            if ob.name.startswith("trail_"):
+                bpy.data.objects.remove(ob, do_unlink=True)
+        tip_path = []
+        for fnum in range(scene.frame_start, scene.frame_end + 1):
+            scene.frame_set(fnum)
+            dg.update()
+            tip_path.append((wctl.matrix_world @ Matrix.Translation((0, 4.4, 0))).translation.copy())
+        for i, pt in enumerate(tip_path):
+            bpy.ops.mesh.primitive_uv_sphere_add(radius=0.13, location=pt)
+            b = bpy.context.active_object
+            b.name = "trail_%03d" % i
+            f = i / max(len(tip_path) - 1, 1)
+            b.color = (0.25 + 0.7 * f, 0.15 + 0.25 * f, 0.55 - 0.4 * f, 1)
 
         # Render this clip's beats so the swing can be judged before upload.
         for idx, (t, _w, _d) in enumerate(beats):
@@ -903,7 +960,7 @@ for wname, clips in MOVESETS.items():
         max_step = max(steps) if steps else 0.0
         ratio = (max_step / median) if median > 1e-6 else 0.0
         report.append((wname, clip["Name"], dur, len(frames), worst, over,
-                       max_step, min_head, ratio))
+                       max_step, min_head, ratio, worst_part))
         if BLEND:
             MARKERS.append((FRAME_OFFSET, clip["Name"]))
             FRAME_OFFSET += round(dur * FPS) + 8
@@ -1077,7 +1134,7 @@ if not BLEND:
 print("\n%-13s %-20s %5s %6s %11s %s" % ("WEAPON", "CLIP", "DUR", "FRAMES", "REPLAY-ERR", "REACH"))
 bad = 0
 HEAD_R = PARTS["Head"]["Size"][1] / 2 + 0.15
-for wname, cname, dur, n, worst, over, step, head, ratio in report:
+for wname, cname, dur, n, worst, over, step, head, ratio, wpart in report:
     if worst >= 1e-3:
         bad += 1
     notes = []
@@ -1088,8 +1145,8 @@ for wname, cname, dur, n, worst, over, step, head, ratio in report:
     #  runs far past that; the broken clips measured x5 to x12.5. ]
     if ratio > 4.5:
         notes.append("JUMPY(x%.1f)" % ratio)
-    if head < HEAD_R:
-        notes.append("THROUGH HEAD")
+    if head < 0.0:
+        notes.append("CLIPS " + wpart.upper())
     if over:
         notes.append("OVER-REACH")
     print("%-13s %-18s %5.2f %9.2f %6.1f %7.2f %s"
