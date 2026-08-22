@@ -109,67 +109,96 @@ def swing(name, beats, twist=None, lean=None, crouch=None, step=None, left=None,
 
 
 
-def arc(name, dir0, axis, sweep, wrist, dur, reach=0.0, samples=9,
-        twist_amp=28.0, lean=None, crouch=None, step_amp=0.85, legs=True):
-    """A swing described as what it physically IS: the blade sweeping through
-    an arc.
+def strike(name, dir0, axis, sweep, wrist, dur, reach=0.35, load=26.0,
+           drop=(1, 0, 0), samples=13, twist_amp=28.0, lean=None, crouch=None,
+           pole=None, legs=True):
+    """One attack: load, strike, follow through, recover. See
+    docs/READABLE_ATTACKS.md.
 
-    Nine hand-typed (wrist, direction) triples per clip was the wrong surface.
-    It let the arc wander, the speed go uneven and the blade drift into the
-    body, and every one of those had to be found afterwards by measuring. A
-    direction ROTATED about a fixed axis cannot wander - it is a circle - so
-    smoothness stops being something to verify and becomes a property of how
-    the swing is written.
+    The strike travels ONE WAY. The previous generator rotated out to the full
+    sweep and then rotated straight back along the same arc to return to the
+    guard - out and back through the same path, which is not a strike, it is a
+    wave. That single fact is why the attacks were unreadable, and no amount
+    of smoothing them was ever going to help.
 
-        dir0   blade direction at the start (the guard)
-        axis   what the blade rotates about; (0,1,0) sweeps level, (1,0,0)
-               chops vertically
-        sweep  total degrees travelled
-        wrist  base wrist position; the hands barely move, the BLADE does
-        reach  studs the wrist pushes forward at impact, for commitment
+    Phases, with deliberately unequal timing because contrast is what makes a
+    hit legible:
 
-    Timing is eased: slow load, fast strike, slow recovery. Sampling theta on
-    that curve puts the frames where the motion is, which is what keeps the
-    tip step even instead of bunching.
+        LOAD     0.00-0.34   blade drifts BACK against the strike, slowly
+        STRIKE   0.34-0.50   sweeps through, fast enough to be a blur
+        FOLLOW   0.50-0.62   decelerates into the finish
+        RECOVER  0.62-1.00   dropped and pulled in on a DIFFERENT axis
+
+    Recovery rotates about `drop` rather than un-rotating about `axis`, so it
+    reads as bringing the weapon back rather than swinging a second time.
+
+    Returns (clip, end_direction) so the next hit in a combo can begin where
+    this one finished instead of teleporting back to a shared pose.
     """
     ax = Vector(axis).normalized()
+    dz = Vector(drop).normalized()
     d0 = Vector(dir0).normalized()
     w0 = Vector(wrist)
     beats = []
+
     for i in range(samples):
         u = i / (samples - 1)
-        #[[ Out and BACK, so the clip starts and ends on the same pose.
-        #
-        #   The first version only travelled outward, which meant the guard
-        #   anchoring had to teleport the blade home at the last beat - and on
-        #   the greataxe, whose guard is the DRAG pose with the head on the
-        #   floor, that jump was the whole animation. Measured x12.5.
-        #
-        #   Strike out to the full sweep by u=0.62, then recover to the guard,
-        #   with the wrist pulled in on the way back so the return reads as
-        #   recovering the weapon rather than rewinding the swing. ]]
-        if u <= 0.62:
-            k = u / 0.62
-            e = 0.16 * k * k if k < 0.42 else 0.16 + 0.84 * (((k - 0.42) / 0.58) ** 0.85)
-            pull = 0.0
-        else:
+        if u <= 0.34:                      # load: back against the strike
+            k = u / 0.34
+            th = -load * (k * k * (3 - 2 * k))
+            dd, pull = 0.0, 0.0
+        elif u <= 0.50:                    # strike
+            k = (u - 0.34) / 0.16
+            e = k * k * (3 - 2 * k)
+            th = -load + (sweep + load) * e
+            dd, pull = 0.0, 0.0
+        elif u <= 0.62:                    # follow through
+            k = (u - 0.50) / 0.12
+            th = sweep + 0.10 * sweep * (k * k * (3 - 2 * k))
+            dd, pull = 0.0, 0.0
+        else:                              # recover, on another axis
             k = (u - 0.62) / 0.38
-            e = 1.0 - (k * k * (3 - 2 * k))
-            pull = 0.30 * math.sin(math.pi * k)
-        theta = math.radians(sweep) * e
-        d = (Matrix.Rotation(theta, 4, ax).to_3x3() @ d0).normalized()
-        push = reach * math.sin(math.pi * min(max((u - 0.10) / 0.55, 0.0), 1.0)) if u <= 0.65 else 0.0
-        w = w0 + d * (push * 0.35 - pull * 0.25) + Vector((0, pull * 0.10, -push * 0.5))
+            e = k * k * (3 - 2 * k)
+            th = sweep * (1.10 - 0.55 * e)
+            dd = -52.0 * e
+            pull = 0.42 * math.sin(math.pi * e * 0.85)
+
+        d = Matrix.Rotation(math.radians(th), 4, ax).to_3x3() @ d0
+        if dd:
+            d = Matrix.Rotation(math.radians(dd), 4, dz).to_3x3() @ d
+        d = d.normalized()
+
+        push = reach * math.sin(math.pi * min(max((u - 0.20) / 0.42, 0.0), 1.0)) if u <= 0.62 else 0.0
+        w = w0 + d * (push * 0.30 - pull * 0.30) + Vector((0, -pull * 0.14, -push * 0.55))
         beats.append((round(u * dur, 3), (w.x, w.y, w.z), (d.x, d.y, d.z)))
 
     twist, stepk = [], []
-    for i in range(samples):
+    sgn = -1 if sweep < 0 else 1
+    for (t, _w, _d), i in zip(beats, range(samples)):
         u = i / (samples - 1)
-        e = -1.0 if u < 0.2 else (1.0 if u < 0.72 else 0.35)
-        twist.append((beats[i][0], twist_amp * (e if u >= 0.2 else -1.0) * (-1 if sweep < 0 else 1)))
-        stepk.append((beats[i][0], step_amp * (-0.8 if u < 0.25 else (1.0 if u < 0.66 else 0.3))))
-    return swing(name, beats, twist=twist, lean=lean, crouch=crouch,
+        tw = -0.55 if u <= 0.34 else (1.0 if u <= 0.62 else 0.30)
+        st = -0.80 if u <= 0.34 else (1.0 if u <= 0.62 else 0.25)
+        twist.append((t, twist_amp * tw * sgn))
+        stepk.append((t, 0.9 * st))
+
+    clip = swing(name, beats, twist=twist, lean=lean, crouch=crouch,
                  step=stepk, legs=legs)
+    clip["Pole"] = pole
+    return clip, beats[-1][2]
+
+
+def chain(*strikes):
+    """Build a combo where each hit begins where the previous one finished.
+
+    A combo is one continuous motion interrupted by impacts, not three clips
+    played back to back. Chaining the end direction forward is what removes
+    the need for any hit to rewind to a shared pose.
+    """
+    out, carry = [], None
+    for fn in strikes:
+        clip, carry = fn(carry)
+        out.append(clip)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -179,80 +208,87 @@ def arc(name, dir0, axis, sweep, wrist, dur, reach=0.0, samples=9,
 # with 1.73 studs of reach, so every wrist below stays well inside that.
 
 MOVESETS = {
-    # Every swing below is one arc: a blade direction rotated about an axis.
-    # Six numbers each instead of nine hand-typed triples, and the shape of the
-    # motion is stated rather than approximated.
+    # docs/READABLE_ATTACKS.md. One idea per hit, one direction of travel, and
+    # each hit begins where the last finished so a combo is one continuous
+    # motion rather than three clips in a row.
     #
-    #   axis (0,1,0)  level sweep, blade stays at chest height
-    #   axis (1,0,0)  vertical chop, blade comes over the top
-    #   sweep sign    which way round it travels
-    #
-    # Blade directions all start well away from the body and the sweeps are
-    # deliberately SHORTER than before - a 120 degree cut that reads clearly
-    # beats a 200 degree one that wraps through the character.
+    # Silhouettes are deliberately DIFFERENT: a horizontal sweep, a vertical
+    # chop and a thrust along the forward axis should be three distinguishable
+    # shapes in freeze-frame, not three speeds of the same shape.
 
-    # Swordsman: level cut, level return, straight thrust. Crisp, economical.
-    "Sword": [
-        arc("SwordSlash",   dir0=(0.62, 0.16, -0.77), axis=(0, 1, 0), sweep=-120,
-            wrist=(0.70, 1.00, -0.86), dur=0.80, reach=0.35),
-        arc("SwordBackhand", dir0=(-0.70, 0.12, -0.70), axis=(0, 1, 0), sweep=102,
-            wrist=(0.62, 0.98, -0.92), dur=0.80, reach=0.32),
-        arc("SwordThrust",  dir0=(0.30, 0.12, -0.95), axis=(0, 1, 0), sweep=-26,
-            wrist=(0.70, 1.00, -0.80), dur=0.66, reach=0.85, twist_amp=18),
-    ],
+    # Swordsman: cut down-left, cut back up-right, then run him through.
+    "Sword": chain(
+        lambda d: strike("SwordSlash", d or (0.62, 0.30, -0.72), axis=(0.25, 1, 0),
+                         sweep=-118, wrist=(0.70, 1.02, -0.86), dur=0.72, reach=0.40),
+        lambda d: strike("SwordBackhand", d, axis=(0.20, 1, 0),
+                         sweep=104, wrist=(0.64, 1.00, -0.90), dur=0.72, reach=0.36),
+        # A thrust barely rotates - it travels. Small sweep, big reach.
+        lambda d: strike("SwordThrust", d, axis=(0, 1, 0),
+                         sweep=-22, wrist=(0.68, 1.00, -0.84), dur=0.60, reach=1.05,
+                         load=16, twist_amp=18),
+    ),
 
-    # Assassin: short, quick, close. Small sweeps - the reach is the dagger's
-    # weakness and the animation should say so.
-    "Dagger": [
-        arc("DaggerStab",  dir0=(0.26, 0.10, -0.96), axis=(0, 1, 0), sweep=-20,
-            wrist=(0.62, 0.95, -0.78), dur=0.46, reach=0.70, twist_amp=16),
-        arc("DaggerCross", dir0=(0.60, 0.12, -0.79), axis=(0, 1, 0), sweep=-95,
-            wrist=(0.62, 0.96, -0.84), dur=0.52, reach=0.30, twist_amp=24),
-        arc("DaggerSpin",  dir0=(-0.72, 0.10, -0.69), axis=(0, 1, 0), sweep=100,
-            wrist=(0.58, 0.98, -0.84), dur=0.56, reach=0.30, twist_amp=26),
-    ],
+    # Assassin: quick inside stab, cross slash, rising backhand. All short.
+    "Dagger": chain(
+        lambda d: strike("DaggerStab", d or (0.28, 0.16, -0.95), axis=(0, 1, 0),
+                         sweep=-18, wrist=(0.62, 0.96, -0.80), dur=0.42, reach=0.85,
+                         load=14, twist_amp=16),
+        lambda d: strike("DaggerCross", d, axis=(0.15, 1, 0),
+                         sweep=-92, wrist=(0.62, 0.98, -0.84), dur=0.46, reach=0.34,
+                         load=20, twist_amp=24),
+        lambda d: strike("DaggerSpin", d, axis=(0.20, 1, 0),
+                         sweep=98, wrist=(0.58, 1.00, -0.84), dur=0.50, reach=0.34,
+                         load=22, twist_amp=26),
+    ),
 
-    # Paladin: braced and short. He does not over-commit - he is holding ground.
-    "PaladinBlade": [
-        arc("PaladinChop",  dir0=(0.30, 0.72, -0.62), axis=(1, 0, 0), sweep=-92,
-            wrist=(0.68, 1.08, -0.80), dur=0.86, reach=0.30, twist_amp=14,
-            lean=[(0.20, -10), (0.55, 22), (0.70, 18)],
-            crouch=[(0.55, -0.22), (0.70, -0.18)]),
-        arc("PaladinSweep", dir0=(0.70, 0.12, -0.70), axis=(0, 1, 0), sweep=-105,
-            wrist=(0.70, 1.00, -0.82), dur=0.86, reach=0.30, twist_amp=26),
-    ],
+    # Paladin: overhead chop, then a braced horizontal sweep.
+    "PaladinBlade": chain(
+        lambda d: strike("PaladinChop", d or (0.24, 0.74, -0.62), axis=(1, 0.15, 0),
+                         sweep=-96, wrist=(0.92, 1.10, -0.74), dur=0.82, reach=0.34,
+                         drop=(0, 1, 0), pole=(1.45, -0.15, 0.35), twist_amp=14,
+                         lean=[(0.30, -10), (0.56, 22), (0.75, 16)],
+                         crouch=[(0.56, -0.22), (0.75, -0.16)]),
+        lambda d: strike("PaladinSweep", d, axis=(0.10, 1, 0),
+                         sweep=-108, wrist=(0.70, 1.00, -0.84), dur=0.82, reach=0.36,
+                         twist_amp=26),
+    ),
 
-    # King: wide and unhurried, but still inside the body's envelope.
-    "RoyalBlade": [
-        arc("RoyalSlash", dir0=(0.66, 0.18, -0.73), axis=(0, 1, 0), sweep=-125,
-            wrist=(0.70, 1.04, -0.84), dur=0.86, reach=0.35),
-        arc("RoyalRise",  dir0=(-0.60, -0.04, -0.80), axis=(0, 1, 0), sweep=98,
-            wrist=(0.62, 1.02, -0.86), dur=0.86, reach=0.32),
-        arc("RoyalCrash", dir0=(0.26, 0.74, -0.62), axis=(1, 0, 0), sweep=-96,
-            wrist=(0.66, 1.12, -0.78), dur=0.92, reach=0.32, twist_amp=14,
-            lean=[(0.22, -12), (0.56, 24), (0.72, 20)],
-            crouch=[(0.56, -0.24), (0.72, -0.20)]),
-    ],
+    # King: wide cut, rising cut, overhead finisher.
+    "RoyalBlade": chain(
+        lambda d: strike("RoyalSlash", d or (0.66, 0.26, -0.70), axis=(0.20, 1, 0),
+                         sweep=-124, wrist=(0.70, 1.04, -0.86), dur=0.78, reach=0.40),
+        lambda d: strike("RoyalRise", d, axis=(0.25, 1, 0),
+                         sweep=110, wrist=(0.62, 1.02, -0.88), dur=0.78, reach=0.36),
+        lambda d: strike("RoyalCrash", d, axis=(1, 0.12, 0),
+                         sweep=-100, wrist=(0.90, 1.12, -0.72), dur=0.86, reach=0.34,
+                         drop=(0, 1, 0), pole=(1.45, -0.15, 0.35), twist_amp=14,
+                         lean=[(0.30, -12), (0.56, 24), (0.75, 18)],
+                         crouch=[(0.56, -0.24), (0.75, -0.18)]),
+    ),
 
-    # Berserker: the two-hit combo. Level cleave, then over the top.
-    "Greataxe": [
-        arc("BerserkerCleave", dir0=(0.66, 0.10, -0.74), axis=(0, 1, 0), sweep=-130,
-            wrist=(0.68, 0.96, -0.84), dur=0.90, reach=0.35, twist_amp=30),
-        arc("BerserkerCrash",  dir0=(0.28, 0.72, -0.63), axis=(1, 0, 0), sweep=-98,
-            wrist=(0.64, 1.06, -0.78), dur=0.96, reach=0.34, twist_amp=14,
-            lean=[(0.22, -14), (0.56, 26), (0.72, 22)],
-            crouch=[(0.56, -0.26), (0.72, -0.22)]),
-    ],
+    # Berserker: level cleave, then over the top. Two hits, both enormous.
+    "Greataxe": chain(
+        lambda d: strike("BerserkerCleave", d or (0.68, 0.20, -0.70), axis=(0.15, 1, 0),
+                         sweep=-132, wrist=(0.68, 0.98, -0.86), dur=0.82, reach=0.40,
+                         twist_amp=30),
+        lambda d: strike("BerserkerCrash", d, axis=(1, 0.10, 0),
+                         sweep=-104, wrist=(0.92, 1.06, -0.74), dur=0.90, reach=0.36,
+                         drop=(0, 1, 0), pole=(1.45, -0.15, 0.35), twist_amp=14,
+                         lean=[(0.30, -14), (0.56, 26), (0.75, 20)],
+                         crouch=[(0.56, -0.26), (0.75, -0.20)]),
+    ),
 
     # Greatsword: the same two beats, slower and wider.
-    "Greatsword": [
-        arc("GreatswordCleave", dir0=(0.60, 0.16, -0.78), axis=(0, 1, 0), sweep=-128,
-            wrist=(0.64, 1.04, -0.82), dur=0.96, reach=0.36, twist_amp=30),
-        arc("GreatswordCrash",  dir0=(0.24, 0.74, -0.63), axis=(1, 0, 0), sweep=-100,
-            wrist=(0.62, 1.10, -0.76), dur=1.02, reach=0.34, twist_amp=14,
-            lean=[(0.22, -15), (0.56, 27), (0.72, 23)],
-            crouch=[(0.56, -0.28), (0.72, -0.24)]),
-    ],
+    "Greatsword": chain(
+        lambda d: strike("GreatswordCleave", d or (0.62, 0.24, -0.75), axis=(0.15, 1, 0),
+                         sweep=-130, wrist=(0.64, 1.04, -0.84), dur=0.88, reach=0.42,
+                         twist_amp=30),
+        lambda d: strike("GreatswordCrash", d, axis=(1, 0.10, 0),
+                         sweep=-106, wrist=(0.90, 1.10, -0.72), dur=0.96, reach=0.36,
+                         drop=(0, 1, 0), pole=(1.45, -0.15, 0.35), twist_amp=14,
+                         lean=[(0.30, -15), (0.56, 27), (0.75, 21)],
+                         crouch=[(0.56, -0.28), (0.75, -0.22)]),
+    ),
 
     # ------------------------------------------------------------------
     # RANGED. Not arcs - a draw, a shot and a cast have their own shapes.
@@ -680,7 +716,7 @@ def hinge_ik(lower, upper, target, pole, pole_angle):
     return c
 
 
-def build_targets(spec, wctl):
+def build_targets(spec, wctl, pole=None):
     grip_rel = RGA @ spec["grip"].inverted()
     k_right = grip_rel.inverted() @ A1["RightHand"]
 
@@ -690,7 +726,7 @@ def build_targets(spec, wctl):
     rt.matrix_parent_inverse = Matrix.Identity(4)
     rt.matrix_basis = k_right @ CONV["RightHand"].to_4x4()
 
-    hinge_ik("RightLowerArm", "RightUpperArm", rt, make_pole("PoleR", rest_frame["RightUpperArm"].translation, (0.55, -1.35, 1.05)), -90)
+    hinge_ik("RightLowerArm", "RightUpperArm", rt, make_pole("PoleR", rest_frame["RightUpperArm"].translation, pole or (0.55, -1.35, 1.05)), -90)
     cr = pb["RightHand"].constraints.new("COPY_ROTATION")
     cr.target = rt
 
@@ -862,13 +898,14 @@ for wname, clips in MOVESETS.items():
         #   Anchoring both ends to one shared pose makes every transition
         #   continuous BY CONSTRUCTION rather than by careful matching, and it
         #   means adding a fourth combo step can never break the first three. ]]
-        #[[ Anchor to the clip's OWN first beat, which the arc generator makes
-        #   the fighting guard. Anchoring to the resting carry pose instead was
-        #   wrong: a dragged axe or a shouldered blade is where a body STANDS,
-        #   not where it swings from, and forcing it made every attack open
-        #   with a teleport. Stance -> guard is a crossfade's job. ]]
+        #[[ No guard anchoring. Forcing the last beat back to the first is
+        #   what made every attack rewind along its own arc, and a blade that
+        #   goes out and comes back reads as a wave rather than a strike.
+        #
+        #   Hits now chain: each begins where the previous finished, so the
+        #   combo is one continuous motion and the return to a resting pose
+        #   happens once, as a crossfade, when the player stops attacking. ]]
         beats = list(clip["Beats"])
-        beats[-1] = (beats[-1][0], beats[0][1], beats[0][2])
         dur = beats[-1][0]
         scene.frame_start, scene.frame_end = 0, round(dur * FPS)
 
@@ -936,6 +973,12 @@ for wname, clips in MOVESETS.items():
         #   what reads as flailing. Nothing measured it before. ]]
         prev_perp = None
         elbow_steps = []
+        #[[ Readability, not absence-of-defects. Every existing metric can pass
+        #   on an animation nobody can read. REVERSALS counts direction flips of
+        #   the blade during the strike - a readable attack has zero, and this
+        #   is precisely what the rewind would have tripped. STRIKE is peak tip
+        #   speed over mean: even pacing scores near 1 and reads as a wave. ]]
+        tip_dirs = []
         for fnum in range(scene.frame_start, scene.frame_end + 1):
             scene.frame_set(fnum)
             dg.update()
@@ -974,6 +1017,9 @@ for wname, clips in MOVESETS.items():
             tip_pt = (wm @ Matrix.Translation((0, 4.4, 0))).translation
             if prev_tip is not None:
                 steps.append((tip_pt - prev_tip).length)
+                mv = tip_pt - prev_tip
+                if mv.length > 1e-4:
+                    tip_dirs.append(mv.normalized())
             prev_tip = tip_pt
 
             #[[ Clipping is not only a head problem. The blade passes through
@@ -1063,12 +1109,29 @@ for wname, clips in MOVESETS.items():
         #   the eye reads it as the arm changing its mind. ]]
         max_elbow = max(elbow_steps) if elbow_steps else 0.0
 
-        ordered = sorted(steps)
+        #[ Reversals inside the strike window only: the load moves the blade
+        #  back on purpose, and that is anticipation, not illegibility. ]
+        lo, hi = int(len(tip_dirs) * 0.30), int(len(tip_dirs) * 0.66)
+        reversals = 0
+        for i in range(lo + 1, max(hi, lo + 2)):
+            if i < len(tip_dirs) and tip_dirs[i].dot(tip_dirs[i - 1]) < -0.10:
+                reversals += 1
+        mean_step = (sum(steps) / len(steps)) if steps else 0.0
+        strike_ratio = (max(steps) / mean_step) if mean_step > 1e-6 else 0.0
+
+        #[[ Evenness OUTSIDE the strike window. A strike is supposed to spike -
+        #   that is the accent, and ACCENT measures it deliberately. Judging
+        #   the whole clip for smoothness now flags the very thing that makes
+        #   an attack readable. Load and recovery still have to be smooth. ]]
+        calm = [d for i, d in enumerate(steps)
+                if not (len(steps) * 0.30 <= i <= len(steps) * 0.66)]
+        ordered = sorted(calm) or sorted(steps)
         median = ordered[len(ordered) // 2] if ordered else 0.0
-        max_step = max(steps) if steps else 0.0
+        max_step = max(calm) if calm else (max(steps) if steps else 0.0)
         ratio = (max_step / median) if median > 1e-6 else 0.0
         report.append((wname, clip["Name"], dur, len(frames), worst, over,
-                       max_step, min_head, ratio, worst_part, max_elbow))
+                       max_step, min_head, ratio, worst_part, max_elbow,
+                       reversals, strike_ratio))
         if BLEND:
             MARKERS.append((FRAME_OFFSET, clip["Name"]))
             FRAME_OFFSET += round(dur * FPS) + 8
@@ -1242,7 +1305,7 @@ if not BLEND:
 print("\n%-13s %-20s %5s %6s %11s %s" % ("WEAPON", "CLIP", "DUR", "FRAMES", "REPLAY-ERR", "REACH"))
 bad = 0
 HEAD_R = PARTS["Head"]["Size"][1] / 2 + 0.15
-for wname, cname, dur, n, worst, over, step, head, ratio, wpart, elbow in report:
+for wname, cname, dur, n, worst, over, step, head, ratio, wpart, elbow, rev, sr in report:
     if worst >= 1e-3:
         bad += 1
     notes = []
@@ -1255,12 +1318,16 @@ for wname, cname, dur, n, worst, over, step, head, ratio, wpart, elbow in report
         notes.append("JUMPY(x%.1f)" % ratio)
     if elbow > 30.0:
         notes.append("ELBOW-SNAP(%.0fdeg)" % elbow)
+    if rev > 0:
+        notes.append("REWINDS(%d)" % rev)
+    if sr < 2.0:
+        notes.append("NO-ACCENT(%.1f)" % sr)
     if head < 0.0:
         notes.append("CLIPS " + wpart.upper())
     if over:
         notes.append("OVER-REACH")
-    print("%-13s %-18s %5.2f %9.2f %6.1f %7.2f %6.0f %s"
-          % (wname, cname, dur, step, ratio, head, elbow, " ".join(notes)))
+    print("%-13s %-18s %5.2f %6.1f %6.2f %5.0f %4d %5.1f %s"
+          % (wname, cname, dur, ratio, head, elbow, rev, sr, " ".join(notes)))
 print("\nARM REACH %.3f studs   clips=%d   maths-failures=%d" % (REACH, len(report), bad))
 print("WROTE %s" % OUT_POSES)
 
