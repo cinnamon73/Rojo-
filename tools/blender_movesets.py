@@ -86,7 +86,7 @@ WEAPONS = {
 }
 
 
-def swing(name, beats, twist=None, lean=None, crouch=None, step=None, legs=True):
+def swing(name, beats, twist=None, lean=None, crouch=None, step=None, left=None, legs=True):
     """One clip.
 
     beats  (time, wrist_xyz, haft_direction)
@@ -98,7 +98,7 @@ def swing(name, beats, twist=None, lean=None, crouch=None, step=None, legs=True)
            drive forward, plant.
     """
     return dict(Name=name, Beats=beats, Twist=twist or [], Lean=lean or [],
-                Crouch=crouch or [], Step=step or [], Legs=legs)
+                Crouch=crouch or [], Step=step or [], Left=left or [], Legs=legs)
 
 
 # ---------------------------------------------------------------------------
@@ -292,6 +292,71 @@ MOVESETS = {
            step=[(0.00, -0.2), (0.18, -0.8), (0.42, 0.3), (0.62, 0.95), (0.92, 0.4), (1.12, -0.2)]),
     ],
 
+
+    # ------------------------------------------------------------------
+    # RANGED. A slash animation on a musket reads as nonsense, so these are
+    # authored as what they actually are: a draw, a shot and a cast. Each is
+    # a single clip, because a bow has no combo - it has a rhythm.
+    # ------------------------------------------------------------------
+
+    # Archer: raise, draw to the cheek, hold, loose, recover. The bow hand is
+    # steady; the STRING hand does the work, so it gets an explicit track.
+    "Bow": [
+        swing("BowDraw", [
+            (0.00, (0.55, 0.88, -0.42), (0.24, 0.92, -0.30)),
+            (0.16, (0.44, 1.16, -0.78), (0.06, 0.99, -0.12)),
+            (0.34, (0.42, 1.18, -0.82), (0.04, 1.00, -0.08)),
+            (0.52, (0.42, 1.18, -0.82), (0.04, 1.00, -0.08)),
+            (0.62, (0.46, 1.16, -0.76), (0.06, 0.99, -0.14)),
+            (0.86, (0.55, 0.88, -0.42), (0.24, 0.92, -0.30)),
+        ], twist=[(0.00, -6), (0.16, -16), (0.52, -20), (0.62, -12), (0.86, -6)],
+           step=[(0.00, -0.1), (0.16, 0.2), (0.52, 0.3), (0.62, 0.1), (0.86, -0.1)],
+           left=[(0.00, (-20, 0, 18), (-30, 0, 0)),
+                 (0.16, (-52, -6, 12), (-46, 0, 0)),
+                 (0.34, (-58, -18, 8), (-96, 0, 0)),
+                 (0.52, (-60, -22, 6), (-108, 0, 0)),
+                 (0.62, (-42, -8, 10), (-52, 0, 0)),
+                 (0.86, (-20, 0, 18), (-30, 0, 0))]),
+    ],
+
+    # Musketeer: shoulder it, settle, fire, ride the kick. The recoil IS the
+    # animation - a musket that fires without moving reads as a toy.
+    "Musket": [
+        swing("MusketFire", [
+            # Held further outboard than feels natural on paper: a 4.4 stud
+            # barrel carried on the centre line passes straight through the
+            # head, which the clearance check catches and the eye does not.
+            (0.00, (0.90,0.90, -0.26), (0.34, 0.52, -0.78)),
+            (0.20, (0.88,1.12, -0.34), (0.22, 0.20, -0.95)),
+            (0.34, (0.86,1.15, -0.38), (0.18, 0.14, -0.97)),
+            (0.42, (0.86,1.15, -0.39), (0.18, 0.13, -0.97)),
+            (0.46, (0.88,1.17, -0.32), (0.19, 0.20, -0.96)),
+            (0.50, (0.92,1.20, -0.22), (0.20, 0.29, -0.94)),
+            (0.56, (0.90,1.18, -0.28), (0.19, 0.24, -0.95)),
+            (0.64, (0.88,1.16, -0.33), (0.18, 0.18, -0.97)),
+            (0.76, (0.87,1.13, -0.35), (0.19, 0.16, -0.97)),
+            (0.96, (0.90,0.90, -0.26), (0.34, 0.52, -0.78)),
+        ], twist=[(0.00, -8), (0.20, -18), (0.42, -20), (0.50, -10), (0.96, -8)],
+           lean=[(0.42, 6), (0.50, -10), (0.64, -3)],
+           step=[(0.00, -0.1), (0.20, 0.3), (0.42, 0.4), (0.50, -0.35), (0.76, 0.1), (0.96, -0.1)]),
+    ],
+
+    # Necromancer: plant, raise, drive the staff forward and pulse. Slower
+    # than everything else - nothing about him is hurried.
+    "NecroStaff": [
+        swing("StaffCast", [
+            (0.00, (0.78, 0.86, -0.06), (0.10, 0.98, 0.17)),
+            (0.22, (0.74, 1.26, -0.16), (0.08, 0.99, 0.11)),
+            (0.34, (0.72, 1.30, -0.22), (0.09, 0.98, 0.00)),
+            (0.46, (0.68, 1.16, -0.56), (0.11, 0.80, -0.59)),
+            (0.56, (0.66, 1.10, -0.68), (0.12, 0.71, -0.69)),
+            (0.68, (0.68, 1.12, -0.62), (0.11, 0.75, -0.65)),
+            (0.94, (0.78, 0.86, -0.06), (0.10, 0.98, 0.17)),
+        ], twist=[(0.00, 6), (0.22, 10), (0.46, -8), (0.56, -12), (0.94, 6)],
+           lean=[(0.22, -8), (0.56, 14), (0.68, 10)],
+           step=[(0.00, -0.1), (0.22, -0.4), (0.46, 0.5), (0.56, 0.7), (0.94, -0.1)]),
+    ],
+
     # Greatsword: two hits, both enormous, both in front.
     "Greatsword": [
         swing("GreatswordCleave", [
@@ -372,6 +437,27 @@ STANCES = {
         carry=((0.74, 1.16, 0.26), (0.34, 0.62, 0.71)),
         idle=dict(lean=-2, twist=-8, settle=0.04),
         walk=dict(stride=28, bob=0.10, lean=2, sway=0.05, period=0.94),
+    ),
+
+    # Archer: bow carried across the body, never drawn until it is needed.
+    "Bow": dict(
+        carry=((0.54, 0.88, -0.40), (0.26, 0.90, -0.34)),
+        left=((-22, 0, 20), (-34, 0, 0)),
+        idle=dict(lean=2, twist=-8, settle=0.03),
+        walk=dict(stride=32, bob=0.10, lean=5, sway=0.05, period=0.86),
+    ),
+    # Musketeer: cradled in both arms, muzzle up and away from everyone.
+    "Musket": dict(
+        carry=((0.90, 0.92, -0.24), (0.30, 0.56, -0.77)),
+        idle=dict(lean=3, twist=-10, settle=0.03),
+        walk=dict(stride=28, bob=0.11, lean=7, sway=0.05, period=0.92),
+    ),
+    # Necromancer: staff planted like a walking stick. The only class whose
+    # walk should look AIDED rather than encumbered.
+    "NecroStaff": dict(
+        carry=((0.78, 0.86, -0.06), (0.10, 0.98, 0.14)),
+        idle=dict(lean=2, twist=6, settle=0.035),
+        walk=dict(stride=26, bob=0.10, lean=4, sway=0.07, period=0.98),
     ),
     "Greatsword": dict(
         carry=((0.62, 1.14, 0.22), (-0.10, 0.70, 0.71)),
@@ -714,7 +800,15 @@ for wname, clips in MOVESETS.items():
                 key_pose("RightLowerLeg", angles(rl, 0, 0), f)
                 key_pose("LeftUpperLeg", angles(lu, 0, 0), f)
                 key_pose("LeftLowerLeg", angles(ll, 0, 0), f)
-            if not spec.get("two"):
+            if clip["Left"]:
+                #[ An explicit off-hand track. A bow DRAW is not a
+                #  counterbalance - the free hand is doing the work and has to
+                #  be keyed as deliberately as the weapon itself. ]
+                lua = [lerp_at([(k[0], k[1][i]) for k in clip["Left"]], t) for i in range(3)]
+                lla = [lerp_at([(k[0], k[2][i]) for k in clip["Left"]], t) for i in range(3)]
+                key_pose("LeftUpperArm", angles(lua[0], lua[1], lua[2]), f)
+                key_pose("LeftLowerArm", angles(lla[0], lla[1], lla[2]), f)
+            elif not spec.get("two"):
                 # Free hand counterbalances the swing instead of gripping.
                 key_pose("LeftUpperArm", angles(-18 - yaw * 0.9, 0, 22 + yaw * 0.5), f)
                 key_pose("LeftLowerArm", angles(-26 - abs(yaw) * 0.5, 0, 0), f)
@@ -881,7 +975,13 @@ for wname, spec in STANCES.items():
             key_pose("RightLowerLeg", angles(rl, 0, 0), f)
             key_pose("LeftUpperLeg", angles(lu, 0, 0), f)
             key_pose("LeftLowerLeg", angles(ll, 0, 0), f)
-            if not wspec.get("two"):
+            if spec.get("left"):
+                #[ A held off-hand pose: the archer's string hand at the hip,
+                #  not a swinging counterbalance. ]
+                lua, lla = spec["left"]
+                key_pose("LeftUpperArm", angles(lua[0], lua[1], lua[2]), f)
+                key_pose("LeftLowerArm", angles(lla[0], lla[1], lla[2]), f)
+            elif not wspec.get("two"):
                 # Free hand: relaxed and counterbalancing, or holding the
                 # second dagger in a low icepick guard.
                 if wname == "Dagger":
