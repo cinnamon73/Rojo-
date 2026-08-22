@@ -1,35 +1,41 @@
 {
- "_note": "Uploaded KeyframeSequence asset ids, CGS Student Development group. Authored by tools/blender_movesets.py against a default R15.",
- "Greataxe": {
-  "BerserkerCleave": 97294634234896,
-  "BerserkerCrash": 96754801886481
- },
- "Dagger": {
-  "DaggerStab": 100750081323298,
-  "DaggerCross": 82632867906328,
-  "DaggerSpin": 135497799861559
- },
- "Greatsword": {
-  "GreatswordCleave": 93793385601090,
-  "GreatswordCrash": 90044575171545
- },
- "Sword": {
-  "SwordSlash": 71819766497392,
-  "SwordBackhand": 119558922598423,
-  "SwordThrust": 87644320142862
- },
- "PaladinBlade": {
-  "PaladinChop": 77389900108482,
-  "PaladinSweep": 93750566409396
- },
- "RoyalBlade": {
-  "RoyalSlash": 81946278999189,
-  "RoyalRise": 121173923737669,
-  "RoyalCrash": 118484204270702
- },
- "_ranged_todo": [
-  "Bow draw/loose",
-  "Musket shoulder/recoil",
-  "NecroStaff cast \u2014 still procedural"
- ]
+ "_note": "KeyframeSequence asset ids, CGS Student Development group.",
+ "_todo": [
+  "NecroStaff_Walk",
+  "PaladinBlade_Idle",
+  "PaladinBlade_Walk",
+  "PaladinChop",
+  "PaladinSweep",
+  "RoyalBlade_Idle",
+  "RoyalBlade_Walk",
+  "RoyalCrash",
+  "RoyalRise",
+  "RoyalSlash",
+  "StaffCast",
+  "SwordBackhand",
+  "SwordSlash",
+  "SwordThrust",
+  "Sword_Idle",
+  "Sword_Walk"
+ ],
+ "BerserkerCleave": 79921050277731,
+ "BerserkerCrash": 84660138650806,
+ "BowDraw": 117083314153459,
+ "Bow_Idle": 103819794640904,
+ "Bow_Walk": 84957110165611,
+ "DaggerCross": 119573796725161,
+ "DaggerSpin": 106784601149188,
+ "DaggerStab": 100162912905241,
+ "Dagger_Idle": 127274078032706,
+ "Dagger_Walk": 131708640517202,
+ "Greataxe_Idle": 101658576232658,
+ "Greataxe_Walk": 87130400954238,
+ "GreatswordCleave": 136142025175191,
+ "GreatswordCrash": 110740590320542,
+ "Greatsword_Idle": 87312086126666,
+ "Greatsword_Walk": 98931400636827,
+ "MusketFire": 135406989017583,
+ "Musket_Idle": 82517576297699,
+ "Musket_Walk": 110303022636866,
+ "NecroStaff_Idle": 81682650816059
 }

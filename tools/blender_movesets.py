@@ -1066,7 +1066,13 @@ for wname, kind, dur, n, worst, lo in stance_report:
           % (wname, kind, dur, n, worst, gap, note))
 
 
-json.dump(out, open(OUT_POSES, "w"))
+#[[ A --blend run is filtered to ONE weapon. Writing the shared export from
+#   it would silently replace all eighteen clips with that weapon's two or
+#   three - which is exactly what happened, and the upload step found a
+#   three-clip file where it expected eighteen. Blend runs are for viewing;
+#   only a full run publishes. ]]
+if not BLEND:
+    json.dump(out, open(OUT_POSES, "w"))
 
 print("\n%-13s %-20s %5s %6s %11s %s" % ("WEAPON", "CLIP", "DUR", "FRAMES", "REPLAY-ERR", "REACH"))
 bad = 0
